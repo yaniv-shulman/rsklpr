@@ -2,6 +2,7 @@
 *.html
 .ruff_cache/
 .mypy_cache/
+/dist/
 
 # Compiled Python bytecode
 __pycache__/

@@ -1,26 +1,41 @@
 [tool.poetry]
 name = "rsklpr"
-version = "0.1.0"
-description = "Demonstrative implementation of the Robust Local Polynomial Regression with Similarity Kernel draft paper for the 1D predictor case"
+version = "0.2.0"
+description = "Implementation of the Robust Local Polynomial Regression with Similarity Kernel draft paper"
 authors = ["Yaniv Shulman <yaniv@aleph-zero.info>"]
 readme = "README.md"
+license = "GPL-3.0-only"
+homepage = "https://github.com/yaniv-shulman/rsklpr"
+repository = "https://github.com/yaniv-shulman/rsklpr"
+keywords = ["statistics", "robust statistics", "regression", "robust regression", "local polynomial regression", "machine learning"]
+packages = [
+    { include = "rsklpr", from = "src" }
+]
+
+[tool.poetry.group.experiments]
+optional = true
+
+[tool.poetry.group.dev]
+optional = true
 
 [tool.poetry.dependencies]
+numpy = ">=1.24.0"
+python = ">=3.8.0"
+scikit-learn = ">=1.3.0"
+statsmodels = ">=0.14.0"
+
+[tool.poetry.group.experiments.dependencies]
+chart-studio = "^1.1.0"
+ipywidgets = "^8.1.0"
 localreg = "^0.5.0"
-numpy = "^1.25.0"
+matplotlib = "^3.7.2"
+notebook = "^7.0.4"
 pandas = "^2.0.3"
-python = "^3.10"
-scikit-learn = "^1.3.0"
-statsmodels = "^0.14.0"
+plotly = "^5.15.0"
 tqdm = "^4.66.1"
 
 [tool.poetry.group.dev.dependencies]
 black = {extras = ["jupyter"], version = "^23.7.0"}
-chart-studio = "^1.1.0"
-ipywidgets = "^8.1.0"
-matplotlib = "^3.7.2"
-notebook = "^7.0.4"
-plotly = "^5.15.0"
 mypy = "^1.7.0"
 ruff = "^0.1.5"
 
@@ -30,7 +45,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.black]
 line-length = 120
-target-version = ["py310"]
+target-version = ["py38"]
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
@@ -42,6 +57,7 @@ exclude = [
     ".git-rewrite",
     ".hg",
     ".idea",
+    ".ipynb_checkpoints",
     ".mypy_cache",
     ".nox",
     ".pants.d",
@@ -50,6 +66,7 @@ exclude = [
     ".svn",
     ".tox",
     ".venv",
+    "__pycache__",
     "__pypackages__",
     "_build",
     "buck-out",
@@ -63,7 +80,7 @@ exclude = [
 # Same as Black.
 line-length = 120
 indent-width = 4
-target-version = "py310"
+target-version = "py38"
 
 [tool.ruff.lint]
 # Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`)  codes by default.
@@ -80,7 +97,7 @@ unfixable = []
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.8"
 warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true

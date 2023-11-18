@@ -25,8 +25,8 @@ class ExperimentConfig:
     noise_ratio: float
     hetero: bool
     num_points: int
-    bw1: str | Sequence[float] | Callable[[...], List[float]] | float  # type: ignore [misc]
-    bw2: str | Sequence[float] | Callable[[...], List[float]] | float  # type: ignore [misc]
+    bw1: Union[str, Sequence[float], Callable[[...], List[float]], float]  # type: ignore [misc]
+    bw2: Union[str, Sequence[float], Callable[[...], List[float]], float]  # type: ignore [misc]
     k2: str = "joint"
     degree: int = 1
 
@@ -36,10 +36,10 @@ def benchmark_data(
     y: np.ndarray,
     y_true: Optional[np.ndarray],
     k2: str,
-    size_neighborhood: int | Dict[str, int],
+    size_neighborhood: Union[int, Dict[str, int]],
     num_points: int,
-    bw1: str | Sequence[float] | Callable[[...], List[float]],  # type: ignore [misc]
-    bw2: str | Sequence[float] | Callable[[...], List[float]],  # type: ignore [misc]
+    bw1: Union[str, Sequence[float], Callable[[...], List[float]]],  # type: ignore [misc]
+    bw2: Union[str, Sequence[float], Callable[[...], List[float]]],  # type: ignore [misc]
     methods: List[str],
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
@@ -363,8 +363,8 @@ def _benchmark_increasing_neighborhoods(
     noise_ratio: float,
     hetero: bool,
     num_points: int,
-    bw1: str | Sequence[float] | Callable[[...], List[float]],  # type: ignore [misc]
-    bw2: str | Sequence[float] | Callable[[...], List[float]],  # type: ignore [misc]
+    bw1: Union[str, Sequence[float], Callable[[...], List[float]]],  # type: ignore [misc]
+    bw2: Union[str, Sequence[float], Callable[[...], List[float]]],  # type: ignore [misc]
     k2: str,
     size_neighborhoods: List[int],
     methods: List[str],
@@ -436,8 +436,8 @@ def run_increasing_size_neighborhoods_experiments(
     hetero: bool,
     num_points: int,
     size_neighborhoods: List[int],
-    bw1: str | Sequence[float] | Callable[[...], List[float]],  # type: ignore [misc]
-    bw2: str | Sequence[float] | Callable[[...], List[float]],  # type: ignore [misc]
+    bw1: Union[str, Sequence[float], Callable[[...], List[float]]],  # type: ignore [misc]
+    bw2: Union[str, Sequence[float], Callable[[...], List[float]]],  # type: ignore [misc]
     k2: str,
     methods: List[str],
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
