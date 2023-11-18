@@ -1,6 +1,6 @@
 import dataclasses
 import time
-from typing import List, Tuple, Callable, Optional, Dict, Union, Sequence
+from typing import List, Tuple, Callable, Optional, Dict, Union, Sequence, Any
 
 import numpy as np
 import pandas as pd
@@ -25,8 +25,8 @@ class ExperimentConfig:
     noise_ratio: float
     hetero: bool
     num_points: int
-    bw1: Union[str, Sequence[float], Callable[[...], List[float]], float]  # type: ignore [misc]
-    bw2: Union[str, Sequence[float], Callable[[...], List[float]], float]  # type: ignore [misc]
+    bw1: Union[str, Sequence[float], Callable[[Any], List[float]], float]  # type: ignore [misc]
+    bw2: Union[str, Sequence[float], Callable[[Any], List[float]], float]  # type: ignore [misc]
     k2: str = "joint"
     degree: int = 1
 
@@ -38,8 +38,8 @@ def benchmark_data(
     k2: str,
     size_neighborhood: Union[int, Dict[str, int]],
     num_points: int,
-    bw1: Union[str, Sequence[float], Callable[[...], List[float]]],  # type: ignore [misc]
-    bw2: Union[str, Sequence[float], Callable[[...], List[float]]],  # type: ignore [misc]
+    bw1: Union[str, Sequence[float], Callable[[Any], List[float]]],  # type: ignore [misc]
+    bw2: Union[str, Sequence[float], Callable[[Any], List[float]]],  # type: ignore [misc]
     methods: List[str],
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
@@ -363,8 +363,8 @@ def _benchmark_increasing_neighborhoods(
     noise_ratio: float,
     hetero: bool,
     num_points: int,
-    bw1: Union[str, Sequence[float], Callable[[...], List[float]]],  # type: ignore [misc]
-    bw2: Union[str, Sequence[float], Callable[[...], List[float]]],  # type: ignore [misc]
+    bw1: Union[str, Sequence[float], Callable[[Any], List[float]]],  # type: ignore [misc]
+    bw2: Union[str, Sequence[float], Callable[[Any], List[float]]],  # type: ignore [misc]
     k2: str,
     size_neighborhoods: List[int],
     methods: List[str],
@@ -436,8 +436,8 @@ def run_increasing_size_neighborhoods_experiments(
     hetero: bool,
     num_points: int,
     size_neighborhoods: List[int],
-    bw1: Union[str, Sequence[float], Callable[[...], List[float]]],  # type: ignore [misc]
-    bw2: Union[str, Sequence[float], Callable[[...], List[float]]],  # type: ignore [misc]
+    bw1: Union[str, Sequence[float], Callable[[Any], List[float]]],  # type: ignore [misc]
+    bw2: Union[str, Sequence[float], Callable[[Any], List[float]]],  # type: ignore [misc]
     k2: str,
     methods: List[str],
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
