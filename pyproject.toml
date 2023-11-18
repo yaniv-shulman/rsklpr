@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "rsklpr"
-version = "0.2.0"
+version = "0.3.0"
 description = "Implementation of the Robust Local Polynomial Regression with Similarity Kernel draft paper"
 authors = ["Yaniv Shulman <yaniv@aleph-zero.info>"]
 readme = "README.md"
