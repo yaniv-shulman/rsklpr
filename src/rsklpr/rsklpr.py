@@ -1,6 +1,6 @@
 import warnings
 from numbers import Number
-from typing import Optional, Sequence, Tuple, Callable, List, Union
+from typing import Optional, Sequence, Tuple, Callable, List, Union, Any
 
 import numpy as np
 import statsmodels.api as sm
@@ -112,8 +112,8 @@ class Rsklpr:
         degree: int = 1,
         k1: str = "laplacian",
         k2: str = "joint",
-        bw1: Union[str, Sequence[float], Callable[[...], Sequence[float]]] = "normal_reference",  # type: ignore [misc]
-        bw2: Union[str, Sequence[float], Callable[[...], Sequence[float]]] = "normal_reference",  # type: ignore [misc]
+        bw1: Union[str, Sequence[float], Callable[[Any], Sequence[float]]] = "normal_reference",  # type: ignore [misc]
+        bw2: Union[str, Sequence[float], Callable[[Any], Sequence[float]]] = "normal_reference",  # type: ignore [misc]
         bw_global_subsample_size: Optional[int] = None,
         seed: int = 888,
     ) -> None:
@@ -192,8 +192,8 @@ class Rsklpr:
         self._k1: Callable[[np.ndarray], np.ndarray] = _laplacian if k1 == "laplacian" else _tricube
 
         self._k2: str = k2
-        self._bw1: Union[str, Sequence[float], Callable[[...], Sequence[float]]] = bw1  # type: ignore [misc]
-        self._bw2: Union[str, Sequence[float], Callable[[...], Sequence[float]]] = bw2  # type: ignore [misc]
+        self._bw1: Union[str, Sequence[float], Callable[[Any], Sequence[float]]] = bw1  # type: ignore [misc]
+        self._bw2: Union[str, Sequence[float], Callable[[Any], Sequence[float]]] = bw2  # type: ignore [misc]
         self._bw_global_subsample_size: Optional[int] = bw_global_subsample_size
         self._rnd_gen: np.random.Generator = np.random.default_rng(seed=seed)
         self._n_x: np.ndarray = np.ndarray(shape=())
@@ -221,7 +221,7 @@ class Rsklpr:
 
     def _calculate_bandwidth(  # type: ignore [return]
         self,
-        bandwidth: Union[str, Callable[[...], Sequence[float]]],  # type: ignore [misc]
+        bandwidth: Union[str, Callable[[Any], Sequence[float]]],  # type: ignore [misc]
         data: np.ndarray,
     ) -> Sequence[float]:
         """
