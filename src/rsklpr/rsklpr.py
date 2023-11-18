@@ -1,6 +1,6 @@
 import warnings
 from numbers import Number
-from typing import Optional, Sequence, Tuple, Callable, List
+from typing import Optional, Sequence, Tuple, Callable, List, Union
 
 import numpy as np
 import statsmodels.api as sm
@@ -112,8 +112,8 @@ class Rsklpr:
         degree: int = 1,
         k1: str = "laplacian",
         k2: str = "joint",
-        bw1: str | Sequence[float] | Callable[[...], Sequence[float]] = "normal_reference",  # type: ignore [misc]
-        bw2: str | Sequence[float] | Callable[[...], Sequence[float]] = "normal_reference",  # type: ignore [misc]
+        bw1: Union[str, Sequence[float], Callable[[...], Sequence[float]]] = "normal_reference",  # type: ignore [misc]
+        bw2: Union[str, Sequence[float], Callable[[...], Sequence[float]]] = "normal_reference",  # type: ignore [misc]
         bw_global_subsample_size: Optional[int] = None,
         seed: int = 888,
     ) -> None:
@@ -192,8 +192,8 @@ class Rsklpr:
         self._k1: Callable[[np.ndarray], np.ndarray] = _laplacian if k1 == "laplacian" else _tricube
 
         self._k2: str = k2
-        self._bw1: str | Sequence[float] | Callable[[...], Sequence[float]] = bw1  # type: ignore [misc]
-        self._bw2: str | Sequence[float] | Callable[[...], Sequence[float]] = bw2  # type: ignore [misc]
+        self._bw1: Union[str, Sequence[float], Callable[[...], Sequence[float]]] = bw1  # type: ignore [misc]
+        self._bw2: Union[str, Sequence[float], Callable[[...], Sequence[float]]] = bw2  # type: ignore [misc]
         self._bw_global_subsample_size: Optional[int] = bw_global_subsample_size
         self._rnd_gen: np.random.Generator = np.random.default_rng(seed=seed)
         self._n_x: np.ndarray = np.ndarray(shape=())
@@ -221,7 +221,7 @@ class Rsklpr:
 
     def _calculate_bandwidth(  # type: ignore [return]
         self,
-        bandwidth: str | Callable[[...], Sequence[float]],  # type: ignore [misc]
+        bandwidth: Union[str, Callable[[...], Sequence[float]]],  # type: ignore [misc]
         data: np.ndarray,
     ) -> Sequence[float]:
         """
@@ -366,7 +366,7 @@ class Rsklpr:
 
     def _estimate(
         self,
-        x: np.ndarray | Sequence[Number] | Sequence[Sequence[Number]] | float,
+        x: Union[np.ndarray, Sequence[Number], Sequence[Sequence[Number]], float],
     ) -> np.ndarray:
         """
         Estimates the value of m(x) at the locations.
@@ -459,8 +459,8 @@ class Rsklpr:
 
     def fit(
         self,
-        x: np.ndarray | Sequence[Number] | Sequence[Sequence[Number]],
-        y: np.ndarray | Sequence[Number],
+        x: Union[np.ndarray, Sequence[Number], Sequence[Sequence[Number]]],
+        y: Union[np.ndarray, Sequence[Number]],
     ) -> None:
         """
         Fits the model to the training set. The number of observations must not be smaller than the neighborhood size
@@ -489,8 +489,8 @@ class Rsklpr:
 
     def _check_and_reshape_inputs(
         self,
-        x: np.ndarray | Sequence[Number] | Sequence[Sequence[Number]] | float,
-        y: Optional[np.ndarray | Sequence[Number]] = None,
+        x: Union[np.ndarray, Sequence[Number], Sequence[Sequence[Number]], float],
+        y: Optional[Union[np.ndarray, Sequence[Number]]] = None,
     ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
         """
         Checks and reshapes the input so that x is a 2D numpy array of dimensions [N,K] where N is the observations and
@@ -541,7 +541,7 @@ class Rsklpr:
 
     def predict(
         self,
-        x: np.ndarray | Sequence[Number] | Sequence[Sequence[Number]] | float,
+        x: Union[np.ndarray, Sequence[Number], Sequence[Sequence[Number]], float],
     ) -> np.ndarray:
         """
         Predicts estimates of m(x) at the specified locations. Must call fit with the training data first.
@@ -556,8 +556,8 @@ class Rsklpr:
 
     def fit_and_predict(
         self,
-        x: np.ndarray | Sequence[Number] | Sequence[Sequence[Number]],
-        y: np.ndarray | Sequence[Number],
+        x: Union[np.ndarray, Sequence[Number], Sequence[Sequence[Number]]],
+        y: Union[np.ndarray, Sequence[Number]],
     ) -> np.ndarray:
         """
         Fits the provided dataset and estimates the response at the locations of x.
