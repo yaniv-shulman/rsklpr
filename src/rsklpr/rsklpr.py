@@ -89,7 +89,7 @@ def _laplacian(u: np.ndarray) -> np.ndarray:
 
 def _tricube(u: np.ndarray) -> np.ndarray:
     """
-    Implementation of the Tricube kernel assuming all inputs are non-negative.
+    Implementation of the Tricube kernel assuming all inputs are in [0,1].
 
     Args:
         u: The kernel input, note it is assumed all inputs are non-negative.
@@ -97,7 +97,7 @@ def _tricube(u: np.ndarray) -> np.ndarray:
     Returns:
         The kernel output.
     """
-    return np.clip(a=np.power((1 - np.power(u, 3)), 3), a_min=0.0, a_max=1.0)
+    return np.power((1 - np.power(u, 3)), 3)
 
 
 class Rsklpr:
