@@ -89,7 +89,7 @@ def _laplacian(u: np.ndarray) -> np.ndarray:
 
 def _tricube(u: np.ndarray) -> np.ndarray:
     """
-    Implementation of the Tricube kernel assuming all inputs are non-negative.
+    Implementation of the Tricube kernel assuming all inputs are in [0,1].
 
     Args:
         u: The kernel input, note it is assumed all inputs are non-negative.
@@ -188,9 +188,7 @@ class Rsklpr:
 
         self._size_neighborhood: int = size_neighborhood
         self._degree: int = degree
-
         self._k1: Callable[[np.ndarray], np.ndarray] = _laplacian if k1 == "laplacian" else _tricube
-
         self._k2: str = k2
         self._bw1: Union[str, Sequence[float], Callable[[Any], Sequence[float]]] = bw1  # type: ignore [misc]
         self._bw2: Union[str, Sequence[float], Callable[[Any], Sequence[float]]] = bw2  # type: ignore [misc]
@@ -198,8 +196,8 @@ class Rsklpr:
         self._rnd_gen: np.random.Generator = np.random.default_rng(seed=seed)
         self._n_x: np.ndarray = np.ndarray(shape=())
         self._n_y: np.ndarray = np.ndarray(shape=())
-        self._min_x: float = 0.0
-        self._max_x: float = 0.0
+        self._mean_x: np.ndarray = np.ndarray(shape=())
+        self._std_x: np.ndarray = np.ndarray(shape=())
         self._min_y: float = 0.0
         self._max_y: float = 0.0
 
@@ -379,8 +377,7 @@ class Rsklpr:
         """
         x_arr: np.ndarray
         x_arr, _ = self._check_and_reshape_inputs(x=x)
-
-        n_x: np.ndarray = _normalize_array(x_arr, min_val=self._min_x, max_val=self._max_x)
+        n_x: np.ndarray = (x_arr - self._mean_x) / self._std_x
         del x_arr
         y_hat: np.ndarray = np.empty((n_x.shape[0]))
         bw1_global: Optional[Sequence[float]]
@@ -476,15 +473,12 @@ class Rsklpr:
         x_arr: np.ndarray
         y_arr: np.ndarray
         x_arr, y_arr = self._check_and_reshape_inputs(x=x, y=y)  # type: ignore [assignment]
-
-        self._min_x = x_arr.min(axis=0)
-        self._max_x = x_arr.max(axis=0)
-        self._n_x = _normalize_array(array=x_arr, min_val=self._min_x, max_val=self._max_x)
+        self._mean_x = np.mean(a=x_arr, axis=0)
+        self._std_x = np.std(a=x_arr, axis=0)
+        self._n_x = (x_arr - self._mean_x) / self._std_x
         self._min_y = y_arr.min()
         self._max_y = y_arr.max()
-
         self._n_y = _normalize_array(array=y_arr, min_val=self._min_y, max_val=self._max_y)
-
         self._nearest_neighbors.fit(self._n_x)
 
     def _check_and_reshape_inputs(
