@@ -20,11 +20,12 @@ Contributions and feedback are most welcome to the paper and code in any area re
   - Improving numerical stability
   - Confidence intervals
   - Implementing in other languages
+  - Speed and multiprocessing
 - Productionzing the code:
-  - improving input checks and error handling
+  - Improving input checks and error handling
   - Tests
-  - Packaging
-
+  - Logging
+  - Automation
 - And more...
 
 To contribute please submit a pull request, create an issue or get in touch by email to the address specified in the
@@ -32,10 +33,10 @@ paper.
 
 ### How do I get set up? ###
 The easiest way to setup for development or explore the code is to create or activate a Poetry virtual environment by
-executing configure.sh. The included development environment uses Python 3.10 and Poetry 1.6.1 or higher is recommended.
+executing configure.sh. The included development environment uses Python 3.8 or higher, and Poetry 1.6.1 or higher is recommended.
 If you require any help getting setup please get in touch by email to the address specified in the paper.
 
-### Example usage ###
+### Example usage for developers ###
 
 ```python
 import numpy as np
