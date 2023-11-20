@@ -1,6 +1,6 @@
 import warnings
 from numbers import Number
-from typing import Optional, Sequence, Tuple, Callable, List, Union, Any
+from typing import Optional, Sequence, Tuple, Callable, List, Union, Any, Dict
 
 import numpy as np
 import statsmodels.api as sm
@@ -56,7 +56,6 @@ def _weighted_local_regression(
     )
 
     w_mat: np.ndarray = np.diag(np.squeeze(weights))
-
     return (np.linalg.inv(x_mat.T @ w_mat @ x_mat) @ x_mat.T @ w_mat @ y)[0]
 
 
@@ -110,6 +109,8 @@ class Rsklpr:
         self,
         size_neighborhood: int,
         degree: int = 1,
+        metric_x: str = "mahalanobis",
+        metric_x_params: Optional[Dict[str, Any]] = None,
         k1: str = "laplacian",
         k2: str = "joint",
         bw1: Union[str, Sequence[float], Callable[[Any], Sequence[float]]] = "normal_reference",  # type: ignore [misc]
@@ -122,7 +123,14 @@ class Rsklpr:
             size_neighborhood: The number of points in the neighborhood to consider in the local regression.
             degree: The degree of the polynomial fitted locally, supported values are 0 or 1 (default) that result in
                 local constant and local linear regression respectively.
-            k1: The kernel that models the effect of distance on weight between the local target regression to it's
+            metric_x: Metric for distance computation for the predictors using sklearn.neighbors.NearestNeighbors. See
+                https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestNeighbors.html for details.
+            metric_x_params: Metric parameters if required. For 'mahalanobis' (default) the inverted covariance matrix
+                'VI' can, but need not, be specified since it is calculated during fitting if left unspecified. For the
+                Minkowski metric 'p' can be specified here however defaults to 2 if left unspecified. See
+                https://docs.scipy.org/doc/scipy/reference/spatial.distance.html#module-scipy.spatial.distance for more
+                details on the various metrics and their parameters.
+            k1: The kernel that models the effect of distance on weight between the local target regression to its
                 neighbours. This is similar to the kernel used in standard polynomial regression. Available options are
                 'laplacian' (default) and 'tricube', of which the latter is traditionally used in LOESS.
             k2: The kernel that models the 'importance' of the response at the location. Available options are 'joint'
@@ -143,13 +151,16 @@ class Rsklpr:
                 of floats have one scalar value per dimension.
             bw2: The method used to estimate the second bandwidth used by k2. The semantics depend on the kernel used
                 for k2. For the 'conden' kernel, bw2 represents the bandwidth estimation method for the joint KDE of
-                (X,Y). For the 'joint' kernel this is the bandwidth estimation method for marginal KDE of Y. The supported
-                options are the same as bw1.
+                (X,Y). For the 'joint' kernel this is the bandwidth estimation method for marginal KDE of Y. The
+                supported options are the same as bw1.
             bw_global_subsample_size: The size of subsample taken from the data for global cross validation bandwidth
                 estimation. If None the entire data is used for bandwidth estimation. This could be useful to speedup
                     global cross validation based estimates.
             seed: The seed used for random sub sampling for cross validation bandwidth estimation.
         """
+        if size_neighborhood < 3:
+            raise ValueError("size_neighborhood must be at least 3")
+
         if degree not in (0, 1):
             raise ValueError("Degree must be one of 0 or 1")
 
@@ -188,22 +199,19 @@ class Rsklpr:
 
         self._size_neighborhood: int = size_neighborhood
         self._degree: int = degree
+        self._metric_x: str = metric_x
+        self._metric_x_params: Optional[Dict[str, Any]] = metric_x_params
         self._k1: Callable[[np.ndarray], np.ndarray] = _laplacian if k1 == "laplacian" else _tricube
         self._k2: str = k2
         self._bw1: Union[str, Sequence[float], Callable[[Any], Sequence[float]]] = bw1  # type: ignore [misc]
         self._bw2: Union[str, Sequence[float], Callable[[Any], Sequence[float]]] = bw2  # type: ignore [misc]
         self._bw_global_subsample_size: Optional[int] = bw_global_subsample_size
         self._rnd_gen: np.random.Generator = np.random.default_rng(seed=seed)
-        self._n_x: np.ndarray = np.ndarray(shape=())
+        self._x: np.ndarray = np.ndarray(shape=())
         self._n_y: np.ndarray = np.ndarray(shape=())
-        self._mean_x: np.ndarray = np.ndarray(shape=())
-        self._std_x: np.ndarray = np.ndarray(shape=())
         self._min_y: float = 0.0
         self._max_y: float = 0.0
-
-        self._nearest_neighbors: NearestNeighbors = NearestNeighbors(
-            n_neighbors=self._size_neighborhood, algorithm="ball_tree"
-        )
+        self._nearest_neighbors: NearestNeighbors
 
     def _denormalize_y(self, n_y: np.ndarray) -> np.ndarray:
         """
@@ -377,21 +385,19 @@ class Rsklpr:
         """
         x_arr: np.ndarray
         x_arr, _ = self._check_and_reshape_inputs(x=x)
-        n_x: np.ndarray = (x_arr - self._mean_x) / self._std_x
-        del x_arr
-        y_hat: np.ndarray = np.empty((n_x.shape[0]))
+        y_hat: np.ndarray = np.empty((x_arr.shape[0]))
         bw1_global: Optional[Sequence[float]]
         bw2_global: Optional[Sequence[float]]
         bw1_global, bw2_global = self._get_bandwidth_global(k2=self._k2)
         i: int
 
-        for i in range(n_x.shape[0]):
+        for i in range(x_arr.shape[0]):
             dist_n_x_neighbors: np.ndarray
             indices: np.ndarray
-            dist_n_x_neighbors, indices = self._nearest_neighbors.kneighbors(X=n_x[i].reshape(1, -1))
+            dist_n_x_neighbors, indices = self._nearest_neighbors.kneighbors(X=x_arr[i].reshape(1, -1))
             dist_n_x_neighbors = dist_n_x_neighbors / np.max(dist_n_x_neighbors, axis=1, keepdims=True).astype(float)
             weights: np.ndarray = self._k1(dist_n_x_neighbors)
-            n_x_neighbors: np.ndarray = self._n_x[indices].squeeze(axis=0)
+            n_x_neighbors: np.ndarray = self._x[indices].squeeze(axis=0)
 
             if self._k2 == "conden":
                 weights *= self._k2_conden(
@@ -410,7 +416,7 @@ class Rsklpr:
                 )
 
             y_hat[i] = _weighted_local_regression(
-                x_0=n_x[i].reshape(1, -1),
+                x_0=x_arr[i].reshape(1, -1),
                 x=n_x_neighbors,
                 y=self._n_y[indices].T,
                 weights=weights,
@@ -435,7 +441,7 @@ class Rsklpr:
         if self._bw1 == "cv_ls_global":
             bw1_global = self._calculate_bandwidth(
                 bandwidth=self._bw1,  # type: ignore [arg-type]
-                data=self._n_x,
+                data=self._x,
             )
 
         bw2_global: Optional[Sequence[float]] = None
@@ -444,7 +450,7 @@ class Rsklpr:
             if k2 == "conden":
                 bw2_global = self._calculate_bandwidth(
                     bandwidth=self._bw2,  # type: ignore [arg-type]
-                    data=np.concatenate([self._n_x, np.expand_dims(a=self._n_y, axis=-1)], axis=1),
+                    data=np.concatenate([self._x, np.expand_dims(a=self._n_y, axis=-1)], axis=1),
                 )
             elif k2 == "joint":
                 bw2_global = self._calculate_bandwidth(
@@ -473,13 +479,31 @@ class Rsklpr:
         x_arr: np.ndarray
         y_arr: np.ndarray
         x_arr, y_arr = self._check_and_reshape_inputs(x=x, y=y)  # type: ignore [assignment]
-        self._mean_x = np.mean(a=x_arr, axis=0)
-        self._std_x = np.std(a=x_arr, axis=0)
-        self._n_x = (x_arr - self._mean_x) / self._std_x
+        self._x = x_arr
         self._min_y = y_arr.min()
         self._max_y = y_arr.max()
         self._n_y = _normalize_array(array=y_arr, min_val=self._min_y, max_val=self._max_y)
-        self._nearest_neighbors.fit(self._n_x)
+        metric_params: Dict[str, Any] = dict() if self._metric_x_params is None else self._metric_x_params.copy()
+        p: float = 2.0
+
+        if self._metric_x == "mahalanobis":
+            if "VI" not in metric_params.keys():
+                cov: np.ndarray = np.atleast_2d(np.cov(m=self._x, rowvar=False))
+                metric_params["VI"] = np.linalg.inv(cov)
+
+        elif self._metric_x == "minkowski":
+            if "p" in metric_params.keys():
+                p = metric_params["p"]
+                del metric_params["p"]
+
+        self._nearest_neighbors = NearestNeighbors(
+            n_neighbors=self._size_neighborhood,
+            algorithm="auto",
+            metric=self._metric_x,
+            p=p,
+            metric_params=metric_params,
+        )
+        self._nearest_neighbors.fit(self._x)
 
     def _check_and_reshape_inputs(
         self,
