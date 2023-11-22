@@ -224,9 +224,8 @@ def plot_results(
         fig.update_layout(
             go.Layout(
                 title=title,
-                autosize=False,
-                width=1000,
-                height=1000,
+                autosize=True,
+                height=800,
             )
         )
     else:
@@ -241,8 +240,7 @@ def plot_results(
         fig.update_layout(
             go.Layout(
                 title=title,
-                autosize=False,
-                width=1400,
+                autosize=True,
                 height=500,
             )
         )
@@ -274,8 +272,7 @@ def plot_stats(stats: pd.DataFrame, title: str) -> None:
     fig.update_layout(
         go.Layout(
             title=f"Performance stats for {title}",
-            autosize=False,
-            width=1400,
+            autosize=True,
             height=300,
         )
     )

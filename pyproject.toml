@@ -1,16 +1,23 @@
 [tool.poetry]
-name = "rsklpr"
-version = "0.4.0"
-description = "Implementation of the Robust Local Polynomial Regression with Similarity Kernel draft paper"
 authors = ["Yaniv Shulman <yaniv@aleph-zero.info>"]
-readme = "README.md"
-license = "GPL-3.0-only"
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+description = "Implementation of the Robust Local Polynomial Regression with Similarity Kernel draft paper"
 homepage = "https://github.com/yaniv-shulman/rsklpr"
-repository = "https://github.com/yaniv-shulman/rsklpr"
-keywords = ["statistics", "robust statistics", "regression", "robust regression", "local polynomial regression", "machine learning"]
+keywords = [
+    "statistics", "robust statistics", "regression", "robust regression", "local polynomial regression", "machine learning"
+]
+license = "GPL-3.0-only"
+name = "rsklpr"
 packages = [
     { include = "rsklpr", from = "src" }
 ]
+readme = "README.md"
+repository = "https://github.com/yaniv-shulman/rsklpr"
+version = "0.4.0"
 
 [tool.poetry.group.experiments]
 optional = true
@@ -37,6 +44,8 @@ tqdm = "^4.66.1"
 [tool.poetry.group.dev.dependencies]
 black = {extras = ["jupyter"], version = "^23.7.0"}
 mypy = "^1.7.0"
+pytest = "^7.4.3"
+pytest-mock = "^3.12.0"
 ruff = "^0.1.5"
 
 [build-system]
@@ -101,3 +110,8 @@ python_version = "3.8"
 warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q"
+testpaths = ["tests"]
