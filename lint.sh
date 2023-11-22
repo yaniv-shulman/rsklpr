@@ -13,11 +13,11 @@ done
 
 
 if [ -z "$FIX" ]; then
-    python -m black --check "${REPO_DIR}/src"
-    python -m ruff check "$REPO_DIR/src"
+    python -m black --check "$REPO_DIR"
+    python -m ruff check "$REPO_DIR"
 else
-    python -m black "${REPO_DIR}/src"
-    python -m ruff check "$REPO_DIR/src" --fix
+    python -m black "$REPO_DIR"
+    python -m ruff check "$REPO_DIR" --fix
 fi
 
-python -m mypy "$REPO_DIR/src"
+python -m mypy "$REPO_DIR"

@@ -4,6 +4,7 @@ from typing import Optional, Sequence, Tuple, Callable, List, Union, Any, Dict
 
 import numpy as np
 import statsmodels.api as sm
+from numpy.random import default_rng as np_defualt_rng
 from sklearn.neighbors import NearestNeighbors
 from statsmodels.nonparametric.bandwidths import select_bandwidth
 
@@ -73,9 +74,10 @@ def _dim_data(data: np.ndarray) -> int:
     return data.shape[1] if data.ndim > 1 else 1
 
 
-def _laplacian(u: np.ndarray) -> np.ndarray:
+def _laplacian_normalized(u: np.ndarray) -> np.ndarray:
     """
-    Implementation of the Laplacian kernel assuming all inputs are non-negative.
+    Implementation of the Laplacian kernel. The implementation assumes all inputs are non-negative and are
+    first scaled to the range [0,1] before applying the kernel.
 
     Args:
         u: The kernel input, note it is assumed all inputs are non-negative.
@@ -83,12 +85,13 @@ def _laplacian(u: np.ndarray) -> np.ndarray:
     Returns:
         The kernel output.
     """
-    return np.exp(-u)  # type: ignore [no-any-return]
+    return np.exp(-u / np.max(u, axis=1, keepdims=True).astype(float))  # type: ignore [no-any-return]
 
 
-def _tricube(u: np.ndarray) -> np.ndarray:
+def _tricube_normalized(u: np.ndarray) -> np.ndarray:
     """
-    Implementation of the Tricube kernel assuming all inputs are in [0,1].
+    Implementation of the normalized Tricube kernel. The implementation assumes all inputs are non-negative and are
+    first scaled to the range [0,1] before applying the kernel.
 
     Args:
         u: The kernel input, note it is assumed all inputs are non-negative.
@@ -96,7 +99,10 @@ def _tricube(u: np.ndarray) -> np.ndarray:
     Returns:
         The kernel output.
     """
-    return np.power((1 - np.power(u, 3)), 3)
+    return np.clip(  # type: ignore [no-any-return, call-overload]
+        a=np.power((1 - np.power(u / np.max(u, axis=1, keepdims=True).astype(float), 3)), 3),
+        a_min=0.0,
+    )
 
 
 class Rsklpr:
@@ -113,8 +119,8 @@ class Rsklpr:
         metric_x_params: Optional[Dict[str, Any]] = None,
         k1: str = "laplacian",
         k2: str = "joint",
-        bw1: Union[str, Sequence[float], Callable[[Any], Sequence[float]]] = "normal_reference",  # type: ignore [misc]
-        bw2: Union[str, Sequence[float], Callable[[Any], Sequence[float]]] = "normal_reference",  # type: ignore [misc]
+        bw1: Union[str, float, Sequence[float], Callable[[Any], Sequence[float]]] = "normal_reference",  # type: ignore [misc]
+        bw2: Union[str, float, Sequence[float], Callable[[Any], Sequence[float]]] = "normal_reference",  # type: ignore [misc]
         bw_global_subsample_size: Optional[int] = None,
         seed: int = 888,
     ) -> None:
@@ -162,7 +168,7 @@ class Rsklpr:
             raise ValueError("size_neighborhood must be at least 3")
 
         if degree not in (0, 1):
-            raise ValueError("Degree must be one of 0 or 1")
+            raise ValueError("degree must be one of 0 or 1")
 
         k1 = k1.lower()
         if k1 not in ("laplacian", "tricube"):
@@ -190,40 +196,36 @@ class Rsklpr:
 
             if bw1 not in bw_methods:
                 raise ValueError(bw_error_str)
+        elif isinstance(bw1, float):
+            bw1 = [bw1]
 
         if isinstance(bw2, str):
             bw2 = bw2.lower()
 
             if bw2 not in bw_methods:
                 raise ValueError(bw_error_str)
+        elif isinstance(bw2, float):
+            bw2 = [bw2]
 
-        self._size_neighborhood: int = size_neighborhood
-        self._degree: int = degree
-        self._metric_x: str = metric_x
+        self._size_neighborhood: int = int(size_neighborhood)
+        self._degree: int = int(degree)
+        self._metric_x: str = metric_x.lower()
         self._metric_x_params: Optional[Dict[str, Any]] = metric_x_params
-        self._k1: Callable[[np.ndarray], np.ndarray] = _laplacian if k1 == "laplacian" else _tricube
+        self._k1: Callable[[np.ndarray], np.ndarray] = (
+            _laplacian_normalized if k1 == "laplacian" else _tricube_normalized
+        )
         self._k2: str = k2
         self._bw1: Union[str, Sequence[float], Callable[[Any], Sequence[float]]] = bw1  # type: ignore [misc]
         self._bw2: Union[str, Sequence[float], Callable[[Any], Sequence[float]]] = bw2  # type: ignore [misc]
-        self._bw_global_subsample_size: Optional[int] = bw_global_subsample_size
-        self._rnd_gen: np.random.Generator = np.random.default_rng(seed=seed)
+
+        self._bw_global_subsample_size: Optional[int] = (
+            int(bw_global_subsample_size) if bw_global_subsample_size is not None else None
+        )
+
+        self._rnd_gen: np.random.Generator = np_defualt_rng(seed=seed)
         self._x: np.ndarray = np.ndarray(shape=())
-        self._n_y: np.ndarray = np.ndarray(shape=())
-        self._min_y: float = 0.0
-        self._max_y: float = 0.0
+        self._y: np.ndarray = np.ndarray(shape=())
         self._nearest_neighbors: NearestNeighbors
-
-    def _denormalize_y(self, n_y: np.ndarray) -> np.ndarray:
-        """
-        Maps the response to its original range.
-
-        Args:
-            n_y: Values that represent normalized response values.
-
-        Returns:
-            The inputs mapped to the original range of the response.
-        """
-        return n_y * (self._max_y - self._min_y) + self._min_y
 
     def _calculate_bandwidth(  # type: ignore [return]
         self,
@@ -395,21 +397,20 @@ class Rsklpr:
             dist_n_x_neighbors: np.ndarray
             indices: np.ndarray
             dist_n_x_neighbors, indices = self._nearest_neighbors.kneighbors(X=x_arr[i].reshape(1, -1))
-            dist_n_x_neighbors = dist_n_x_neighbors / np.max(dist_n_x_neighbors, axis=1, keepdims=True).astype(float)
             weights: np.ndarray = self._k1(dist_n_x_neighbors)
             n_x_neighbors: np.ndarray = self._x[indices].squeeze(axis=0)
 
             if self._k2 == "conden":
                 weights *= self._k2_conden(
                     n_x_neighbors=n_x_neighbors,
-                    n_y_neighbors=self._n_y[indices].T,
+                    n_y_neighbors=self._y[indices].T,
                     bw1_global=bw1_global,
                     bw2_global=bw2_global,
                 )
             elif self._k2 == "joint":
                 weights *= self._k2_joint(
                     n_x_neighbors=n_x_neighbors,
-                    n_y_neighbors=self._n_y[indices].T,
+                    n_y_neighbors=self._y[indices].T,
                     dist_n_x_neighbors=dist_n_x_neighbors,
                     bw1_global=bw1_global,
                     bw2_global=bw2_global,
@@ -418,12 +419,12 @@ class Rsklpr:
             y_hat[i] = _weighted_local_regression(
                 x_0=x_arr[i].reshape(1, -1),
                 x=n_x_neighbors,
-                y=self._n_y[indices].T,
+                y=self._y[indices].T,
                 weights=weights,
                 degree=self._degree,
             )
 
-        return self._denormalize_y(y_hat)
+        return y_hat
 
     def _get_bandwidth_global(self, k2: str) -> Tuple[Optional[Sequence[float]], Optional[Sequence[float]]]:
         """
@@ -450,12 +451,12 @@ class Rsklpr:
             if k2 == "conden":
                 bw2_global = self._calculate_bandwidth(
                     bandwidth=self._bw2,  # type: ignore [arg-type]
-                    data=np.concatenate([self._x, np.expand_dims(a=self._n_y, axis=-1)], axis=1),
+                    data=np.concatenate([self._x, np.expand_dims(a=self._y, axis=-1)], axis=1),
                 )
             elif k2 == "joint":
                 bw2_global = self._calculate_bandwidth(
                     bandwidth=self._bw2,  # type: ignore [arg-type]
-                    data=np.expand_dims(a=self._n_y, axis=-1),
+                    data=np.expand_dims(a=self._y, axis=-1),
                 )
 
         return bw1_global, bw2_global
@@ -482,7 +483,32 @@ class Rsklpr:
         self._x = x_arr
         self._min_y = y_arr.min()
         self._max_y = y_arr.max()
-        self._n_y = _normalize_array(array=y_arr, min_val=self._min_y, max_val=self._max_y)
+        self._y = y_arr
+        metric_params: Dict[str, Any]
+        p: float
+        metric_params, p = self._get_metric_params()
+
+        self._nearest_neighbors = NearestNeighbors(
+            n_neighbors=self._size_neighborhood,
+            algorithm="auto",
+            metric=self._metric_x,
+            p=p,
+            metric_params=metric_params,
+        )
+
+        self._nearest_neighbors.fit(self._x)
+
+    def _get_metric_params(self) -> Tuple[Dict[str, Any], float]:
+        """
+        Creates the metric params object required for creating the NearestNeighbors object. For 'mahalanobis' metric the
+        inverse covariance matrix is calculated for the data fitted and added to the metric_params. For the 'minkowski'
+        metric, 'p' provided in construction is assigned to a separate variable and removed from the metric_params. The
+        default value of 'p' is 2 since this is the default used in NearestNeighbors. For all other metrics the
+        metric_params provided in construction is returned.
+
+        Returns:
+            The metric params and a 'p' parameter required to construct a NearestNeighbors object.
+        """
         metric_params: Dict[str, Any] = dict() if self._metric_x_params is None else self._metric_x_params.copy()
         p: float = 2.0
 
@@ -496,14 +522,7 @@ class Rsklpr:
                 p = metric_params["p"]
                 del metric_params["p"]
 
-        self._nearest_neighbors = NearestNeighbors(
-            n_neighbors=self._size_neighborhood,
-            algorithm="auto",
-            metric=self._metric_x,
-            p=p,
-            metric_params=metric_params,
-        )
-        self._nearest_neighbors.fit(self._x)
+        return metric_params, p
 
     def _check_and_reshape_inputs(
         self,
