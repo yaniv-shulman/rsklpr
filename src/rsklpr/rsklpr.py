@@ -9,20 +9,6 @@ from sklearn.neighbors import NearestNeighbors
 from statsmodels.nonparametric.bandwidths import select_bandwidth
 
 
-def _normalize_array(array: np.ndarray, min_val: float, max_val: float) -> np.ndarray:
-    """
-    Offsets the array by min_val and scales by (max_val - min_val). If min_val and max_val correspond to the range of
-    the values in the input then the array is normalized to [0,1].
-
-    Args:
-        array: The array to normalize.
-
-    Returns:
-        The normalized array.
-    """
-    return (array - min_val) / (max_val - min_val)
-
-
 def _weighted_local_regression(
     x_0: np.ndarray,
     x: np.ndarray,
@@ -76,22 +62,21 @@ def _dim_data(data: np.ndarray) -> int:
 
 def _laplacian_normalized(u: np.ndarray) -> np.ndarray:
     """
-    Implementation of the Laplacian kernel. The implementation assumes all inputs are non-negative and are
-    first scaled to the range [0,1] before applying the kernel.
+    Implementation of the Laplacian kernel. The inputs are first scaled to the range [0,1] before applying the kernel.
 
     Args:
-        u: The kernel input, note it is assumed all inputs are non-negative.
+        u: The kernel input.
 
     Returns:
         The kernel output.
     """
-    return np.exp(-u / np.max(u, axis=1, keepdims=True).astype(float))  # type: ignore [no-any-return]
+    return np.exp(-u / np.max(np.atleast_2d(u), axis=1, keepdims=True).astype(float))  # type: ignore [no-any-return]
 
 
 def _tricube_normalized(u: np.ndarray) -> np.ndarray:
     """
-    Implementation of the normalized Tricube kernel. The implementation assumes all inputs are non-negative and are
-    first scaled to the range [0,1] before applying the kernel.
+    Implementation of the normalized Tricube kernel. The implementation assumes all inputs are non-negative with a 0
+    value present. The inputs are scaled to the range [0,1] before applying the kernel.
 
     Args:
         u: The kernel input, note it is assumed all inputs are non-negative.
@@ -99,9 +84,11 @@ def _tricube_normalized(u: np.ndarray) -> np.ndarray:
     Returns:
         The kernel output.
     """
+    assert u.min() == 0  # this is not expected to happen during normal execution
     return np.clip(  # type: ignore [no-any-return, call-overload]
-        a=np.power((1 - np.power(u / np.max(u, axis=1, keepdims=True).astype(float), 3)), 3),
+        a=np.power((1 - np.power(u / np.max(np.atleast_2d(u), axis=1, keepdims=True).astype(float), 3)), 3),
         a_min=0.0,
+        a_max=None,
     )
 
 
@@ -211,15 +198,19 @@ class Rsklpr:
         self._degree: int = int(degree)
         self._metric_x: str = metric_x.lower()
         self._metric_x_params: Optional[Dict[str, Any]] = metric_x_params
-        self._k1: Callable[[np.ndarray], np.ndarray] = (
-            _laplacian_normalized if k1 == "laplacian" else _tricube_normalized
-        )
+        self._k1: str = k1
         self._k2: str = k2
         self._bw1: Union[str, Sequence[float], Callable[[Any], Sequence[float]]] = bw1  # type: ignore [misc]
         self._bw2: Union[str, Sequence[float], Callable[[Any], Sequence[float]]] = bw2  # type: ignore [misc]
 
         self._bw_global_subsample_size: Optional[int] = (
             int(bw_global_subsample_size) if bw_global_subsample_size is not None else None
+        )
+
+        self._seed: int = seed
+
+        self._k1_func: Callable[[np.ndarray], np.ndarray] = (
+            _laplacian_normalized if k1 == "laplacian" else _tricube_normalized
         )
 
         self._rnd_gen: np.random.Generator = np_defualt_rng(seed=seed)
@@ -368,6 +359,9 @@ class Rsklpr:
             else bw2_global
         )
 
+        if bw_y.size != 1:
+            raise ValueError(f"Too many values ({bw_y.size}) specified for y bandwidth")
+
         local_density: np.ndarray = np.exp(-0.5 * square_dist_n_y_windowed / (bw_y**2))
         local_density = (local_density * weights).sum(axis=-1)
         return local_density
@@ -397,7 +391,7 @@ class Rsklpr:
             dist_n_x_neighbors: np.ndarray
             indices: np.ndarray
             dist_n_x_neighbors, indices = self._nearest_neighbors.kneighbors(X=x_arr[i].reshape(1, -1))
-            weights: np.ndarray = self._k1(dist_n_x_neighbors)
+            weights: np.ndarray = self._k1_func(dist_n_x_neighbors)
             n_x_neighbors: np.ndarray = self._x[indices].squeeze(axis=0)
 
             if self._k2 == "conden":
@@ -423,6 +417,41 @@ class Rsklpr:
                 weights=weights,
                 degree=self._degree,
             )
+
+        return y_hat
+
+    def _estimate_bootstrap(
+        self, x: Union[np.ndarray, Sequence[Number], Sequence[Sequence[Number]], float], bootstrap_iterations: int
+    ) -> np.ndarray:
+        x_arr: np.ndarray
+        x_arr, _ = self._check_and_reshape_inputs(x=x)
+        y_hat: np.ndarray = np.empty((x_arr.shape[0], bootstrap_iterations + 1))
+        y_hat[:, 0] = self._estimate(x=x_arr)
+        i: int
+
+        for i in range(bootstrap_iterations):
+            resmaple_idx: np.ndarray = self._rnd_gen.choice(
+                a=np.arange(stop=self._x.shape[0]), size=self._x.shape[0], replace=True  # type: ignore[call-overload]
+            )
+
+            x_resample: np.ndarray = self._x[resmaple_idx, :]
+            y_resample: np.ndarray = self._y[resmaple_idx]
+
+            model: Rsklpr = Rsklpr(
+                size_neighborhood=self._size_neighborhood,
+                degree=self._degree,
+                metric_x=self._metric_x,
+                metric_x_params=self._metric_x_params,
+                k1=self._k1,
+                k2=self._k2,
+                bw1=self._bw1,
+                bw2=self._bw2,
+                bw_global_subsample_size=self._bw_global_subsample_size,
+                seed=self._seed,
+            )
+
+            model.fit(x=x_resample, y=y_resample)
+            y_hat[:, i + 1] = model._estimate(x=x_arr)
 
         return y_hat
 
@@ -549,7 +578,11 @@ class Rsklpr:
             ValueError: When y dimension is larger than one.
             ValueError: when x and y has incompatible shapes
         """
-        x = np.asarray(x, dtype=float)
+        if isinstance(x, np.ndarray):
+            x = x.copy().astype(float)
+        else:
+            x = np.asarray(x, dtype=float)
+
         if x.ndim == 1:
             x = x.reshape((-1, 1))
         elif x.ndim > 2:
@@ -565,7 +598,11 @@ class Rsklpr:
             )
 
         if y is not None:
-            y = np.asarray(y, dtype=float)
+            if isinstance(y, np.ndarray):
+                y = y.copy().astype(float)
+            else:
+                y = np.asarray(y, dtype=float)
+
             y = np.squeeze(a=y)
 
             if y.ndim > 1:
@@ -576,10 +613,7 @@ class Rsklpr:
 
         return x, y
 
-    def predict(
-        self,
-        x: Union[np.ndarray, Sequence[Number], Sequence[Sequence[Number]], float],
-    ) -> np.ndarray:
+    def predict(self, x: Union[np.ndarray, Sequence[Number], Sequence[Sequence[Number]], float]) -> np.ndarray:
         """
         Predicts estimates of m(x) at the specified locations. Must call fit with the training data first.
 
@@ -590,6 +624,34 @@ class Rsklpr:
             The estimated responses at the corresponding locations.x
         """
         return self._estimate(x=x)
+
+    def predict_bootstrap(
+        self,
+        x: Union[np.ndarray, Sequence[Number], Sequence[Sequence[Number]], float],
+        q_low: float = 0.025,
+        q_high: float = 0.975,
+        bootstrap_iterations: int = 50,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Predicts estimates of m(x) at the specified locations. Must call fit with the training data first.
+
+        Args:
+            x: The locations to predict for.
+            q_low: The lower confidence quantile estimated from the posterior of y_hat.
+            q_high: The upper confidence quantile estimated from the posterior of y_hat.
+            bootstrap_iterations: The number of bootstrap resamples to take.
+
+        Returns:
+            The estimated responses at the corresponding locations.x
+        """
+        if bootstrap_iterations <= 0:
+            raise ValueError("At least one bootstrap iteration need to be specified")
+
+        y_hat: np.ndarray = self._estimate_bootstrap(x=x, bootstrap_iterations=bootstrap_iterations)
+        y_mean: np.ndarray = y_hat.mean(axis=1)
+        y_conf_low: np.ndarray = np.quantile(a=y_hat, q=q_low, axis=1)
+        y_conf_high: np.ndarray = np.quantile(a=y_hat, q=q_high, axis=1)
+        return y_mean, y_conf_low, y_conf_high
 
     def fit_and_predict(
         self,

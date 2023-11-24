@@ -5,7 +5,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 import rsklpr
-from rsklpr.rsklpr import Rsklpr, _laplacian_normalized, _tricube_normalized
+from rsklpr.rsklpr import Rsklpr, _laplacian_normalized, _tricube_normalized, _dim_data
 
 
 def test_rsklpr_basic_regression_1d_with_joint_expected_output() -> None:
@@ -255,12 +255,13 @@ def test_rsklpr_init_expected_values(mocker: MockerFixture) -> None:
     assert target._degree == 1
     assert target._metric_x == "mahalanobis"
     assert target._metric_x_params is None
-    assert target._k1 == _laplacian_normalized
+    assert target._k1 == "laplacian"
     assert target._k2 == "joint"
     assert target._bw1 == "normal_reference"
     assert target._bw2 == "normal_reference"
     assert target._bw_global_subsample_size is None
     rsklpr.rsklpr.np_defualt_rng.assert_called_once_with(seed=888)  # type: ignore [attr-defined]
+    assert target._k1_func == _laplacian_normalized
 
     mocker.patch("rsklpr.rsklpr.np_defualt_rng")
     target = Rsklpr(
@@ -280,12 +281,13 @@ def test_rsklpr_init_expected_values(mocker: MockerFixture) -> None:
     assert target._degree == 0
     assert target._metric_x == "minkowski"
     assert target._metric_x_params == {"p": 3}
-    assert target._k1 == _tricube_normalized
+    assert target._k1 == "tricube"
     assert target._k2 == "conden"
     assert target._bw1 == "cv_ls_global"
     assert target._bw2 == "scott"
     assert target._bw_global_subsample_size == 50
     rsklpr.rsklpr.np_defualt_rng.assert_called_once_with(seed=45)  # type: ignore [attr-defined]
+    assert target._k1_func == _tricube_normalized
 
     target = Rsklpr(
         size_neighborhood=12,
@@ -355,3 +357,112 @@ def test_rsklpr_init_raises_for_incorrect_inputs() -> None:
         "'cv_ml', 'cv_ls', 'scott' or 'cv_ls_global'",
     ):
         Rsklpr(size_neighborhood=3, bw2="bla2")
+
+
+def test_dim_data_expected_output() -> None:
+    """
+    Tests the expected outputs are returned.
+    """
+    assert _dim_data(data=np.array([0, 1, 2])) == 1
+    assert _dim_data(data=np.array([[0], [1], [2]])) == 1
+    assert _dim_data(data=np.array([[0, 4], [1, 5], [2, 6]])) == 2
+    assert _dim_data(data=np.ones((100, 5))) == 5
+
+
+def test_laplacian_normalized_expected_output() -> None:
+    """
+    Tests the expected outputs are returned.
+    """
+    u: np.ndarray = np.linspace(start=0, stop=5)
+    actual: np.ndarray = _laplacian_normalized(u=u)
+    u /= 5.0
+    np.testing.assert_allclose(actual=actual, desired=np.exp(-u).reshape((1, 50)))
+
+    u = np.linspace(start=3, stop=4)
+    actual = _laplacian_normalized(u=u)
+    u /= 4.0
+    np.testing.assert_allclose(actual=actual, desired=np.exp(-u).reshape((1, 50)))
+
+    u = np.linspace(start=-2, stop=8)
+    actual = _laplacian_normalized(u=u)
+    u /= 8.0
+    np.testing.assert_allclose(actual=actual, desired=np.exp(-u).reshape((1, 50)))
+
+    u = np.linspace(start=0, stop=5).reshape(1, 50)
+    actual = _laplacian_normalized(u=u)
+    u /= 5.0
+    np.testing.assert_allclose(actual=actual, desired=np.exp(-u).reshape((1, 50)))
+
+    u = np.linspace(start=3, stop=4).reshape(1, 50)
+    actual = _laplacian_normalized(u=u)
+    u /= 4.0
+    np.testing.assert_allclose(actual=actual, desired=np.exp(-u).reshape((1, 50)))
+
+    u = np.linspace(start=-2, stop=8).reshape(1, 50)
+    actual = _laplacian_normalized(u=u)
+    u /= 8.0
+    np.testing.assert_allclose(actual=actual, desired=np.exp(-u).reshape((1, 50)))
+
+
+def test_tricube_normalized_expected_output() -> None:
+    """
+    Tests the expected outputs are returned.
+    """
+    u: np.ndarray = np.linspace(start=0, stop=5)
+    actual: np.ndarray = _tricube_normalized(u=u)
+    assert actual.min() == 0.0
+    assert actual.max() == 1.0
+    u /= 5.0
+    desired: np.ndarray = (1.0 - u**3) ** 3
+    np.testing.assert_allclose(actual=actual, desired=np.atleast_2d(desired))
+
+    u = np.linspace(start=0, stop=3).reshape(1, -1)
+    actual = _tricube_normalized(u=u)
+    assert actual.min() == 0.0
+    assert actual.max() == 1.0
+    u /= 3.0
+    desired = (1.0 - u**3) ** 3
+    np.testing.assert_allclose(actual=actual, desired=np.atleast_2d(desired))
+
+
+def test_tricube_normalized_raises_when_inputs_min_larger_than_0() -> None:
+    """
+    Tests an assertion error is raised if the inputs minimum is larger than 0..
+    """
+    u: np.ndarray = np.linspace(start=0.1, stop=5)
+    with pytest.raises(AssertionError):
+        _tricube_normalized(u=u)
+
+
+def test_rsklpr_basic_regression_estimate_bootstrap_1d_with_joint_expected_output() -> None:
+    """
+    Smoke test that reasonable values are returned for a linear 1D input using the joint kernel.
+    """
+    x: np.ndarray = np.linspace(start=-3.0, stop=10, num=50)
+    y: np.ndarray = np.linspace(start=0.0, stop=0.2, num=50)
+    target: Rsklpr = Rsklpr(size_neighborhood=20, k2="joint")
+    target.fit(x=x, y=y)
+    mean_actual: np.ndarray
+    conf_low_actual: np.ndarray
+    conf_upper_actual: np.ndarray
+    mean_actual, conf_low_actual, conf_upper_actual = target.predict_bootstrap(x=x)
+    np.testing.assert_allclose(actual=mean_actual, desired=y, atol=1e-7)
+    np.testing.assert_allclose(actual=conf_low_actual, desired=y, atol=1e-7)
+    np.testing.assert_allclose(actual=conf_upper_actual, desired=y, atol=1e-7)
+
+
+def test_rsklpr_basic_regression_estimate_bootstrap_1d_with_conden_expected_output() -> None:
+    """
+    Smoke test that reasonable values are returned for a linear 1D input using the conden kernel.
+    """
+    x: np.ndarray = np.linspace(start=-3.0, stop=10, num=50)
+    y: np.ndarray = np.linspace(start=0.0, stop=0.2, num=50)
+    target: Rsklpr = Rsklpr(size_neighborhood=20, k2="conden")
+    target.fit(x=x, y=y)
+    mean_actual: np.ndarray
+    conf_low_actual: np.ndarray
+    conf_upper_actual: np.ndarray
+    mean_actual, conf_low_actual, conf_upper_actual = target.predict_bootstrap(x=x)
+    np.testing.assert_allclose(actual=mean_actual, desired=y, atol=1e-7)
+    np.testing.assert_allclose(actual=conf_low_actual, desired=y, atol=1e-7)
+    np.testing.assert_allclose(actual=conf_upper_actual, desired=y, atol=1e-7)
