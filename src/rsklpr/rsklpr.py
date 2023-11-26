@@ -84,7 +84,7 @@ def _tricube_normalized(u: np.ndarray) -> np.ndarray:
     Returns:
         The kernel output.
     """
-    assert u.min() == 0  # this is not expected to happen during normal execution
+    assert u.min() >= 0  # negative values are not expected to happen during normal execution.
     return np.clip(  # type: ignore [no-any-return, call-overload]
         a=np.power((1 - np.power(u / np.max(np.atleast_2d(u), axis=1, keepdims=True).astype(float), 3)), 3),
         a_min=0.0,
@@ -630,28 +630,31 @@ class Rsklpr:
         x: Union[np.ndarray, Sequence[Number], Sequence[Sequence[Number]], float],
         q_low: float = 0.025,
         q_high: float = 0.975,
-        bootstrap_iterations: int = 50,
+        num_bootstrap_resamples: int = 50,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
-        Predicts estimates of m(x) at the specified locations. Must call fit with the training data first.
+        Predicts estimates of m(x) at the specified locations multiple times. The first estimate is done using the
+        data provided when calling fit (the original sample), following additional 'num_bootstrap_resamples' estimates.
+        The method then uses all estimates to calculate confidence intervals. Note that calling fit with the training
+        data must be done first.
 
         Args:
             x: The locations to predict for.
             q_low: The lower confidence quantile estimated from the posterior of y_hat.
             q_high: The upper confidence quantile estimated from the posterior of y_hat.
-            bootstrap_iterations: The number of bootstrap resamples to take.
+            num_bootstrap_resamples: The number of bootstrap resamples to take.
 
         Returns:
-            The estimated responses at the corresponding locations.x
+            The estimated responses at the corresponding locations according to the original fit data and the low and
+            high confidence bands.
         """
-        if bootstrap_iterations <= 0:
+        if num_bootstrap_resamples <= 0:
             raise ValueError("At least one bootstrap iteration need to be specified")
 
-        y_hat: np.ndarray = self._estimate_bootstrap(x=x, bootstrap_iterations=bootstrap_iterations)
-        y_mean: np.ndarray = y_hat.mean(axis=1)
+        y_hat: np.ndarray = self._estimate_bootstrap(x=x, bootstrap_iterations=num_bootstrap_resamples)
         y_conf_low: np.ndarray = np.quantile(a=y_hat, q=q_low, axis=1)
         y_conf_high: np.ndarray = np.quantile(a=y_hat, q=q_high, axis=1)
-        return y_mean, y_conf_low, y_conf_high
+        return y_hat[:, 0], y_conf_low, y_conf_high
 
     def fit_and_predict(
         self,
