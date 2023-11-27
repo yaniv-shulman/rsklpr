@@ -45,8 +45,11 @@ tqdm = "^4.66.1"
 black = {extras = ["jupyter"], version = "^23.7.0"}
 mypy = "^1.7.0"
 pytest = "^7.4.3"
+pytest-cov = "^4.1.0"
 pytest-mock = "^3.12.0"
+pytest-xdist = "^3.5.0"
 ruff = "^0.1.5"
+coverage = {extras = ["toml"], version = "^7.3.2"}
 
 [build-system]
 requires = ["poetry-core"]
@@ -112,6 +115,16 @@ warn_unused_configs = true
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
+addopts = "-ra -q --strict-markers"
+markers = [
+    "slow: tests that take a long time to run",
+]
 minversion = "6.0"
-addopts = "-ra -q"
 testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+omit = ["tests/*", "src/experiments/*"]
+
+[tool.coverage.report]
+show_missing=true

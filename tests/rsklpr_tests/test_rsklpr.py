@@ -5,244 +5,239 @@ import pytest
 from pytest_mock import MockerFixture
 
 import rsklpr
-from rsklpr.rsklpr import Rsklpr, _laplacian_normalized, _tricube_normalized
+from rsklpr.rsklpr import Rsklpr, _laplacian_normalized, _tricube_normalized, _dim_data
+
+_rng: np.random.Generator = np.random.default_rng(seed=12)
 
 
-def test_rsklpr_basic_regression_1d_with_joint_expected_output() -> None:
+@pytest.mark.parametrize(
+    argnames="x",
+    argvalues=[
+        np.linspace(start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50)
+        + _rng.uniform(low=-0.001, high=0.001, size=50)
+        for _ in range(3)
+    ],
+)
+@pytest.mark.parametrize(
+    argnames="y",
+    argvalues=[
+        np.linspace(start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50)
+        + _rng.uniform(low=-0.001, high=0.001, size=50)
+        for i in range(3)
+    ],
+)
+@pytest.mark.parametrize(
+    argnames="k1",
+    argvalues=[
+        "tricube",
+        "laplacian",
+    ],
+)
+@pytest.mark.parametrize(
+    argnames="k2",
+    argvalues=[
+        "joint",
+        "conden",
+    ],
+)
+@pytest.mark.slow
+def test_rsklpr_smoke_test_1d_regression_increasing_windows_expected_output(
+    x: np.ndarray, y: np.ndarray, k1: str, k2: str
+) -> None:
     """
-    Smoke test that reasonable values are returned for a linear 1D input using the joint kernel.
+    Smoke test that reasonable values are returned for linear 1D input with various window sizes.
     """
-    x: np.ndarray = np.linspace(start=-3.0, stop=10, num=50)
-    y: np.ndarray = np.linspace(start=0.0, stop=0.2, num=50)
-    target: Rsklpr = Rsklpr(size_neighborhood=20, k2="joint")
-
-    actual: np.ndarray = target(
-        x=x,
-        y=y,
-    )
-
-    np.testing.assert_allclose(actual=actual, desired=y, atol=1e-7)
-
-
-def test_rsklpr_basic_regression_1d_with_conden_expected_output() -> None:
-    """
-    Smoke test that reasonable values are returned for a linear 1D input using the conden kernel.
-    """
-    x: np.ndarray = np.linspace(start=1.0, stop=10, num=50)
-    y: np.ndarray = np.linspace(start=0, stop=-0.5, num=50)
-    target: Rsklpr = Rsklpr(size_neighborhood=20, k2="conden")
-
-    actual: np.ndarray = target(
-        x=x,
-        y=y,
-    )
-
-    np.testing.assert_allclose(actual=actual, desired=y, atol=1e-7)
-
-
-def test_rsklpr_basic_regression_2d_with_joint_expected_output() -> None:
-    """
-    Smoke test that reasonable values are returned for a linear 2D input using the joint kernel.
-    """
-    rng: np.random.Generator = np.random.default_rng(seed=12)
-
-    x: np.ndarray = np.concatenate(
-        [
-            np.linspace(start=-10.0, stop=10, num=50).reshape((-1, 1)),
-            (np.linspace(start=-5.0, stop=7, num=50) + rng.uniform(low=-0.01, high=0.01, size=50)).reshape((-1, 1)),
-        ],
-        axis=1,
-    )
-
-    y: np.ndarray = np.linspace(start=-2.0, stop=0.0, num=50)
-    target: Rsklpr = Rsklpr(size_neighborhood=20, k2="joint")
-
-    actual: np.ndarray = target(
-        x=x,
-        y=y,
-    )
-
-    np.testing.assert_allclose(actual=actual, desired=y, atol=1e-7)
-
-
-def test_rsklpr_basic_regression_2d_with_conden_expected_output() -> None:
-    """
-    Smoke test that reasonable values are returned for a linear 2D input using the conden kernel.
-    """
-    rng: np.random.Generator = np.random.default_rng(seed=12)
-
-    x: np.ndarray = np.concatenate(
-        [
-            np.linspace(start=-5.0, stop=-3.0, num=50).reshape((-1, 1)),
-            (np.linspace(start=0.0, stop=7, num=50) + rng.uniform(low=-0.01, high=0.01, size=50)).reshape((-1, 1)),
-        ],
-        axis=1,
-    )
-
-    y: np.ndarray = np.linspace(start=-1.0, stop=5, num=50)
-    target: Rsklpr = Rsklpr(size_neighborhood=20, k2="conden")
-
-    actual: np.ndarray = target(
-        x=x,
-        y=y,
-    )
-
-    np.testing.assert_allclose(actual=actual, desired=y, atol=1e-7)
-
-
-def test_rsklpr_basic_regression_1d_with_joint_increasing_windows_expected_output() -> None:
-    """
-    Smoke test that reasonable values are returned for a linear 1D input using the joint kernel.
-    """
-    x: np.ndarray = np.linspace(start=-3.0, stop=10, num=50)
-    y: np.ndarray = np.linspace(start=10.0, stop=-15, num=50)
     size_neighborhood: int
+
     for size_neighborhood in np.linspace(start=3, stop=50, num=20, endpoint=True).astype(int):
-        target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood, k2="joint")
+        target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood, k1=k1, k2=k2)
 
         actual: np.ndarray = target(
             x=x,
             y=y,
         )
 
-        np.testing.assert_allclose(actual=actual, desired=y, atol=1e-7)
+        np.testing.assert_allclose(actual=actual, desired=y, atol=5e-3)
 
 
-def test_rsklpr_basic_regression_1d_with_conden_increasing_windows_expected_output() -> None:
-    """
-    Smoke test that reasonable values are returned for a linear 1D input using the conden kernel.
-    """
-    x: np.ndarray = np.linspace(start=-3.0, stop=10, num=50)
-    y: np.ndarray = np.linspace(start=0.0, stop=-5, num=50)
-    size_neighborhood: int
-
-    for size_neighborhood in np.linspace(start=3, stop=50, num=20, endpoint=True).astype(int):
-        target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood, k2="conden")
-
-        actual: np.ndarray = target(
-            x=x,
-            y=y,
+@pytest.mark.parametrize(
+    argnames="x",
+    argvalues=[
+        np.concatenate(
+            [
+                np.linspace(
+                    start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50
+                ).reshape((-1, 1))
+                + _rng.uniform(low=-0.001, high=0.001, size=50).reshape((-1, 1)),
+                np.linspace(
+                    start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50
+                ).reshape((-1, 1))
+                + _rng.uniform(low=-0.001, high=0.001, size=50).reshape((-1, 1)),
+            ],
+            axis=1,
         )
-
-        np.testing.assert_allclose(actual=actual, desired=y, atol=1e-7)
-
-
-def test_rsklpr_basic_regression_2d_with_joint_increasing_windows_expected_output() -> None:
+        for _ in range(3)
+    ],
+)
+@pytest.mark.parametrize(
+    argnames="y",
+    argvalues=[
+        np.linspace(start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50)
+        + _rng.uniform(low=-0.001, high=0.001, size=50)
+        for i in range(3)
+    ],
+)
+@pytest.mark.parametrize(
+    argnames="k1",
+    argvalues=[
+        "tricube",
+        "laplacian",
+    ],
+)
+@pytest.mark.parametrize(
+    argnames="k2",
+    argvalues=[
+        "joint",
+        "conden",
+    ],
+)
+@pytest.mark.slow
+def test_rsklpr_smoke_test_2d_regression_increasing_windows_expected_output(
+    x: np.ndarray, y: np.ndarray, k1: str, k2: str
+) -> None:
     """
-    Smoke test that reasonable values are returned for a linear 2D input using the joint kernel.
+    Smoke test that reasonable values are returned for linear 1D input with various window sizes.
     """
-    rng: np.random.Generator = np.random.default_rng(seed=12)
-
-    x: np.ndarray = np.concatenate(
-        [
-            np.linspace(start=-10.0, stop=10, num=50).reshape((-1, 1)),
-            (np.linspace(start=-5.0, stop=7, num=50) + rng.uniform(low=-0.01, high=0.01, size=50)).reshape((-1, 1)),
-        ],
-        axis=1,
-    )
-
-    y: np.ndarray = np.linspace(start=-2.0, stop=0.0, num=50)
-    size_neighborhood: int
-
-    for size_neighborhood in np.linspace(start=3, stop=50, num=20, endpoint=True).astype(int):
-        target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood, k2="joint")
-
-        actual: np.ndarray = target(
-            x=x,
-            y=y,
-        )
-
-        np.testing.assert_allclose(actual=actual, desired=y, atol=1e-7)
-
-
-def test_rsklpr_basic_regression_2d_with_conden_increasing_windows_expected_output() -> None:
-    """
-    Smoke test that reasonable values are returned for a linear 2D input using the conden kernel.
-    """
-    rng: np.random.Generator = np.random.default_rng(seed=12)
-
-    x: np.ndarray = np.concatenate(
-        [
-            np.linspace(start=-10.0, stop=10, num=50).reshape((-1, 1)),
-            (np.linspace(start=-5.0, stop=7, num=50) + rng.uniform(low=-0.01, high=0.01, size=50)).reshape((-1, 1)),
-        ],
-        axis=1,
-    )
-
-    y: np.ndarray = np.linspace(start=10, stop=100, num=50)
     size_neighborhood: int
 
     for size_neighborhood in np.linspace(start=4, stop=50, num=20, endpoint=True).astype(int):
-        target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood, k2="conden")
+        target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood, k1=k1, k2=k2)
 
         actual: np.ndarray = target(
             x=x,
             y=y,
         )
 
-        np.testing.assert_allclose(actual=actual, desired=y, atol=1e-7)
+        np.testing.assert_allclose(actual=actual, desired=y, atol=6e-3)
 
 
-def test_rsklpr_basic_regression_5d_with_joint_increasing_windows_expected_output() -> None:
+@pytest.mark.parametrize(
+    argnames="x",
+    argvalues=[
+        np.concatenate(
+            [
+                np.linspace(
+                    start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50
+                ).reshape((-1, 1))
+                + _rng.uniform(low=-0.001, high=0.001, size=50).reshape((-1, 1)),
+                np.linspace(
+                    start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50
+                ).reshape((-1, 1))
+                + _rng.uniform(low=-0.001, high=0.001, size=50).reshape((-1, 1)),
+                np.linspace(
+                    start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50
+                ).reshape((-1, 1))
+                + _rng.uniform(low=-0.001, high=0.001, size=50).reshape((-1, 1)),
+                np.linspace(
+                    start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50
+                ).reshape((-1, 1))
+                + _rng.uniform(low=-0.001, high=0.001, size=50).reshape((-1, 1)),
+                np.linspace(
+                    start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50
+                ).reshape((-1, 1))
+                + _rng.uniform(low=-0.001, high=0.001, size=50).reshape((-1, 1)),
+            ],
+            axis=1,
+        )
+    ],
+)
+@pytest.mark.parametrize(
+    argnames="y",
+    argvalues=[
+        np.linspace(start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50)
+        + _rng.uniform(low=-0.001, high=0.001, size=50)
+    ],
+)
+@pytest.mark.parametrize(
+    argnames="k1",
+    argvalues=[
+        "tricube",
+        "laplacian",
+    ],
+)
+@pytest.mark.parametrize(
+    argnames="k2",
+    argvalues=[
+        "joint",
+        "conden",
+    ],
+)
+@pytest.mark.slow
+def test_rsklpr_smoke_test_5d_regression_increasing_windows_expected_output(
+    x: np.ndarray, y: np.ndarray, k1: str, k2: str
+) -> None:
     """
-    Smoke test that reasonable values are returned for a linear 5D input using the joint kernel.
+    Smoke test that reasonable values are returned for linear 1D input with various window sizes.
     """
-    rng: np.random.Generator = np.random.default_rng(seed=12)
-
-    x: np.ndarray = np.concatenate(
-        [
-            np.linspace(start=-10.0, stop=10, num=50).reshape((-1, 1)),
-            (np.linspace(start=-5.0, stop=7, num=50) + rng.uniform(low=-0.01, high=0.01, size=50)).reshape((-1, 1)),
-            (np.linspace(start=-15.0, stop=3, num=50) + rng.uniform(low=-0.01, high=0.01, size=50)).reshape((-1, 1)),
-            (np.linspace(start=0, stop=8, num=50) + rng.uniform(low=-0.01, high=0.01, size=50)).reshape((-1, 1)),
-            (np.linspace(start=0, stop=-3, num=50) + rng.uniform(low=-0.01, high=0.01, size=50)).reshape((-1, 1)),
-        ],
-        axis=1,
-    )
-
-    y: np.ndarray = np.linspace(start=-2.0, stop=5.0, num=50)
     size_neighborhood: int
 
-    for size_neighborhood in np.linspace(start=6, stop=50, num=15, endpoint=True).astype(int):
-        target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood, k2="joint")
+    for size_neighborhood in np.linspace(start=7, stop=50, num=20, endpoint=True).astype(int):
+        target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood, k1=k1, k2=k2)
 
         actual: np.ndarray = target(
             x=x,
             y=y,
         )
 
-        np.testing.assert_allclose(actual=actual, desired=y, atol=7e-5)
+        np.testing.assert_allclose(actual=actual, desired=y, atol=4e-2)
 
 
-def test_rsklpr_basic_regression_5d_with_conden_increasing_windows_expected_output() -> None:
+@pytest.mark.parametrize(
+    argnames="x",
+    argvalues=[
+        np.linspace(start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50)
+        + _rng.uniform(low=-0.001, high=0.001, size=50)
+        for _ in range(3)
+    ],
+)
+@pytest.mark.parametrize(
+    argnames="y",
+    argvalues=[
+        np.linspace(start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50)
+        + _rng.uniform(low=-0.001, high=0.001, size=50)
+        for i in range(3)
+    ],
+)
+@pytest.mark.parametrize(
+    argnames="k1",
+    argvalues=[
+        "tricube",
+        "laplacian",
+    ],
+)
+@pytest.mark.parametrize(
+    argnames="k2",
+    argvalues=[
+        "joint",
+        "conden",
+    ],
+)
+@pytest.mark.slow
+def test_rsklpr_smoke_test_1d_estimate_bootstrap_expected_output(
+    x: np.ndarray, y: np.ndarray, k1: str, k2: str
+) -> None:
     """
-    Smoke test that reasonable values are returned for a linear 5D input using the conden kernel.
+    Smoke test that reasonable values are returned for a linear 1D input using the joint kernel.
     """
-    rng: np.random.Generator = np.random.default_rng(seed=12)
-
-    x: np.ndarray = np.concatenate(
-        [
-            np.linspace(start=-10.0, stop=10, num=50).reshape((-1, 1)),
-            (np.linspace(start=-5.0, stop=7, num=50) + rng.uniform(low=-0.01, high=0.01, size=50)).reshape((-1, 1)),
-            (np.linspace(start=-15.0, stop=3, num=50) + rng.uniform(low=-0.01, high=0.01, size=50)).reshape((-1, 1)),
-            (np.linspace(start=0, stop=8, num=50) + rng.uniform(low=-0.01, high=0.01, size=50)).reshape((-1, 1)),
-            (np.linspace(start=0, stop=-3, num=50) + rng.uniform(low=-0.01, high=0.01, size=50)).reshape((-1, 1)),
-        ],
-        axis=1,
-    )
-
-    y: np.ndarray = np.linspace(start=-2.0, stop=0.0, num=50)
-    size_neighborhood: int
-
-    for size_neighborhood in np.linspace(start=7, stop=50, num=15, endpoint=True).astype(int):
-        target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood, k2="conden")
-
-        actual: np.ndarray = target(
-            x=x,
-            y=y,
-        )
-
-        np.testing.assert_allclose(actual=actual, desired=y, atol=5e-6)
+    target: Rsklpr = Rsklpr(size_neighborhood=20, k1=k1, k2=k2)
+    target.fit(x=x, y=y)
+    actual: np.ndarray
+    conf_low_actual: np.ndarray
+    conf_upper_actual: np.ndarray
+    actual, conf_low_actual, conf_upper_actual = target.predict_bootstrap(x=x)
+    np.testing.assert_allclose(actual=actual, desired=y, atol=7e-3)
+    np.testing.assert_allclose(actual=conf_low_actual, desired=y, atol=7e-3)
+    np.testing.assert_allclose(actual=conf_upper_actual, desired=y, atol=7e-3)
 
 
 def test_rsklpr_init_expected_values(mocker: MockerFixture) -> None:
@@ -255,12 +250,13 @@ def test_rsklpr_init_expected_values(mocker: MockerFixture) -> None:
     assert target._degree == 1
     assert target._metric_x == "mahalanobis"
     assert target._metric_x_params is None
-    assert target._k1 == _laplacian_normalized
+    assert target._k1 == "laplacian"
     assert target._k2 == "joint"
     assert target._bw1 == "normal_reference"
     assert target._bw2 == "normal_reference"
     assert target._bw_global_subsample_size is None
     rsklpr.rsklpr.np_defualt_rng.assert_called_once_with(seed=888)  # type: ignore [attr-defined]
+    assert target._k1_func == _laplacian_normalized
 
     mocker.patch("rsklpr.rsklpr.np_defualt_rng")
     target = Rsklpr(
@@ -280,12 +276,13 @@ def test_rsklpr_init_expected_values(mocker: MockerFixture) -> None:
     assert target._degree == 0
     assert target._metric_x == "minkowski"
     assert target._metric_x_params == {"p": 3}
-    assert target._k1 == _tricube_normalized
+    assert target._k1 == "tricube"
     assert target._k2 == "conden"
     assert target._bw1 == "cv_ls_global"
     assert target._bw2 == "scott"
     assert target._bw_global_subsample_size == 50
     rsklpr.rsklpr.np_defualt_rng.assert_called_once_with(seed=45)  # type: ignore [attr-defined]
+    assert target._k1_func == _tricube_normalized
 
     target = Rsklpr(
         size_neighborhood=12,
@@ -355,3 +352,78 @@ def test_rsklpr_init_raises_for_incorrect_inputs() -> None:
         "'cv_ml', 'cv_ls', 'scott' or 'cv_ls_global'",
     ):
         Rsklpr(size_neighborhood=3, bw2="bla2")
+
+
+def test_dim_data_expected_output() -> None:
+    """
+    Tests the expected outputs are returned.
+    """
+    assert _dim_data(data=np.array([0, 1, 2])) == 1
+    assert _dim_data(data=np.array([[0], [1], [2]])) == 1
+    assert _dim_data(data=np.array([[0, 4], [1, 5], [2, 6]])) == 2
+    assert _dim_data(data=np.ones((100, 5))) == 5
+
+
+def test_laplacian_normalized_expected_output() -> None:
+    """
+    Tests the expected outputs are returned.
+    """
+    u: np.ndarray = np.linspace(start=0, stop=5)
+    actual: np.ndarray = _laplacian_normalized(u=u)
+    u /= 5.0
+    np.testing.assert_allclose(actual=actual, desired=np.exp(-u).reshape((1, 50)))
+
+    u = np.linspace(start=3, stop=4)
+    actual = _laplacian_normalized(u=u)
+    u /= 4.0
+    np.testing.assert_allclose(actual=actual, desired=np.exp(-u).reshape((1, 50)))
+
+    u = np.linspace(start=-2, stop=8)
+    actual = _laplacian_normalized(u=u)
+    u /= 8.0
+    np.testing.assert_allclose(actual=actual, desired=np.exp(-u).reshape((1, 50)))
+
+    u = np.linspace(start=0, stop=5).reshape(1, 50)
+    actual = _laplacian_normalized(u=u)
+    u /= 5.0
+    np.testing.assert_allclose(actual=actual, desired=np.exp(-u).reshape((1, 50)))
+
+    u = np.linspace(start=3, stop=4).reshape(1, 50)
+    actual = _laplacian_normalized(u=u)
+    u /= 4.0
+    np.testing.assert_allclose(actual=actual, desired=np.exp(-u).reshape((1, 50)))
+
+    u = np.linspace(start=-2, stop=8).reshape(1, 50)
+    actual = _laplacian_normalized(u=u)
+    u /= 8.0
+    np.testing.assert_allclose(actual=actual, desired=np.exp(-u).reshape((1, 50)))
+
+
+def test_tricube_normalized_expected_output() -> None:
+    """
+    Tests the expected outputs are returned.
+    """
+    u: np.ndarray = np.linspace(start=0, stop=5)
+    actual: np.ndarray = _tricube_normalized(u=u)
+    assert actual.min() == 0.0
+    assert actual.max() == 1.0
+    u /= 5.0
+    desired: np.ndarray = (1.0 - u**3) ** 3
+    np.testing.assert_allclose(actual=actual, desired=np.atleast_2d(desired))
+
+    u = np.linspace(start=0, stop=3).reshape(1, -1)
+    actual = _tricube_normalized(u=u)
+    assert actual.min() == 0.0
+    assert actual.max() == 1.0
+    u /= 3.0
+    desired = (1.0 - u**3) ** 3
+    np.testing.assert_allclose(actual=actual, desired=np.atleast_2d(desired))
+
+
+def test_tricube_normalized_raises_when_inputs_negative() -> None:
+    """
+    Tests an assertion error is raised if the inputs have negative values.
+    """
+    u: np.ndarray = np.linspace(start=-0.1, stop=5)
+    with pytest.raises(AssertionError):
+        _tricube_normalized(u=u)

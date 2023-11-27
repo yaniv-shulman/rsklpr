@@ -1,7 +1,9 @@
+.coverage
 .ipynb_checkpoints/
 *.html
 .ruff_cache/
 .mypy_cache/
+.pytest_cache/
 /dist/
 
 # Compiled Python bytecode
