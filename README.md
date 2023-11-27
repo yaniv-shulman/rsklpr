@@ -1,147 +1,47 @@
 # Robust Local Polynomial Regression with Similarity Kernels #
 
-This repository is intended to share and facilitate community contribution for completing the research and implementation 
-presented in the [Robust Local Polynomial Regression with Similarity Kernels draft paper](https://github.com/yaniv-shulman/rsklpr/tree/main/paper/rsklpr.pdf). The repository contains
-the source for the paper and a demonstrative implementation of the proposed method including several experimental results.
-Note the paper is a draft and the code is for demonstrative purposes still so both may contain issues.
+## TL;DR ##
+This library is useful to perform regression when:
+1. There are no particular assumptions on the underlying function except that it is "reasonably smooth". In particular,
+you don't know which parametric model to specify or if an appropriate model exists. 
+1. There are no particular assumptions on the type and intensity of noise present.
+1. There are no particular assumptions on the presence of outliers and their extent.
+1. You may want to predict in locations not explicitly present in the dataset but also not too far from existing
+observations or far outside the areas where observations exist. 
+1. The independent inputs are univariate or multivariate.
+1. The dependent variable is univariate.
+1. You want a straightforward hassle-free way to tune the model and the smoothness of fit.
+1. You may want to calculate confidence intervals.
 
-### Contribution and feedback ###
+If the above use cases hold then this library could be useful for you. Have a look at this notebook
+https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/docs/usage.ipynb for an example of how to use
+this library to perform regression easily.
 
-Contributions and feedback are most welcome to the paper and code in any area related to:
-- Further development of the method and completing the paper:
-  - Asymptotic analysis of the estimator
-  - Improving related work coverage
-  - Improving or adding experiments and the presentation of experiments including comparison to other robust LPR methods
-  - Experimenting with robust estimators e.g. robust losses, robust bandwidth estimators and robust KDEs
-  - Proposing and experimenting with different similarity kernels
-  - Fixing issues if found
-- Adding and improving functions in the implementation:
-  - Proposing and experimenting with additional kernels
-  - Improving numerical stability
-  - Confidence intervals
-  - Implementing in other languages
-  - Speed and multiprocessing
-- Productionzing the code:
-  - Improving input checks and error handling
-  - Tests
-  - Logging
-  - Automation
-- And more...
-
-To contribute please submit a pull request, create an issue or get in touch by email to the address specified in the
-paper.
-
-### How do I get set up? ###
-The easiest way to setup for development or explore the code is to create or activate a Poetry virtual environment by
-executing configure.sh. The included development environment uses Python 3.8 or higher, and Poetry 1.6.1 or higher is recommended.
-If you require any help getting setup please get in touch by email to the address specified in the paper.
-
-### Example usage for developers ###
-
-```python
-import numpy as np
-import pandas as pd
-
-from experiments.common import plot_results, ExperimentConfig
-from experiments.data.synthetic_benchmarks import benchmark_curve_1
-from rsklpr.rsklpr import Rsklpr
-
-experiment_config: ExperimentConfig = ExperimentConfig(
-    data_provider=benchmark_curve_1,
-    size_neighborhood=20,
-    noise_ratio=0.3,
-    hetero=True,
-    num_points=150,
-    bw1=[0.4],
-    bw2="normal_reference",
-    k2="joint",
-)
-
-x: np.ndarray
-y: np.ndarray
-y_true: np.ndarray
-
-x, y, y_true = experiment_config.data_provider(
-    experiment_config.noise_ratio,
-    experiment_config.hetero,
-    experiment_config.num_points,
-)
-
-rsklpr: Rsklpr = Rsklpr(
-    size_neighborhood=experiment_config.size_neighborhood,
-    bw1=experiment_config.bw1,
-    bw2=experiment_config.bw2,
-)
-
-y_hat: np.ndarray = rsklpr(
-    x=x,
-    y=y,
-)
-
-estimates: pd.DataFrame = pd.DataFrame(data=y_hat, columns=["y_hat"])
-
-plot_results(
-    x=x,
-    y=y,
-    y_true=y_true,
-    estimates=estimates,
-    title="Example usage",
-)
+## Installation ##
+Install from [PyPI](https://pypi.org/project/rsklpr/) using pip (preferred method):
+```bash
+pip install rsklpr
 ```
-![Example usage curve_plot](./example_usage_curve.png)
+
+## Details ##
+Local polynomial regression (LPR) is a powerful and flexible statistical technique that has gained increasing popularity
+in recent years due to its ability to model complex relationships between variables. Local polynomial regression
+generalizes the polynomial regression and moving average methods by fitting a low-degree polynomial to a nearest
+neighbors subset of the data at the location. The polynomial is fitted using weighted ordinary least squares, giving
+more weight to nearby points and less weight to points further away. Local polynomial regression is however susceptible
+to outliers and high leverage points which may cause an adverse impact on the estimation accuracy. This library 
+implements a variant of LPR presented in the 
+[Robust Local Polynomial Regression with Similarity Kernels draft paper](https://github.com/yaniv-shulman/rsklpr/tree/main/paper/rsklpr.pdf) which uses a generalized similarity kernel
+that assign robust weights to mitigate the adverse effect of outliers in the local neighborhood by estimating and
+utilizing the density at the local locations. 
 
 
-```python
-import numpy as np
-import pandas as pd
-
-from experiments.common import plot_results, ExperimentConfig
-from experiments.data.synthetic_benchmarks import benchmark_plane_2
-from rsklpr.rsklpr import Rsklpr
-
-experiment_config: ExperimentConfig = ExperimentConfig(
-    data_provider=benchmark_plane_2,
-    size_neighborhood=20,
-    noise_ratio=0.1,
-    hetero=True,
-    num_points=100,
-    bw1=[0.4],
-    bw2="normal_reference",
-    k2="joint",
-)
-
-x: np.ndarray
-y: np.ndarray
-y_true: np.ndarray
-
-x, y, y_true = experiment_config.data_provider(
-    experiment_config.noise_ratio,
-    experiment_config.hetero,
-    experiment_config.num_points,
-)
-
-rsklpr: Rsklpr = Rsklpr(
-    size_neighborhood=experiment_config.size_neighborhood,
-    bw1=experiment_config.bw1,
-    bw2=experiment_config.bw2,
-)
-
-y_hat: np.ndarray = rsklpr(
-    x=x,
-    y=y,
-)
-
-estimates: pd.DataFrame = pd.DataFrame(data=y_hat, columns=["y_hat"])
-
-plot_results(
-    x=x,
-    y=y,
-    y_true=y_true,
-    estimates=estimates,
-    title="Example usage",
-)
-```
-![Example usage plane_plot](./example_usage_plane.png)
 ### Experimental results ###
-The experimental results are available as interactive Jupyter notebooks at 
-https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments/
+The experimental results and demonstration of the library for various experimental settings are available as interactive
+Jupyter notebooks at https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments/
+
+
+## Contribution and feedback ##
+The paper is work in progress and the library in early stages of development but both are in a useful state.
+Contributions and feedback are most welcome both to the paper and the code. Please see
+[CONTRIBUTE.md](https://github.com/yaniv-shulman/rsklpr/tree/main/CONTRIBUTE.md) for further details.
