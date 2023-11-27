@@ -49,9 +49,7 @@ def test_rsklpr_smoke_test_1d_regression_increasing_windows_expected_output(
     """
     size_neighborhood: int
 
-    for size_neighborhood in np.linspace(
-        start=max(3, 3 if x.ndim == 1 else x.shape[1] + 2), stop=50, num=20, endpoint=True
-    ).astype(int):
+    for size_neighborhood in np.linspace(start=3, stop=50, num=20, endpoint=True).astype(int):
         target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood, k1=k1, k2=k2)
 
         actual: np.ndarray = target(
@@ -112,9 +110,7 @@ def test_rsklpr_smoke_test_2d_regression_increasing_windows_expected_output(
     """
     size_neighborhood: int
 
-    for size_neighborhood in np.linspace(
-        start=max(3, 3 if x.ndim == 1 else x.shape[1] + 2), stop=50, num=20, endpoint=True
-    ).astype(int):
+    for size_neighborhood in np.linspace(start=4, stop=50, num=20, endpoint=True).astype(int):
         target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood, k1=k1, k2=k2)
 
         actual: np.ndarray = target(
@@ -185,9 +181,7 @@ def test_rsklpr_smoke_test_5d_regression_increasing_windows_expected_output(
     """
     size_neighborhood: int
 
-    for size_neighborhood in np.linspace(
-        start=max(3, 3 if x.ndim == 1 else x.shape[1] + 2), stop=50, num=20, endpoint=True
-    ).astype(int):
+    for size_neighborhood in np.linspace(start=7, stop=50, num=20, endpoint=True).astype(int):
         target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood, k1=k1, k2=k2)
 
         actual: np.ndarray = target(
@@ -428,7 +422,7 @@ def test_tricube_normalized_expected_output() -> None:
 
 def test_tricube_normalized_raises_when_inputs_negative() -> None:
     """
-    Tests an assertion error is raised if the inputs minimum is larger than 0..
+    Tests an assertion error is raised if the inputs have negative values.
     """
     u: np.ndarray = np.linspace(start=-0.1, stop=5)
     with pytest.raises(AssertionError):
