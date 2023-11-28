@@ -210,11 +210,9 @@ def benchmark_plane_1(noise_ratio: float, hetero: bool, num_points: int) -> Tupl
     x: np.ndarray = generator.multivariate_normal(mean=(0, 0), cov=((0.5, 0.1), (0.1, 0.2)), size=num_points)
 
     y_true: np.ndarray = np.clip(
-        5 * x[:, 0] - 0.5 * np.square(x[:, 1])
-        # + np.square(np.power(x[:, 0], 3))
-        + (5.0 * x / np.max(x) * np.sin(x * -2.5 * np.pi)).sum(axis=1),
-        -10,
-        10,
+        a=5 * x[:, 0] - 0.5 * np.square(x[:, 1]) + (5.0 * x / np.max(x) * np.sin(x * -2.5 * np.pi)).sum(axis=1),
+        a_min=-10,
+        a_max=10,
     )
 
     scale: np.ndarray
