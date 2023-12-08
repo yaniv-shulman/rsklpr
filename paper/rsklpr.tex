@@ -21,9 +21,8 @@
 
 \linenumbers
 
-\DeclareMathOperator*{\argmax}{arg\,max}
-\DeclareMathOperator*{\argmin}{arg\,min}
 \DeclareMathOperator*{\E}{\mathbb{E}}
+\graphicspath{ {./graphics/} }
 
 \begin{document}
 
@@ -114,6 +113,13 @@ K_{\mathcal{D}} \left((x,y),(x', y') ; H_1, H_2 \right) &= K_1(x,x' ; H_1) K_2 \
 \end{align}
 
 Where $K_1: \mathbb{R}^d \times \mathbb{R}^d \rightarrow \mathbb{R}_+$ and $K_2: \mathcal{D}^2 \rightarrow \mathbb{R}_+$ are positive definite kernels and $H_1$, $H_2$ are the sets of bandwidth parameters. The purpose of $K_1$ is to account for the distance between a neighbor to the local regression target and therefore may be chosen as any of the kernel functions that are typically used in equation \eqref{loss_lpr}. The role of $K_2$ is described now in more detail as this is the main idea proposed in this work. Using $K_2$, the method performs robust regression by detecting local outliers in an unsupervised manner and assigns them with lower weights. There are many methods that could be employed to estimate the extent to which a data point is a local outlier however in this work it is estimated in one of the following two ways.
+
+\begin{figure}[h]
+\caption{Loss function, assuming a standard quadratic function of the residual, a standard normal density for $K_2$ and excluding the $K_1$ distance kernel scaling.}
+\centering
+\includegraphics[width=0.5\textwidth]{loss_2d.png}
+\end{figure}
+
 \subsection*{Conditional density} 
 The first proposed method for $K_2$ is proportional to the estimated localized conditional marginal distribution of the response variable at the location:
 \begin{align}
@@ -138,17 +144,30 @@ Where the joint density can be estimated using the same aforementioned approach.
 
 Regardless of the choice of kernel, the hyperparameters of this model are similar in essence to the standard local polynomial regression and include the span of included points, the kernels and their associated bandwidths. Note that this estimator can be replaced with a robust alternative and better results are anticipated by doing so however exploring this option is left for future work.
 
+\begin{figure}[t]
+\caption{The plot illustrates the proposed loss function, a number of common robust losses and the standard quadratic residual loss for comparison. It is assumed that that $K_2$ is equivalent to the standard normal density and the $K_1$ distance kernel scaling is excluded. The numbers appended to "rsklpr" indicate how many standard deviations away from the mean the density is calculated. It is evident that the loss is heavily attenuated in regions of low density.}
+\centering
+\includegraphics[width=1.0\textwidth]{losses_1d.png}1
+\end{figure}
+
 \section{Experiments and implementation notes}
 \label{S:Experiments and implementation notes}
-The proposed method was implemented in Python. The distances between pairs are normalized to the range [0,1] in each neighborhood as in \citep{clevland79}. The simple Laplacian kernel $e^{- \, \norm{x-x'}}$ is used for $K_1(x,x';H_1)$ since it gave better and more efficient empirical results in tests than the tricube kernel recommended in \citep{clevland79}. A factorized multidimensional KDE using scaled Gaussian kernels is used for estimating the joint density. Five methods for estimating the bandwidth were used: Scott's rule \cite{scott2015multivariate}, Normal Reference, global LSCV,  local LSCV and local MLCV. Additionally the bandwidth for the predictor's kernel also uses in some of the experiments a simple function of the window size estimated empirically. Certain computations are omitted for efficiency since the local regression in equation \eqref{beta_loss_d} is invariant to the scale of the weights. This includes all scaling constants fixed in a given neighborhood concerning a specific local regression target including the computation of $\hat{f}(y \, | \, x)$ and $\hat{f}(x,y)$ in equations \eqref{cond_kernel_def} and \eqref{joint_kernel_def} respectively. Experiments were performed on a number of synthetic benchmarks to evaluate the effectiveness of the method's linear and quadratic variants in comparison to other methods of the local polynomial regression family including LOWESS and iterative robust LOWESS \cite{seabold2010statsmodels}, local linear and local constant kernel regression \cite{seabold2010statsmodels}, local quadratic regression \cite{localreg} and radial basis function network \cite{localreg}. \newline
 
-The experiments comprise a number settings including various non-linear synthetic curves and planes with added noise. These have variants of dense and sparse data, homoscedastic and heteroscedastic noise characteristics and various neighborhood sizes. The results indicate there is no best universal method and different methods work better in a given setting. However the proposed method offers competitive performance across the board and gives the best results in a large number of settings and in particular in heteroscedastic settings. It is further shown the propsoed method generally improves on it's direct counterparts LOESS/LOWESS and quadratic LPR using a single iteration. In addition it appears far less sensitive to the choice of neighborhood size and has substantial reduced variance in this respect. This last quality makes it an attractive choice since it is more likely for the analyst to select an "appropriate" hyperparameter value when there is no ground truth available.
+\begin{figure}[t]
+\caption{Regression example of synthetically generated 1D data with heteroscedastic noise. Additional experimental results and demonstrations including multivariate settings and bootstrap based confidence intervals are available at \url{https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments/} as interactive Jupyter notebooks \cite{jupyter}}
+\centering
+\includegraphics[width=1.0\textwidth]{example_regression_1d_1.png}1
+\end{figure}
+
+The proposed method was implemented in Python. The distances between pairs are normalized to the range [0,1] in each neighborhood as in \citep{clevland79}. The simple Laplacian kernel $e^{- \, \norm{x-x'}}$ is used for $K_1(x,x';H_1)$ since it gave better and more efficient empirical results in tests than the tricube kernel recommended in \citep{clevland79}. A factorized multidimensional KDE using scaled Gaussian kernels is used for estimating the density. Five methods for estimating the bandwidth were used: Scott's rule \cite{scott2015multivariate}, Normal Reference, global LSCV,  local LSCV and local MLCV. Additionally the bandwidth for the predictor's kernel also uses in some of the experiments a simple function of the window size estimated empirically. Certain computations are omitted for efficiency since the local regression in equation \eqref{beta_loss_d} is invariant to the scale of the weights. This includes all scaling constants fixed in a given neighborhood concerning a specific local regression target including the computation of $\hat{f}(y \, | \, x)$ and $\hat{f}(x,y)$ in equations \eqref{cond_kernel_def} and \eqref{joint_kernel_def} respectively. Experiments were performed on a number of synthetic benchmarks to evaluate the effectiveness of the method's linear and quadratic variants in comparison to other methods of the local polynomial regression family including LOWESS and iterative robust LOWESS \cite{seabold2010statsmodels}, local linear and local constant kernel regression \cite{seabold2010statsmodels}, local quadratic regression \cite{localreg} and radial basis function network \cite{localreg}. \newline
+
+The experiments comprise a number settings including various non-linear synthetic curves and planes with added noise. These have variants of dense and sparse data, homoscedastic and heteroscedastic noise characteristics and various neighborhood sizes. The results indicate there is no best universal method and that different methods work better in a given setting. However, the proposed method offers competitive performance across the board and gives the best results in a large number of settings and in particular in heteroscedastic settings. It is further shown the proposed method generally improves on it's direct counterparts LOESS/LOWESS and quadratic LPR using a single iteration. In addition it appears far less sensitive to the choice of neighborhood size and has substantial reduced variance in this respect. This last quality makes it an attractive choice since it is more likely for the analyst to select an "appropriate" hyperparameter value when there is no ground truth available.
 
 The experimental results are available at \url{https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments/} as interactive Jupyter notebooks \cite{jupyter}. 
 
 \section{Future work and research directions}
 \label{S:Future work and research directions}
-This work proposes a new robust variant of LPR and as such there are many aspects that need to be explored and are left for future work. As the proposed method generalize the standard LPR it does not preclude replacing some of the standard LPR components in equation \eqref{beta_loss_d} with other and robust alternatives including robust methods for bandwidth selection and robust alternatives to the OLS loss. Another avenue for developing this framework is investigating additional kernels $K_D$ and exploring the impact of robust density estimators on performance.
+This work proposes a new robust variant of LPR and as such there are many aspects that need to be explored and are left for future work. As the proposed method generalize the standard LPR it does not preclude replacing some of the standard LPR components in equation \eqref{beta_loss_d} with other and robust alternatives including robust methods for bandwidth selection and robust alternatives to the standard quadratic residual function. Another avenue for developing this framework is investigating additional kernels $K_D$ and exploring the impact of robust density estimators on performance.
 
 \bibliographystyle{abbrv}
 

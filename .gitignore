@@ -1,4 +1,4 @@
-.coverage
+.coverage*
 .ipynb_checkpoints/
 *.html
 .ruff_cache/
