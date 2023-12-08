@@ -12,6 +12,8 @@ observations or far outside the areas where observations exist.
 1. The dependent variable is univariate.
 1. You want a straightforward hassle-free way to tune the model and the smoothness of fit.
 1. You may want to calculate confidence intervals.
+1. You may want to filter noise to recover the original underlying process.
+1. You may want to impute or resample the data. 
 
 If the above use cases hold then this library could be useful for you. Have a look at this notebook
 https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/docs/usage.ipynb for an example of how to use
