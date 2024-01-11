@@ -1,7 +1,7 @@
 # Robust Local Polynomial Regression with Similarity Kernels #
 
 ## TL;DR ##
-This library is useful to perform regression when:
+This library is useful to perform robust locally weighted regression in Python when:
 1. There are no particular assumptions on the underlying function except that it is "reasonably smooth". In particular,
 you don't know which parametric model to specify or if an appropriate model exists. 
 1. There are no particular assumptions on the type and intensity of noise present.
@@ -42,6 +42,10 @@ utilizing the density at the local locations.
 The experimental results and demonstration of the library for various experimental settings are available as interactive
 Jupyter notebooks at https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments/
 
+### KDE Implementation ###
+KDE implementation is a copy of the code from statsmodels https://www.statsmodels.org/stable/index.html. The copy is done to
+remove statsmodels as a dependency of this package since statsmodels is quite heavy and pulls a lot of additional
+packages.
 
 ## Contribution and feedback ##
 The paper is work in progress and the library in early stages of development but both are in a useful state.
