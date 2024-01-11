@@ -3,10 +3,11 @@ from numbers import Number
 from typing import Optional, Sequence, Tuple, Callable, List, Union, Any, Dict
 
 import numpy as np
-import statsmodels.api as sm
 from numpy.random import default_rng as np_defualt_rng
 from sklearn.neighbors import NearestNeighbors
-from statsmodels.nonparametric.bandwidths import select_bandwidth
+
+from rsklpr.kde_statsmodels_impl.bandwidths import select_bandwidth
+from rsklpr.kde_statsmodels_impl.kernel_density import KDEMultivariate
 
 
 def _weighted_local_regression(
@@ -252,7 +253,7 @@ class Rsklpr:
                     )
                     subsample = data[sample_idx, :]
 
-                return sm.nonparametric.KDEMultivariate(  # type: ignore [no-any-return]
+                return KDEMultivariate(  # type: ignore [no-any-return]
                     data=subsample,
                     var_type="c" * _dim_data(data=subsample),
                     bw="cv_ls",
@@ -289,7 +290,7 @@ class Rsklpr:
 
         var_type: str = "c" * _dim_data(data=n_x_neighbors)
 
-        kde_marginal_x: sm.nonparametric.KDEMultivariate = sm.nonparametric.KDEMultivariate(
+        kde_marginal_x: KDEMultivariate = KDEMultivariate(
             data=n_x_neighbors,
             var_type=var_type,
             bw=self._bw1
@@ -299,7 +300,7 @@ class Rsklpr:
             else bw1_global,
         )
 
-        kde_joint: sm.nonparametric.KDEMultivariate = sm.nonparametric.KDEMultivariate(
+        kde_joint: KDEMultivariate = KDEMultivariate(
             data=n_xy_neighbors,
             var_type=var_type + "c",
             bw=self._bw2
