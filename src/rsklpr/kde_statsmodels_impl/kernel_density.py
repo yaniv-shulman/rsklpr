@@ -26,8 +26,8 @@ References
         Categorical Predictor Variables in Nonparametric Regression
         Models", 2006, Econometric Reviews 25, 523-544
 
-A clone of KDE implementation from statsmodels https://www.statsmodels.org/stable/index.html. The clone is done to
-remove statsmodels from a dependency of this package since statsmodels is quite heavy and pulls a lot of additional
+A copy of KDE implementation from statsmodels https://www.statsmodels.org/stable/index.html. The copy is done to
+remove statsmodels as a dependency of this package since statsmodels is quite heavy and pulls a lot of additional
 packages.
 """
 import numpy as np

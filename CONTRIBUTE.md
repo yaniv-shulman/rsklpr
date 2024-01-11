@@ -18,7 +18,6 @@ Contributions and feedback are most welcome to the paper and code in any area re
 - Adding and improving functions in the implementation:
   - Proposing and experimenting with additional kernels
   - Improving numerical stability
-  - Removing statsmodels dependency
   - Implementing in other languages
   - Speed and multiprocessing
 - Productionzing the code:
