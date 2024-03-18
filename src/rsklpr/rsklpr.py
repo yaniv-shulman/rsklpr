@@ -1,3 +1,4 @@
+import math
 import warnings
 from numbers import Number
 from typing import Optional, Sequence, Tuple, Callable, List, Union, Any, Dict
@@ -10,13 +11,41 @@ from rsklpr.kde_statsmodels_impl.bandwidths import select_bandwidth
 from rsklpr.kde_statsmodels_impl.kernel_density import KDEMultivariate
 
 
+def _mean_square_error(e: np.ndarray) -> float:
+    return float(np.mean(np.sum(e**2)))
+
+
+def _mean_abs_error(e: np.ndarray) -> float:
+    return float(np.mean(np.abs(e)))
+
+
+def _bias_error(e: np.ndarray) -> float:
+    return float(np.mean(e))
+
+
+def _std_error(e: np.ndarray) -> float:
+    return float(np.std(e))
+
+
+def _r_squared(beta: np.ndarray, x_w: np.ndarray, y_w: np.ndarray, y: np.ndarray, weights: np.ndarray) -> float:
+    if y.shape != weights.shape:
+        raise ValueError("y and weights must have the same shape")
+
+    y_hat: np.ndarray = x_w @ beta
+    e: np.ndarray = y_hat - y_w
+    sse: float = float(e.T @ e)
+    sst_centered: float = float(np.sum(weights * (y - np.average(y, weights=weights)) ** 2))
+    return 1.0 - sse / sst_centered
+
+
 def _weighted_local_regression(
     x_0: np.ndarray,
     x: np.ndarray,
     y: np.ndarray,
     weights: np.ndarray,
     degree: int,
-):
+    calculate_r_squared: bool = False,
+) -> Tuple[np.ndarray, Optional[float]]:
     """
     Calculates the closed form matrix equations weighted constant or linear local regression centered at a point.
 
@@ -32,8 +61,14 @@ def _weighted_local_regression(
     """
     if degree not in (0, 1):
         raise ValueError(f"Degree {degree} is not supported. Supported values are 0 and 1.")
+
+    if x.ndim != 2:
+        raise ValueError("x must be a two dimensional array.")
+
     y = y.reshape((x.shape[0]), 1)
+    weights = weights.reshape(y.shape)
     bias: np.ndarray = np.ones(shape=(x.shape[0], 1))
+
     x_mat: np.ndarray = (
         np.concatenate(
             [bias, x - x_0],
@@ -43,8 +78,17 @@ def _weighted_local_regression(
         else bias
     )
 
-    w_mat: np.ndarray = np.diag(np.squeeze(weights))
-    return (np.linalg.inv(x_mat.T @ w_mat @ x_mat) @ x_mat.T @ w_mat @ y)[0]
+    w_sqrt: np.ndarray = np.sqrt(weights)
+    y_w: np.ndarray = w_sqrt * y
+    x_mat_w: np.ndarray = w_sqrt * x_mat
+    del x_mat, bias
+    beta: np.ndarray = np.linalg.inv(x_mat_w.T @ x_mat_w) @ x_mat_w.T @ y_w
+    r_squared: Optional[float] = None
+
+    if calculate_r_squared:
+        r_squared = _r_squared(beta=beta, x_w=x_mat_w, y_w=y_w, y=y, weights=weights)
+
+    return beta[0], r_squared
 
 
 def _dim_data(data: np.ndarray) -> int:
@@ -217,6 +261,12 @@ class Rsklpr:
         self._rnd_gen: np.random.Generator = np_defualt_rng(seed=seed)
         self._x: np.ndarray = np.ndarray(shape=())
         self._y: np.ndarray = np.ndarray(shape=())
+        self._mean_square_error: Optional[float] = None
+        self._root_mean_square_error: Optional[float] = None
+        self._mean_abs_error: Optional[float] = None
+        self._bias_error: Optional[float] = None
+        self._std_error: Optional[float] = None
+        self._r_squared: np.ndarray = np.empty(())
         self._nearest_neighbors: NearestNeighbors
 
     def _calculate_bandwidth(  # type: ignore [return]
@@ -370,25 +420,44 @@ class Rsklpr:
     def _estimate(
         self,
         x: Union[np.ndarray, Sequence[Number], Sequence[Sequence[Number]], float],
+        metrics: Optional[List[str]] = None,
     ) -> np.ndarray:
         """
         Estimates the value of m(x) at the locations.
 
         Args:
             x: Predictor values at locations to estimate m(x), these should be at the original range of the predictor.
+            metrics: Optional error metrics to calculate. Options are 'mean_square', 'mean_abs', 'root_mean_square',
+                'bias', 'std', 'r_squared' and 'mean_r_squared'. The metrics are made available through attributes on
+                the model object having similar corresponding names. Note that x must be exactly the same as the
+                training data provided to 'fit' if any metrics are specified.
 
         Returns:
             The estimated values of m(x) at the locations.
         """
         x_arr: np.ndarray
         x_arr, _ = self._check_and_reshape_inputs(x=x)
-        y_hat: np.ndarray = np.empty((x_arr.shape[0]))
+        n: int = x_arr.shape[0]
+
+        if metrics is not None and not np.allclose(a=x_arr, b=self._x):
+            raise ValueError(
+                "When specifying metrics the provided predictor values must be the same as the values "
+                "provided to 'fit'."
+            )
+
+        y_hat: np.ndarray = np.empty((n))
         bw1_global: Optional[Sequence[float]]
         bw2_global: Optional[Sequence[float]]
         bw1_global, bw2_global = self._get_bandwidth_global(k2=self._k2)
+        calculate_r_squared: bool = False
+
+        if metrics is not None and ("r_squared" in metrics or "mean_r_squared" in metrics):
+            self._r_squared = np.empty(shape=(n))
+            calculate_r_squared = True
+
         i: int
 
-        for i in range(x_arr.shape[0]):
+        for i in range(n):
             dist_n_x_neighbors: np.ndarray
             indices: np.ndarray
             dist_n_x_neighbors, indices = self._nearest_neighbors.kneighbors(X=x_arr[i].reshape(1, -1))
@@ -411,13 +480,35 @@ class Rsklpr:
                     bw2_global=bw2_global,
                 )
 
-            y_hat[i] = _weighted_local_regression(
+            r_squared: Optional[float]
+
+            y_hat[i], r_squared = _weighted_local_regression(
                 x_0=x_arr[i].reshape(1, -1),
                 x=n_x_neighbors,
                 y=self._y[indices].T,
                 weights=weights,
                 degree=self._degree,
+                calculate_r_squared=calculate_r_squared,
             )
+
+            if calculate_r_squared:
+                self._r_squared[i] = r_squared
+
+        if metrics is not None:
+            errors: np.ndarray = y_hat - self._y
+
+            if "mean_square" in metrics or "root_mean_square" in metrics:
+                self._mean_square_error = float(_mean_square_error(e=errors))
+
+                if "root_mean_square" in metrics:
+                    self._root_mean_square_error = math.sqrt(self._mean_square_error)
+
+            if "mean_abs" in metrics:
+                self._mean_abs_error = float(_mean_abs_error(e=errors))
+            if "bias" in metrics:
+                self._bias_error = float(_bias_error(e=errors))
+            if "std" in metrics:
+                self._std_error = float(_std_error(e=errors))
 
         return y_hat
 
@@ -511,8 +602,6 @@ class Rsklpr:
         y_arr: np.ndarray
         x_arr, y_arr = self._check_and_reshape_inputs(x=x, y=y)  # type: ignore [assignment]
         self._x = x_arr
-        self._min_y = y_arr.min()
-        self._max_y = y_arr.max()
         self._y = y_arr
         metric_params: Dict[str, Any]
         p: float
@@ -614,17 +703,25 @@ class Rsklpr:
 
         return x, y
 
-    def predict(self, x: Union[np.ndarray, Sequence[Number], Sequence[Sequence[Number]], float]) -> np.ndarray:
+    def predict(
+        self,
+        x: Union[np.ndarray, Sequence[Number], Sequence[Sequence[Number]], float],
+        metrics: Optional[List[str]] = None,
+    ) -> np.ndarray:
         """
         Predicts estimates of m(x) at the specified locations. Must call fit with the training data first.
 
         Args:
             x: The locations to predict for.
+            metrics: Optional error metrics to calculate. Options are 'mean_square', 'mean_abs', 'root_mean_square',
+                'bias', 'std', 'r_squared' and 'mean_r_squared'. The metrics are made available through attributes on
+                the model object having similar corresponding names. Note that x must be exactly the same as the
+                training data provided to 'fut' if any metrics are specified.
 
         Returns:
             The estimated responses at the corresponding locations.x
         """
-        return self._estimate(x=x)
+        return self._estimate(x=x, metrics=metrics)
 
     def predict_bootstrap(
         self,
@@ -661,6 +758,7 @@ class Rsklpr:
         self,
         x: Union[np.ndarray, Sequence[Number], Sequence[Sequence[Number]]],
         y: Union[np.ndarray, Sequence[Number]],
+        metrics: Optional[List[str]] = None,
     ) -> np.ndarray:
         """
         Fits the provided dataset and estimates the response at the locations of x.
@@ -668,11 +766,14 @@ class Rsklpr:
         Args:
             x: The predictor values
             y: The response values at the corresponding predictor locations.
+            metrics: Optional error metrics to calculate. Options are 'mean_square', 'mean_abs', 'root_mean_square',
+                'bias', 'std', 'r_squared' and 'mean_r_squared'. The metrics are made available through attributes on
+                the model object having similar corresponding names.
 
         Returns:
             The estimated responses at the corresponding locations.
         """
         self.fit(x=x, y=y)
-        return self.predict(x=x)
+        return self.predict(x=x, metrics=metrics)
 
     __call__ = fit_and_predict

@@ -1,11 +1,20 @@
-from typing import List
+from typing import List, Optional
 
 import numpy as np
 import pytest
+import statsmodels.api as sm
 from pytest_mock import MockerFixture
+from statsmodels.regression.linear_model import RegressionResults
 
 import rsklpr
-from rsklpr.rsklpr import Rsklpr, _laplacian_normalized, _tricube_normalized, _dim_data
+from rsklpr.rsklpr import (
+    Rsklpr,
+    _laplacian_normalized,
+    _tricube_normalized,
+    _dim_data,
+    _weighted_local_regression,
+    _r_squared,
+)
 
 _rng: np.random.Generator = np.random.default_rng(seed=12)
 
@@ -427,3 +436,96 @@ def test_tricube_normalized_raises_when_inputs_negative() -> None:
     u: np.ndarray = np.linspace(start=-0.1, stop=5)
     with pytest.raises(AssertionError):
         _tricube_normalized(u=u)
+
+
+@pytest.mark.parametrize(
+    argnames="x_0",
+    argvalues=[_rng.uniform(low=-10, high=10, size=1) for i in range(3)],
+)
+@pytest.mark.parametrize(
+    argnames="x",
+    argvalues=[
+        (
+            np.linspace(start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50)
+            + _rng.uniform(low=-0.001, high=0.001, size=50)
+        ).reshape((-1, 1))
+        for _ in range(2)
+    ],
+)
+@pytest.mark.parametrize(
+    argnames="y",
+    argvalues=[
+        np.linspace(start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50)
+        + _rng.uniform(low=-0.001, high=0.001, size=50)
+        for i in range(2)
+    ]
+    + [
+        np.square(np.linspace(start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50)),
+        np.sin(np.linspace(start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50)),
+    ],
+)
+@pytest.mark.parametrize(
+    argnames="weights",
+    argvalues=[
+        _rng.uniform(low=0.01, high=1, size=50),
+        np.ones(shape=50),
+        np.clip(_rng.normal(loc=0.5, scale=0.2, size=50), a_min=0, a_max=None),
+        np.linspace(start=0.01, stop=3, num=50),
+    ],
+)
+def test_weighted_local_regression_expected_values(
+    x_0: np.ndarray, x: np.ndarray, y: np.ndarray, weights: np.ndarray
+) -> None:
+    actual: np.ndarray
+    r_squared: Optional[float]
+
+    actual, r_squared = _weighted_local_regression(
+        x_0=x_0, x=x, y=y, weights=weights, degree=1, calculate_r_squared=True
+    )
+
+    x_sm: np.ndarray = sm.add_constant(x)
+    model_sm = sm.WLS(endog=y, exog=x_sm, weights=weights)
+    results_sm: RegressionResults = model_sm.fit()
+    assert float(actual) == pytest.approx(float(results_sm.params[0] + x_0 * results_sm.params[1]))
+    assert r_squared == pytest.approx(float(results_sm.rsquared))
+
+
+def test_weighted_local_regression_r_Squared_is_none() -> None:
+    x: np.ndarray = (
+        np.linspace(start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50)
+        + _rng.uniform(low=-0.001, high=0.001, size=50)
+    ).reshape((-1, 1))
+
+    y: np.ndarray = (
+        np.linspace(start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50)
+        + _rng.uniform(low=-0.001, high=0.001, size=50)
+    ).reshape((-1, 1))
+
+    weights: np.ndarray = _rng.uniform(low=0.01, high=1, size=50).reshape((-1, 1))
+
+    actual: np.ndarray
+    r_squared: Optional[float]
+
+    actual, r_squared = _weighted_local_regression(
+        x_0=x.mean(), x=x, y=y, weights=weights, degree=1, calculate_r_squared=False
+    )
+
+    assert r_squared is None
+
+
+def test_r_squared_raises_when_y_and_weights_different_shapes() -> None:
+    x: np.ndarray = (
+        np.linspace(start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50)
+        + _rng.uniform(low=-0.001, high=0.001, size=50)
+    ).reshape((-1, 1))
+
+    y: np.ndarray = (
+        np.linspace(start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50)
+        + _rng.uniform(low=-0.001, high=0.001, size=50)
+    ).reshape((-1, 1))
+
+    weights: np.ndarray = _rng.uniform(low=0.01, high=1, size=50)
+
+    with pytest.raises(ValueError) as excinfo:
+        _r_squared(beta=np.asarray([12.3, 100.0]), x_w=x, y_w=y, y=y, weights=weights)
+        assert "y and weights must have the same shape" in str(excinfo.value)
