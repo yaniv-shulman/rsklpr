@@ -10,21 +10,32 @@ from sklearn.neighbors import NearestNeighbors
 from rsklpr.kde_statsmodels_impl.bandwidths import select_bandwidth
 from rsklpr.kde_statsmodels_impl.kernel_density import KDEMultivariate
 
+all_metrics: List[str] = [
+    "residuals",
+    "mean_square",
+    "mean_abs",
+    "root_mean_square",
+    "bias",
+    "std",
+    "r_squared",
+    "mean_r_squared",
+]
 
-def _mean_square_error(e: np.ndarray) -> float:
-    return float(np.mean(np.sum(e**2)))
+
+def _mean_square_error(residuals: np.ndarray) -> float:
+    return float(np.mean(residuals**2))
 
 
-def _mean_abs_error(e: np.ndarray) -> float:
-    return float(np.mean(np.abs(e)))
+def _mean_abs_error(residuals: np.ndarray) -> float:
+    return float(np.mean(np.abs(residuals)))
 
 
-def _bias_error(e: np.ndarray) -> float:
-    return float(np.mean(e))
+def _bias_error(residuals: np.ndarray) -> float:
+    return float(np.mean(residuals))
 
 
-def _std_error(e: np.ndarray) -> float:
-    return float(np.std(e))
+def _std_error(residuals: np.ndarray) -> float:
+    return float(np.std(residuals))
 
 
 def _r_squared(beta: np.ndarray, x_w: np.ndarray, y_w: np.ndarray, y: np.ndarray, weights: np.ndarray) -> float:
@@ -261,12 +272,14 @@ class Rsklpr:
         self._rnd_gen: np.random.Generator = np_defualt_rng(seed=seed)
         self._x: np.ndarray = np.ndarray(shape=())
         self._y: np.ndarray = np.ndarray(shape=())
+        self._residuals: np.ndarray = np.asarray([])
         self._mean_square_error: Optional[float] = None
         self._root_mean_square_error: Optional[float] = None
         self._mean_abs_error: Optional[float] = None
         self._bias_error: Optional[float] = None
         self._std_error: Optional[float] = None
-        self._r_squared: np.ndarray = np.empty(())
+        self._r_squared: np.ndarray = np.asarray([])
+        self._mean_r_squared: Optional[float] = None
         self._nearest_neighbors: NearestNeighbors
 
     def _calculate_bandwidth(  # type: ignore [return]
@@ -420,7 +433,7 @@ class Rsklpr:
     def _estimate(
         self,
         x: Union[np.ndarray, Sequence[Number], Sequence[Sequence[Number]], float],
-        metrics: Optional[List[str]] = None,
+        metrics: Optional[Union[str, Sequence[str]]] = None,
     ) -> np.ndarray:
         """
         Estimates the value of m(x) at the locations.
@@ -428,32 +441,31 @@ class Rsklpr:
         Args:
             x: Predictor values at locations to estimate m(x), these should be at the original range of the predictor.
             metrics: Optional error metrics to calculate. Options are 'mean_square', 'mean_abs', 'root_mean_square',
-                'bias', 'std', 'r_squared' and 'mean_r_squared'. The metrics are made available through attributes on
-                the model object having similar corresponding names. Note that x must be exactly the same as the
-                training data provided to 'fit' if any metrics are specified.
+                'bias', 'std', 'r_squared', 'mean_r_squared' and 'all'. Multiple metrics can be specified as a Sequence,
+                e.g a List. The metrics are made available through attributes on the model object having similar
+                corresponding names. Note that x must be exactly the same as the training data provided to 'fit' if any
+                metrics are specified.
 
         Returns:
             The estimated values of m(x) at the locations.
         """
         x_arr: np.ndarray
         x_arr, _ = self._check_and_reshape_inputs(x=x)
+        self._check_specified_metrics(metrics=metrics, x_arr=x_arr)
         n: int = x_arr.shape[0]
-
-        if metrics is not None and not np.allclose(a=x_arr, b=self._x):
-            raise ValueError(
-                "When specifying metrics the provided predictor values must be the same as the values "
-                "provided to 'fit'."
-            )
-
         y_hat: np.ndarray = np.empty((n))
         bw1_global: Optional[Sequence[float]]
         bw2_global: Optional[Sequence[float]]
         bw1_global, bw2_global = self._get_bandwidth_global(k2=self._k2)
         calculate_r_squared: bool = False
 
-        if metrics is not None and ("r_squared" in metrics or "mean_r_squared" in metrics):
-            self._r_squared = np.empty(shape=(n))
-            calculate_r_squared = True
+        if metrics is not None:
+            if isinstance(metrics, str):
+                metrics = [metrics]
+
+            if "r_squared" in metrics or "mean_r_squared" in metrics:
+                self._r_squared = np.empty(shape=(n,))
+                calculate_r_squared = True
 
         i: int
 
@@ -495,22 +507,39 @@ class Rsklpr:
                 self._r_squared[i] = r_squared
 
         if metrics is not None:
-            errors: np.ndarray = y_hat - self._y
+            residuals: np.ndarray = y_hat - self._y
+
+            if "residuals" in metrics:
+                self._residuals = residuals
 
             if "mean_square" in metrics or "root_mean_square" in metrics:
-                self._mean_square_error = float(_mean_square_error(e=errors))
+                self._mean_square_error = float(_mean_square_error(residuals=residuals))
 
                 if "root_mean_square" in metrics:
                     self._root_mean_square_error = math.sqrt(self._mean_square_error)
 
             if "mean_abs" in metrics:
-                self._mean_abs_error = float(_mean_abs_error(e=errors))
+                self._mean_abs_error = float(_mean_abs_error(residuals=residuals))
             if "bias" in metrics:
-                self._bias_error = float(_bias_error(e=errors))
+                self._bias_error = float(_bias_error(residuals=residuals))
             if "std" in metrics:
-                self._std_error = float(_std_error(e=errors))
+                self._std_error = float(_std_error(residuals=residuals))
 
         return y_hat
+
+    def _check_specified_metrics(self, metrics: Optional[Sequence[str]], x_arr: np.ndarray) -> None:
+        if metrics is not None:
+            if not np.allclose(a=x_arr, b=self._x):
+                raise ValueError(
+                    "When specifying metrics the provided predictor values must be the same as the values "
+                    "provided to 'fit'."
+                )
+
+            metric: str
+
+            for metric in metrics:
+                if metric not in all_metrics:
+                    raise ValueError(f"Unknown error metric {metric}. Available metrics are {all_metrics}")
 
     def _estimate_bootstrap(
         self, x: Union[np.ndarray, Sequence[Number], Sequence[Sequence[Number]], float], bootstrap_iterations: int
@@ -706,7 +735,7 @@ class Rsklpr:
     def predict(
         self,
         x: Union[np.ndarray, Sequence[Number], Sequence[Sequence[Number]], float],
-        metrics: Optional[List[str]] = None,
+        metrics: Optional[Union[str, Sequence[str]]] = None,
     ) -> np.ndarray:
         """
         Predicts estimates of m(x) at the specified locations. Must call fit with the training data first.
@@ -714,9 +743,10 @@ class Rsklpr:
         Args:
             x: The locations to predict for.
             metrics: Optional error metrics to calculate. Options are 'mean_square', 'mean_abs', 'root_mean_square',
-                'bias', 'std', 'r_squared' and 'mean_r_squared'. The metrics are made available through attributes on
-                the model object having similar corresponding names. Note that x must be exactly the same as the
-                training data provided to 'fut' if any metrics are specified.
+                'bias', 'std', 'r_squared', 'mean_r_squared' and 'all'. Multiple metrics can be specified as a Sequence,
+                e.g a List. The metrics are made available through attributes on the model object having similar
+                corresponding names. Note that x must be exactly the same as the training data provided to 'fit' if any
+                metrics are specified.
 
         Returns:
             The estimated responses at the corresponding locations.x
@@ -767,8 +797,10 @@ class Rsklpr:
             x: The predictor values
             y: The response values at the corresponding predictor locations.
             metrics: Optional error metrics to calculate. Options are 'mean_square', 'mean_abs', 'root_mean_square',
-                'bias', 'std', 'r_squared' and 'mean_r_squared'. The metrics are made available through attributes on
-                the model object having similar corresponding names.
+                'bias', 'std', 'r_squared', 'mean_r_squared' and 'all'. Multiple metrics can be specified as a Sequence,
+                e.g a List. The metrics are made available through attributes on the model object having similar
+                corresponding names. Note that x must be exactly the same as the training data provided to 'fit' if any
+                metrics are specified.
 
         Returns:
             The estimated responses at the corresponding locations.
@@ -777,3 +809,35 @@ class Rsklpr:
         return self.predict(x=x, metrics=metrics)
 
     __call__ = fit_and_predict
+
+    @property
+    def residuals(self) -> np.ndarray:
+        return self._residuals
+
+    @property
+    def mean_square_error(self) -> Optional[float]:
+        return self._mean_square_error
+
+    @property
+    def root_mean_square_error(self) -> Optional[float]:
+        return self._root_mean_square_error
+
+    @property
+    def mean_abs_error(self) -> Optional[float]:
+        return self._mean_abs_error
+
+    @property
+    def bias_error(self) -> Optional[float]:
+        return self._bias_error
+
+    @property
+    def std_error(self) -> Optional[float]:
+        return self._std_error
+
+    @property
+    def r_squared(self) -> np.ndarray:
+        return self._r_squared
+
+    @property
+    def mean_r_squared(self) -> Optional[float]:
+        return self._mean_r_squared

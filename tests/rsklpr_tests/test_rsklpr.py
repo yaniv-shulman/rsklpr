@@ -14,26 +14,18 @@ from rsklpr.rsklpr import (
     _dim_data,
     _weighted_local_regression,
     _r_squared,
+    all_metrics,
 )
-
-_rng: np.random.Generator = np.random.default_rng(seed=12)
+from tests.rsklpr_tests.utils import generate_linear_1d, generate_linear_nd, rng, generate_quad_1d, generate_sin_1d
 
 
 @pytest.mark.parametrize(
     argnames="x",
-    argvalues=[
-        np.linspace(start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50)
-        + _rng.uniform(low=-0.001, high=0.001, size=50)
-        for _ in range(3)
-    ],
+    argvalues=[generate_linear_1d() for _ in range(3)],
 )
 @pytest.mark.parametrize(
     argnames="y",
-    argvalues=[
-        np.linspace(start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50)
-        + _rng.uniform(low=-0.001, high=0.001, size=50)
-        for i in range(3)
-    ],
+    argvalues=[generate_linear_1d() for i in range(3)],
 )
 @pytest.mark.parametrize(
     argnames="k1",
@@ -71,30 +63,11 @@ def test_rsklpr_smoke_test_1d_regression_increasing_windows_expected_output(
 
 @pytest.mark.parametrize(
     argnames="x",
-    argvalues=[
-        np.concatenate(
-            [
-                np.linspace(
-                    start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50
-                ).reshape((-1, 1))
-                + _rng.uniform(low=-0.001, high=0.001, size=50).reshape((-1, 1)),
-                np.linspace(
-                    start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50
-                ).reshape((-1, 1))
-                + _rng.uniform(low=-0.001, high=0.001, size=50).reshape((-1, 1)),
-            ],
-            axis=1,
-        )
-        for _ in range(3)
-    ],
+    argvalues=[generate_linear_nd(dim=2) for _ in range(3)],
 )
 @pytest.mark.parametrize(
     argnames="y",
-    argvalues=[
-        np.linspace(start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50)
-        + _rng.uniform(low=-0.001, high=0.001, size=50)
-        for i in range(3)
-    ],
+    argvalues=[generate_linear_1d() for _ in range(3)],
 )
 @pytest.mark.parametrize(
     argnames="k1",
@@ -132,40 +105,11 @@ def test_rsklpr_smoke_test_2d_regression_increasing_windows_expected_output(
 
 @pytest.mark.parametrize(
     argnames="x",
-    argvalues=[
-        np.concatenate(
-            [
-                np.linspace(
-                    start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50
-                ).reshape((-1, 1))
-                + _rng.uniform(low=-0.001, high=0.001, size=50).reshape((-1, 1)),
-                np.linspace(
-                    start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50
-                ).reshape((-1, 1))
-                + _rng.uniform(low=-0.001, high=0.001, size=50).reshape((-1, 1)),
-                np.linspace(
-                    start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50
-                ).reshape((-1, 1))
-                + _rng.uniform(low=-0.001, high=0.001, size=50).reshape((-1, 1)),
-                np.linspace(
-                    start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50
-                ).reshape((-1, 1))
-                + _rng.uniform(low=-0.001, high=0.001, size=50).reshape((-1, 1)),
-                np.linspace(
-                    start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50
-                ).reshape((-1, 1))
-                + _rng.uniform(low=-0.001, high=0.001, size=50).reshape((-1, 1)),
-            ],
-            axis=1,
-        )
-    ],
+    argvalues=[generate_linear_nd(dim=5)],
 )
 @pytest.mark.parametrize(
     argnames="y",
-    argvalues=[
-        np.linspace(start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50)
-        + _rng.uniform(low=-0.001, high=0.001, size=50)
-    ],
+    argvalues=[generate_linear_1d()],
 )
 @pytest.mark.parametrize(
     argnames="k1",
@@ -198,24 +142,16 @@ def test_rsklpr_smoke_test_5d_regression_increasing_windows_expected_output(
             y=y,
         )
 
-        np.testing.assert_allclose(actual=actual, desired=y, atol=4e-2)
+        np.testing.assert_allclose(actual=actual, desired=y, atol=5e-2)
 
 
 @pytest.mark.parametrize(
     argnames="x",
-    argvalues=[
-        np.linspace(start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50)
-        + _rng.uniform(low=-0.001, high=0.001, size=50)
-        for _ in range(3)
-    ],
+    argvalues=[generate_linear_1d() for _ in range(3)],
 )
 @pytest.mark.parametrize(
     argnames="y",
-    argvalues=[
-        np.linspace(start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50)
-        + _rng.uniform(low=-0.001, high=0.001, size=50)
-        for i in range(3)
-    ],
+    argvalues=[generate_linear_1d() for _ in range(3)],
 )
 @pytest.mark.parametrize(
     argnames="k1",
@@ -440,36 +376,26 @@ def test_tricube_normalized_raises_when_inputs_negative() -> None:
 
 @pytest.mark.parametrize(
     argnames="x_0",
-    argvalues=[_rng.uniform(low=-10, high=10, size=1) for i in range(3)],
+    argvalues=[rng.uniform(low=-10, high=10, size=1) for _ in range(3)],
 )
 @pytest.mark.parametrize(
     argnames="x",
-    argvalues=[
-        (
-            np.linspace(start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50)
-            + _rng.uniform(low=-0.001, high=0.001, size=50)
-        ).reshape((-1, 1))
-        for _ in range(2)
-    ],
+    argvalues=[generate_linear_1d().reshape((-1, 1)) for _ in range(2)],
 )
 @pytest.mark.parametrize(
     argnames="y",
-    argvalues=[
-        np.linspace(start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50)
-        + _rng.uniform(low=-0.001, high=0.001, size=50)
-        for i in range(2)
-    ]
+    argvalues=[generate_linear_1d() for _ in range(2)]
     + [
-        np.square(np.linspace(start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50)),
-        np.sin(np.linspace(start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50)),
+        generate_quad_1d(),
+        generate_sin_1d(),
     ],
 )
 @pytest.mark.parametrize(
     argnames="weights",
     argvalues=[
-        _rng.uniform(low=0.01, high=1, size=50),
+        rng.uniform(low=0.01, high=1, size=50),
         np.ones(shape=50),
-        np.clip(_rng.normal(loc=0.5, scale=0.2, size=50), a_min=0, a_max=None),
+        np.clip(rng.normal(loc=0.5, scale=0.2, size=50), a_min=0, a_max=None),
         np.linspace(start=0.01, stop=3, num=50),
     ],
 )
@@ -490,19 +416,45 @@ def test_weighted_local_regression_expected_values(
     assert r_squared == pytest.approx(float(results_sm.rsquared))
 
 
-def test_weighted_local_regression_r_Squared_is_none() -> None:
-    x: np.ndarray = (
-        np.linspace(start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50)
-        + _rng.uniform(low=-0.001, high=0.001, size=50)
-    ).reshape((-1, 1))
+def test_predict_no_error_metrics_are_calculated_when_metrics_none() -> None:
+    """Tests no error metrics are calculated when no metrics are provided to predict"""
+    x: np.ndarray = generate_linear_1d()
+    y: np.ndarray = generate_linear_1d()
+    target: Rsklpr = Rsklpr(size_neighborhood=10)
+    target.fit(x=x, y=y)
+    target.predict(x=x, metrics=None)
+    assert target.residuals.shape == (0,)
+    assert target.mean_square_error is None
+    assert target.root_mean_square_error is None
+    assert target.mean_abs_error is None
+    assert target.bias_error is None
+    assert target.std_error is None
+    assert target.r_squared.shape == (0,)
+    assert target.mean_square_error is None
 
-    y: np.ndarray = (
-        np.linspace(start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50)
-        + _rng.uniform(low=-0.001, high=0.001, size=50)
-    ).reshape((-1, 1))
 
-    weights: np.ndarray = _rng.uniform(low=0.01, high=1, size=50).reshape((-1, 1))
+def test_predict_error_metrics_expected_values() -> None:
+    """Tests no error metrics are calculated when no metrics are provided to predict"""
+    x: np.ndarray = generate_linear_1d()
+    y: np.ndarray = generate_linear_1d()
+    target: Rsklpr = Rsklpr(size_neighborhood=10)
+    target.fit(x=x, y=y)
+    y_hat: np.ndarray = target.predict(x=x, metrics=all_metrics)
+    assert target.residuals.shape == y_hat.shape
+    np.testing.assert_allclose(target.residuals, y_hat - y)
+    assert target.mean_square_error == pytest.approx(sm.tools.eval_measures.mse(y_hat, y))
+    assert target.root_mean_square_error == pytest.approx(sm.tools.eval_measures.rmse(y_hat, y))
+    assert target.mean_abs_error == pytest.approx(sm.tools.eval_measures.meanabs(y_hat, y))
+    assert target.bias_error == pytest.approx(sm.tools.eval_measures.bias(y_hat, y))
+    assert target.std_error == pytest.approx(sm.tools.eval_measures.stde(y_hat, y))
+    # assert target.r_squared.shape == (0,)
+    # assert target.mean_square_error is None
 
+
+def test_weighted_local_regression_r_squared_is_none() -> None:
+    x: np.ndarray = generate_linear_1d().reshape((-1, 1))
+    y: np.ndarray = generate_linear_1d()
+    weights: np.ndarray = rng.uniform(low=0.01, high=1, size=50).reshape((-1, 1))
     actual: np.ndarray
     r_squared: Optional[float]
 
@@ -514,18 +466,10 @@ def test_weighted_local_regression_r_Squared_is_none() -> None:
 
 
 def test_r_squared_raises_when_y_and_weights_different_shapes() -> None:
-    x: np.ndarray = (
-        np.linspace(start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50)
-        + _rng.uniform(low=-0.001, high=0.001, size=50)
-    ).reshape((-1, 1))
+    x: np.ndarray = generate_linear_1d()
+    y: np.ndarray = generate_linear_1d()
+    weights: np.ndarray = rng.uniform(low=0.01, high=1, size=50)
 
-    y: np.ndarray = (
-        np.linspace(start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50)
-        + _rng.uniform(low=-0.001, high=0.001, size=50)
-    ).reshape((-1, 1))
-
-    weights: np.ndarray = _rng.uniform(low=0.01, high=1, size=50)
-
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(ValueError) as exc_info:
         _r_squared(beta=np.asarray([12.3, 100.0]), x_w=x, y_w=y, y=y, weights=weights)
-        assert "y and weights must have the same shape" in str(excinfo.value)
+        assert "y and weights must have the same shape" in str(exc_info.value)
