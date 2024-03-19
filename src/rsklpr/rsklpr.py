@@ -19,6 +19,7 @@ all_metrics: List[str] = [
     "std",
     "r_squared",
     "mean_r_squared",
+    "all",
 ]
 
 
@@ -451,46 +452,34 @@ class Rsklpr:
         """
         x_arr: np.ndarray
         x_arr, _ = self._check_and_reshape_inputs(x=x)
-        self._check_specified_metrics(metrics=metrics, x_arr=x_arr)
         n: int = x_arr.shape[0]
         y_hat: np.ndarray = np.empty((n))
         bw1_global: Optional[Sequence[float]]
         bw2_global: Optional[Sequence[float]]
         bw1_global, bw2_global = self._get_bandwidth_global(k2=self._k2)
         calculate_r_squared: bool = False
+        mean_r_squared_total: float = 0.0
 
         if metrics is not None:
             if isinstance(metrics, str):
                 metrics = [metrics]
 
-            if "r_squared" in metrics or "mean_r_squared" in metrics:
+            metrics = self._check_and_format_specified_metrics(metrics=metrics, x_arr=x_arr)
+
+            if "r_squared" in metrics or "mean_r_squared" in metrics:  # type: ignore[operator]
                 self._r_squared = np.empty(shape=(n,))
                 calculate_r_squared = True
 
         i: int
 
         for i in range(n):
-            dist_n_x_neighbors: np.ndarray
+            weights: np.ndarray
+            n_x_neighbors: np.ndarray
             indices: np.ndarray
-            dist_n_x_neighbors, indices = self._nearest_neighbors.kneighbors(X=x_arr[i].reshape(1, -1))
-            weights: np.ndarray = self._k1_func(dist_n_x_neighbors)
-            n_x_neighbors: np.ndarray = self._x[indices].squeeze(axis=0)
 
-            if self._k2 == "conden":
-                weights *= self._k2_conden(
-                    n_x_neighbors=n_x_neighbors,
-                    n_y_neighbors=self._y[indices].T,
-                    bw1_global=bw1_global,
-                    bw2_global=bw2_global,
-                )
-            elif self._k2 == "joint":
-                weights *= self._k2_joint(
-                    n_x_neighbors=n_x_neighbors,
-                    n_y_neighbors=self._y[indices].T,
-                    dist_n_x_neighbors=dist_n_x_neighbors,
-                    bw1_global=bw1_global,
-                    bw2_global=bw2_global,
-                )
+            weights, indices, n_x_neighbors = self._calculate_weights(
+                x=x_arr[i], bw1_global=bw1_global, bw2_global=bw1_global
+            )
 
             r_squared: Optional[float]
 
@@ -504,7 +493,11 @@ class Rsklpr:
             )
 
             if calculate_r_squared:
-                self._r_squared[i] = r_squared
+                if "r_squared" in metrics:  # type: ignore[operator]
+                    self._r_squared[i] = r_squared
+
+                if "mean_r_squared" in metrics:  # type: ignore[operator]
+                    mean_r_squared_total += r_squared  # type: ignore[operator]
 
         if metrics is not None:
             residuals: np.ndarray = y_hat - self._y
@@ -520,14 +513,47 @@ class Rsklpr:
 
             if "mean_abs" in metrics:
                 self._mean_abs_error = float(_mean_abs_error(residuals=residuals))
+
             if "bias" in metrics:
                 self._bias_error = float(_bias_error(residuals=residuals))
+
             if "std" in metrics:
                 self._std_error = float(_std_error(residuals=residuals))
 
+            if "mean_r_squared" in metrics:
+                self._mean_r_squared = mean_r_squared_total / n
+
         return y_hat
 
-    def _check_specified_metrics(self, metrics: Optional[Sequence[str]], x_arr: np.ndarray) -> None:
+    def _calculate_weights(
+        self, x: np.ndarray, bw1_global: Optional[Sequence[float]], bw2_global: Optional[Sequence[float]]
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        dist_n_x_neighbors: np.ndarray
+        indices: np.ndarray
+        dist_n_x_neighbors, indices = self._nearest_neighbors.kneighbors(X=x.reshape(1, -1))
+        weights: np.ndarray = self._k1_func(dist_n_x_neighbors)
+        n_x_neighbors: np.ndarray = self._x[indices].squeeze(axis=0)
+        if self._k2 == "conden":
+            weights *= self._k2_conden(
+                n_x_neighbors=n_x_neighbors,
+                n_y_neighbors=self._y[indices].T,
+                bw1_global=bw1_global,
+                bw2_global=bw2_global,
+            )
+        elif self._k2 == "joint":
+            weights *= self._k2_joint(
+                n_x_neighbors=n_x_neighbors,
+                n_y_neighbors=self._y[indices].T,
+                dist_n_x_neighbors=dist_n_x_neighbors,
+                bw1_global=bw1_global,
+                bw2_global=bw2_global,
+            )
+
+        return weights, indices, n_x_neighbors
+
+    def _check_and_format_specified_metrics(
+        self, metrics: Optional[Sequence[str]], x_arr: np.ndarray
+    ) -> Optional[List[str]]:
         if metrics is not None:
             if not np.allclose(a=x_arr, b=self._x):
                 raise ValueError(
@@ -535,11 +561,17 @@ class Rsklpr:
                     "provided to 'fit'."
                 )
 
+            metrics = [metric.lower() for metric in metrics]
             metric: str
 
             for metric in metrics:
                 if metric not in all_metrics:
                     raise ValueError(f"Unknown error metric {metric}. Available metrics are {all_metrics}")
+
+            if "all" in metrics:
+                metrics = all_metrics
+
+        return metrics
 
     def _estimate_bootstrap(
         self, x: Union[np.ndarray, Sequence[Number], Sequence[Sequence[Number]], float], bootstrap_iterations: int

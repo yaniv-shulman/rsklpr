@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import numpy as np
 import pytest
@@ -433,13 +433,24 @@ def test_predict_no_error_metrics_are_calculated_when_metrics_none() -> None:
     assert target.mean_square_error is None
 
 
-def test_predict_error_metrics_expected_values() -> None:
-    """Tests no error metrics are calculated when no metrics are provided to predict"""
-    x: np.ndarray = generate_linear_1d()
-    y: np.ndarray = generate_linear_1d()
-    target: Rsklpr = Rsklpr(size_neighborhood=10)
+@pytest.mark.parametrize(
+    argnames="x",
+    argvalues=[generate_linear_1d() for _ in range(3)],
+)
+@pytest.mark.parametrize(
+    argnames="y",
+    argvalues=[generate_linear_1d(), generate_quad_1d(), generate_sin_1d()],
+)
+@pytest.mark.parametrize(
+    argnames="metrics",
+    argvalues=[all_metrics, "all"],
+)
+def test_predict_error_metrics_expected_values(x: np.ndarray, y: np.ndarray, metrics: Union[str, List[str]]) -> None:
+    """Tests all error metrics are calculated correctly."""
+    size_neighborhood: int = 10
+    target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood)
     target.fit(x=x, y=y)
-    y_hat: np.ndarray = target.predict(x=x, metrics=all_metrics)
+    y_hat: np.ndarray = target.predict(x=x, metrics=metrics)
     assert target.residuals.shape == y_hat.shape
     np.testing.assert_allclose(target.residuals, y_hat - y)
     assert target.mean_square_error == pytest.approx(sm.tools.eval_measures.mse(y_hat, y))
@@ -447,8 +458,22 @@ def test_predict_error_metrics_expected_values() -> None:
     assert target.mean_abs_error == pytest.approx(sm.tools.eval_measures.meanabs(y_hat, y))
     assert target.bias_error == pytest.approx(sm.tools.eval_measures.bias(y_hat, y))
     assert target.std_error == pytest.approx(sm.tools.eval_measures.stde(y_hat, y))
-    # assert target.r_squared.shape == (0,)
-    # assert target.mean_square_error is None
+
+    i: int
+
+    for i in range(x.shape[0]):
+        weights: np.ndarray
+        n_x_neighbors: np.ndarray
+        indices: np.ndarray
+        weights, indices, n_x_neighbors = target._calculate_weights(x[i], bw1_global=None, bw2_global=None)
+        x_sm: np.ndarray = np.squeeze(x[indices])
+        x_sm = sm.add_constant(x_sm)
+        model_sm = sm.WLS(endog=np.squeeze(y[indices]), exog=x_sm, weights=np.squeeze(weights))
+        results_sm: RegressionResults = model_sm.fit()
+        assert target.r_squared[i] == pytest.approx(float(results_sm.rsquared))
+
+    assert target.mean_r_squared is not None
+    assert target.mean_r_squared == pytest.approx(float(target.r_squared.mean()))
 
 
 def test_weighted_local_regression_r_squared_is_none() -> None:
