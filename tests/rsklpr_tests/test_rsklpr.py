@@ -1,4 +1,5 @@
 from typing import List, Optional, Union
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
@@ -399,9 +400,10 @@ def test_tricube_normalized_raises_when_inputs_negative() -> None:
         np.linspace(start=0.01, stop=3, num=50),
     ],
 )
-def test_weighted_local_regression_expected_values(
+def test_weighted_local_regression_1d_expected_values(
     x_0: np.ndarray, x: np.ndarray, y: np.ndarray, weights: np.ndarray
 ) -> None:
+    """test the weighted linear regression implementation gives the expected results for the 1D case"""
     actual: np.ndarray
     r_squared: Optional[float]
 
@@ -414,6 +416,51 @@ def test_weighted_local_regression_expected_values(
     results_sm: RegressionResults = model_sm.fit()
     assert float(actual) == pytest.approx(float(results_sm.params[0] + x_0 * results_sm.params[1]))
     assert r_squared == pytest.approx(float(results_sm.rsquared))
+
+
+@pytest.mark.parametrize(
+    argnames="x_0",
+    argvalues=[rng.uniform(low=-10, high=10, size=2) for _ in range(3)],
+)
+@pytest.mark.parametrize(
+    argnames="x",
+    argvalues=[generate_linear_nd(dim=2).reshape((-1, 2)) for _ in range(2)],
+)
+@pytest.mark.parametrize(
+    argnames="y",
+    argvalues=[generate_linear_1d() for _ in range(2)]
+    + [
+        generate_quad_1d(),
+        generate_sin_1d(),
+    ],
+)
+@pytest.mark.parametrize(
+    argnames="weights",
+    argvalues=[
+        rng.uniform(low=0.01, high=1, size=50),
+        np.ones(shape=50),
+        np.clip(rng.normal(loc=0.5, scale=0.2, size=50), a_min=0, a_max=None),
+        np.linspace(start=0.01, stop=3, num=50),
+    ],
+)
+def test_weighted_local_regression_2d_expected_values(
+    x_0: np.ndarray, x: np.ndarray, y: np.ndarray, weights: np.ndarray
+) -> None:
+    """test the weighted linear regression implementation gives the expected results for the 2D case"""
+    actual: np.ndarray
+    r_squared: Optional[float]
+
+    actual, r_squared = _weighted_local_regression(
+        x_0=x_0, x=x, y=y, weights=weights, degree=1, calculate_r_squared=True
+    )
+
+    x_sm: np.ndarray = sm.add_constant(x)
+    model_sm = sm.WLS(endog=y, exog=x_sm, weights=weights)
+    results_sm: RegressionResults = model_sm.fit()
+    assert float(actual) == pytest.approx(
+        float(results_sm.params[0] + x_0[0] * results_sm.params[1] + x_0[1] * results_sm.params[2]), rel=1e-4
+    )
+    assert r_squared == pytest.approx(float(results_sm.rsquared), rel=1e-5)
 
 
 def test_predict_no_error_metrics_are_calculated_when_metrics_none() -> None:
@@ -476,10 +523,12 @@ def test_predict_error_metrics_expected_values(x: np.ndarray, y: np.ndarray, met
     assert target.mean_r_squared == pytest.approx(float(target.r_squared.mean()))
 
 
-def test_weighted_local_regression_r_squared_is_none() -> None:
+def test_weighted_local_regression_r_squared_is_none(mocker: MockerFixture) -> None:
+    """Tests that the r_squared is not calculated nor returned when calculate_r_squared is False"""
     x: np.ndarray = generate_linear_1d().reshape((-1, 1))
     y: np.ndarray = generate_linear_1d()
     weights: np.ndarray = rng.uniform(low=0.01, high=1, size=50).reshape((-1, 1))
+    r_squared_mock: MagicMock = mocker.patch("rsklpr.rsklpr._r_squared", return_value=1.0)
     actual: np.ndarray
     r_squared: Optional[float]
 
@@ -488,9 +537,11 @@ def test_weighted_local_regression_r_squared_is_none() -> None:
     )
 
     assert r_squared is None
+    assert r_squared_mock.call_count == 0
 
 
 def test_r_squared_raises_when_y_and_weights_different_shapes() -> None:
+    """Tests an error is raised when y and weights are of different shapes"""
     x: np.ndarray = generate_linear_1d()
     y: np.ndarray = generate_linear_1d()
     weights: np.ndarray = rng.uniform(low=0.01, high=1, size=50)

@@ -24,22 +24,74 @@ all_metrics: List[str] = [
 
 
 def _mean_square_error(residuals: np.ndarray) -> float:
+    """
+    Calculate the mean squared error for a given residuals.
+
+    Args:
+        residuals: The regression residuals.
+
+    Returns:
+        The mean squared error.
+    """
     return float(np.mean(residuals**2))
 
 
 def _mean_abs_error(residuals: np.ndarray) -> float:
+    """
+    Calculate the mean absolute error for a given residuals.
+
+    Args:
+        residuals: The regression residuals.
+
+    Returns:
+        The mean absolute error.
+    """
+
     return float(np.mean(np.abs(residuals)))
 
 
 def _bias_error(residuals: np.ndarray) -> float:
+    """
+    Calculate the residuals bias.
+
+    Args:
+        residuals: The regression residuals.
+
+    Returns:
+        The residuals bias.
+    """
     return float(np.mean(residuals))
 
 
 def _std_error(residuals: np.ndarray) -> float:
+    """
+    Calculate the residuals standard deviation.
+
+    Args:
+        residuals: The regression residuals.
+
+    Returns:
+        The residuals standard deviation.
+    """
     return float(np.std(residuals))
 
 
 def _r_squared(beta: np.ndarray, x_w: np.ndarray, y_w: np.ndarray, y: np.ndarray, weights: np.ndarray) -> float:
+    """
+    Calculate the R-Square statistic also called the square of the multiple correlation coefficient and the coefficient
+    of multiple determination. The metric is calculated for a single weighted local regression and is meaningful only in
+    that context.
+
+    Args:
+        beta: The fitted regression parameters.
+        x_w: The weighted predictors.
+        y_w: The weighted response.
+        y: The response.
+        weights: The weights.
+
+    Returns:
+        The R-Square statistic for the WLS regression.
+    """
     if y.shape != weights.shape:
         raise ValueError("y and weights must have the same shape")
 
@@ -327,8 +379,8 @@ class Rsklpr:
 
     def _k2_conden(
         self,
-        n_x_neighbors: np.ndarray,
-        n_y_neighbors: np.ndarray,
+        x_neighbors: np.ndarray,
+        y_neighbors: np.ndarray,
         bw1_global: Optional[Sequence[float]] = None,
         bw2_global: Optional[Sequence[float]] = None,
     ) -> np.ndarray:
@@ -336,53 +388,53 @@ class Rsklpr:
         Calculates the conditional density similarity kernel for the observations in the neighborhood.
 
         Args:
-            n_x_neighbors: The predictors of all neighbors.
-            n_y_neighbors: The corresponding response of all neighbors.
+            x_neighbors: The predictors values of all neighbors.
+            y_neighbors: The corresponding response of all neighbors.
             bw1_global: The bw1 calculated from the global data, if None a local bandwidth estimation will be used.
             bw2_global: The bw2 calculated from the global data, if None a local bandwidth estimation will be used.
 
         Returns:
             The kernel values to all observations.
         """
-        if n_x_neighbors.ndim > 2:
-            n_x_neighbors = np.squeeze(n_x_neighbors).reshape(-1, n_x_neighbors.shape[-1])
+        if x_neighbors.ndim > 2:
+            x_neighbors = np.squeeze(x_neighbors).reshape(-1, x_neighbors.shape[-1])
 
-        n_xy_neighbors: np.ndarray = np.concatenate(
-            [n_x_neighbors, n_y_neighbors],
+        xy_neighbors: np.ndarray = np.concatenate(
+            [x_neighbors, y_neighbors],
             axis=-1,
         )
 
-        var_type: str = "c" * _dim_data(data=n_x_neighbors)
+        var_type: str = "c" * _dim_data(data=x_neighbors)
 
         kde_marginal_x: KDEMultivariate = KDEMultivariate(
-            data=n_x_neighbors,
+            data=x_neighbors,
             var_type=var_type,
             bw=self._bw1
             if (self._bw1 in ("cv_ls", "cv_ml") or isinstance(self._bw1, List))
-            else self._calculate_bandwidth(bandwidth=self._bw1, data=n_x_neighbors)  # type: ignore [arg-type]
+            else self._calculate_bandwidth(bandwidth=self._bw1, data=x_neighbors)  # type: ignore [arg-type]
             if bw1_global is None
             else bw1_global,
         )
 
         kde_joint: KDEMultivariate = KDEMultivariate(
-            data=n_xy_neighbors,
+            data=xy_neighbors,
             var_type=var_type + "c",
             bw=self._bw2
             if (self._bw2 in ("cv_ls", "cv_ml") or isinstance(self._bw1, List))
-            else self._calculate_bandwidth(bandwidth=self._bw2, data=n_xy_neighbors)  # type: ignore [arg-type]
+            else self._calculate_bandwidth(bandwidth=self._bw2, data=xy_neighbors)  # type: ignore [arg-type]
             if bw2_global is None
             else bw2_global,
         )
 
-        return kde_joint.pdf(data_predict=n_xy_neighbors) / kde_marginal_x.pdf(  # type: ignore [no-any-return]
-            data_predict=n_x_neighbors
+        return kde_joint.pdf(data_predict=xy_neighbors) / kde_marginal_x.pdf(  # type: ignore [no-any-return]
+            data_predict=x_neighbors
         )
 
     def _k2_joint(
         self,
-        n_x_neighbors: np.ndarray,
-        n_y_neighbors: np.ndarray,
-        dist_n_x_neighbors: np.ndarray,
+        x_neighbors: np.ndarray,
+        y_neighbors: np.ndarray,
+        dist_x_neighbors: np.ndarray,
         bw1_global: Optional[Sequence[float]] = None,
         bw2_global: Optional[Sequence[float]] = None,
     ) -> np.ndarray:
@@ -390,35 +442,35 @@ class Rsklpr:
         Calculates the joint density similarity kernel for the observations in the neighborhood.
 
         Args:
-            n_x_neighbors: The predictors of all neighbors.
-            n_y_neighbors: The corresponding response of all neighbors.
-            dist_n_x_neighbors: The distance of all neighbors to the regression target location.
+            x_neighbors: The predictors values of all neighbors.
+            y_neighbors: The corresponding response of all neighbors.
+            dist_x_neighbors: The distance of all neighbors to the regression target location.
             bw1_global: The bw1 calculated from the global data, if None a local bandwidth estimation will be used.
             bw2_global: The bw2 calculated from the global data, if None a local bandwidth estimation will be used.
 
         Returns:
             The kernel values to all observations.
         """
-        square_dist_n_y_windowed: np.ndarray = np.square(n_y_neighbors - n_y_neighbors.T)
+        square_dist_y_windowed: np.ndarray = np.square(y_neighbors - y_neighbors.T)
 
         bw_x: np.ndarray = np.asarray(
             (
                 self._bw1
                 if isinstance(self._bw1, List)
-                else self._calculate_bandwidth(bandwidth=self._bw1, data=n_x_neighbors)  # type: ignore [arg-type]
+                else self._calculate_bandwidth(bandwidth=self._bw1, data=x_neighbors)  # type: ignore [arg-type]
             )
             if bw1_global is None
             else bw1_global
         )
 
         bw_x = bw_x.mean()
-        weights: np.ndarray = np.exp(-0.5 * np.power(dist_n_x_neighbors / bw_x, 2)) / bw_x
+        weights: np.ndarray = np.exp(-0.5 * np.power(dist_x_neighbors / bw_x, 2)) / bw_x
 
         bw_y: np.ndarray = np.asarray(
             (
                 self._bw2
                 if isinstance(self._bw2, List)
-                else self._calculate_bandwidth(bandwidth=self._bw2, data=n_y_neighbors)  # type: ignore [arg-type]
+                else self._calculate_bandwidth(bandwidth=self._bw2, data=y_neighbors)  # type: ignore [arg-type]
             )
             if bw2_global is None
             else bw2_global
@@ -427,7 +479,7 @@ class Rsklpr:
         if bw_y.size != 1:
             raise ValueError(f"Too many values ({bw_y.size}) specified for y bandwidth")
 
-        local_density: np.ndarray = np.exp(-0.5 * square_dist_n_y_windowed / (bw_y**2))
+        local_density: np.ndarray = np.exp(-0.5 * square_dist_y_windowed / (bw_y**2))
         local_density = (local_density * weights).sum(axis=-1)
         return local_density
 
@@ -441,11 +493,7 @@ class Rsklpr:
 
         Args:
             x: Predictor values at locations to estimate m(x), these should be at the original range of the predictor.
-            metrics: Optional error metrics to calculate. Options are 'mean_square', 'mean_abs', 'root_mean_square',
-                'bias', 'std', 'r_squared', 'mean_r_squared' and 'all'. Multiple metrics can be specified as a Sequence,
-                e.g a List. The metrics are made available through attributes on the model object having similar
-                corresponding names. Note that x must be exactly the same as the training data provided to 'fit' if any
-                metrics are specified.
+            metrics: See 'predict' docstring for more details.
 
         Returns:
             The estimated values of m(x) at the locations.
@@ -474,18 +522,18 @@ class Rsklpr:
 
         for i in range(n):
             weights: np.ndarray
-            n_x_neighbors: np.ndarray
+            x_neighbors: np.ndarray
             indices: np.ndarray
 
-            weights, indices, n_x_neighbors = self._calculate_weights(
-                x=x_arr[i], bw1_global=bw1_global, bw2_global=bw1_global
+            weights, indices, x_neighbors = self._calculate_weights(
+                x_0=x_arr[i], bw1_global=bw1_global, bw2_global=bw1_global
             )
 
             r_squared: Optional[float]
 
             y_hat[i], r_squared = _weighted_local_regression(
                 x_0=x_arr[i].reshape(1, -1),
-                x=n_x_neighbors,
+                x=x_neighbors,
                 y=self._y[indices].T,
                 weights=weights,
                 degree=self._degree,
@@ -526,34 +574,57 @@ class Rsklpr:
         return y_hat
 
     def _calculate_weights(
-        self, x: np.ndarray, bw1_global: Optional[Sequence[float]], bw2_global: Optional[Sequence[float]]
+        self, x_0: np.ndarray, bw1_global: Optional[Sequence[float]], bw2_global: Optional[Sequence[float]]
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        dist_n_x_neighbors: np.ndarray
+        """
+        Calculates the regression weights.
+
+        Args:
+            x_0: The local regression location.
+            bw1_global: The bw1 calculated from the global data, if None a local bandwidth estimation will be used.
+            bw2_global: The bw2 calculated from the global data, if None a local bandwidth estimation will be used.
+
+        Returns:
+            The weights, the indices and values of the nearest neighbors.
+        """
+        dist_x_neighbors: np.ndarray
         indices: np.ndarray
-        dist_n_x_neighbors, indices = self._nearest_neighbors.kneighbors(X=x.reshape(1, -1))
-        weights: np.ndarray = self._k1_func(dist_n_x_neighbors)
-        n_x_neighbors: np.ndarray = self._x[indices].squeeze(axis=0)
+        dist_x_neighbors, indices = self._nearest_neighbors.kneighbors(X=x_0.reshape(1, -1))
+        weights: np.ndarray = self._k1_func(dist_x_neighbors)
+        x_neighbors: np.ndarray = self._x[indices].squeeze(axis=0)
         if self._k2 == "conden":
             weights *= self._k2_conden(
-                n_x_neighbors=n_x_neighbors,
-                n_y_neighbors=self._y[indices].T,
+                x_neighbors=x_neighbors,
+                y_neighbors=self._y[indices].T,
                 bw1_global=bw1_global,
                 bw2_global=bw2_global,
             )
         elif self._k2 == "joint":
             weights *= self._k2_joint(
-                n_x_neighbors=n_x_neighbors,
-                n_y_neighbors=self._y[indices].T,
-                dist_n_x_neighbors=dist_n_x_neighbors,
+                x_neighbors=x_neighbors,
+                y_neighbors=self._y[indices].T,
+                dist_x_neighbors=dist_x_neighbors,
                 bw1_global=bw1_global,
                 bw2_global=bw2_global,
             )
 
-        return weights, indices, n_x_neighbors
+        return weights, indices, x_neighbors
 
     def _check_and_format_specified_metrics(
         self, metrics: Optional[Sequence[str]], x_arr: np.ndarray
     ) -> Optional[List[str]]:
+        """
+        Check the metrics provided are supported and convert them to lower case. Check that the regression locations are
+        identical to the fitted locations. If 'all' is provided then the metrics are overridden  with the complete list
+        of supported metrics.
+
+        Args:
+            metrics: The metrics to compute.
+            x_arr: The predictors.
+
+        Returns:
+
+        """
         if metrics is not None:
             if not np.allclose(a=x_arr, b=self._x):
                 raise ValueError(
@@ -774,11 +845,12 @@ class Rsklpr:
 
         Args:
             x: The locations to predict for.
-            metrics: Optional error metrics to calculate. Options are 'mean_square', 'mean_abs', 'root_mean_square',
-                'bias', 'std', 'r_squared', 'mean_r_squared' and 'all'. Multiple metrics can be specified as a Sequence,
-                e.g a List. The metrics are made available through attributes on the model object having similar
-                corresponding names. Note that x must be exactly the same as the training data provided to 'fit' if any
-                metrics are specified.
+            metrics: Optional error metrics to calculate. Options are 'residuals', 'mean_square', 'mean_abs',
+                'root_mean_square', 'bias', 'std', 'r_squared', 'mean_r_squared' and 'all'. Multiple metrics can be
+                specified as a Sequence, e.g a List. The metrics are made available through attributes on the model
+                object having similar corresponding names. Note that x must be exactly the same as the training data
+                provided to 'fit' if any metrics are specified.
+
 
         Returns:
             The estimated responses at the corresponding locations.x
@@ -828,11 +900,11 @@ class Rsklpr:
         Args:
             x: The predictor values
             y: The response values at the corresponding predictor locations.
-            metrics: Optional error metrics to calculate. Options are 'mean_square', 'mean_abs', 'root_mean_square',
-                'bias', 'std', 'r_squared', 'mean_r_squared' and 'all'. Multiple metrics can be specified as a Sequence,
-                e.g a List. The metrics are made available through attributes on the model object having similar
-                corresponding names. Note that x must be exactly the same as the training data provided to 'fit' if any
-                metrics are specified.
+            metrics: Optional error metrics to calculate. Options are 'residuals', 'mean_square', 'mean_abs',
+                'root_mean_square', 'bias', 'std', 'r_squared', 'mean_r_squared' and 'all'. Multiple metrics can be
+                specified as a Sequence, e.g a List. The metrics are made available through attributes on the model
+                object having similar corresponding names. Note that x must be exactly the same as the training data
+                provided to 'fit' if any metrics are specified.
 
         Returns:
             The estimated responses at the corresponding locations.
@@ -844,26 +916,51 @@ class Rsklpr:
 
     @property
     def residuals(self) -> np.ndarray:
+        """
+        Returns:
+            The regression residuals if available, otherwise an empty array.
+        """
         return self._residuals
 
     @property
     def mean_square_error(self) -> Optional[float]:
+        """
+        Returns:
+            The mean squared error if available, otherwise None.
+        """
         return self._mean_square_error
 
     @property
     def root_mean_square_error(self) -> Optional[float]:
+        """
+        Returns:
+            The root mean squared error if available, otherwise None.
+        """
         return self._root_mean_square_error
 
     @property
     def mean_abs_error(self) -> Optional[float]:
+        """
+        Returns:
+            The mean absolute error if available, otherwise None.
+        """
         return self._mean_abs_error
 
     @property
     def bias_error(self) -> Optional[float]:
+        """
+        Returns:
+            The error bias if available, otherwise None.
+        """
         return self._bias_error
 
     @property
     def std_error(self) -> Optional[float]:
+        """
+        Returns:
+            The error standard deviation if available, otherwise None.
+        """
+
         return self._std_error
 
     @property
