@@ -78,9 +78,8 @@ def _std_error(residuals: np.ndarray) -> float:
 
 def _r_squared(beta: np.ndarray, x_w: np.ndarray, y_w: np.ndarray, y: np.ndarray, weights: np.ndarray) -> float:
     """
-    Calculate the R-Square statistic also called the square of the multiple correlation coefficient and the coefficient
-    of multiple determination. The metric is calculated for a single weighted local regression and is meaningful only in
-    that context.
+    Calculate the R-Square statistic. The metric is calculated for a single local weighted local regression and is meaningful
+    only in that context. The calculation is the same as in the statsmodels package for compatibility.
 
     Args:
         beta: The fitted regression parameters.
@@ -547,31 +546,44 @@ class Rsklpr:
                 if "mean_r_squared" in metrics:  # type: ignore[operator]
                     mean_r_squared_total += r_squared  # type: ignore[operator]
 
-        if metrics is not None:
-            residuals: np.ndarray = y_hat - self._y
-
-            if "residuals" in metrics:
-                self._residuals = residuals
-
-            if "mean_square" in metrics or "root_mean_square" in metrics:
-                self._mean_square_error = float(_mean_square_error(residuals=residuals))
-
-                if "root_mean_square" in metrics:
-                    self._root_mean_square_error = math.sqrt(self._mean_square_error)
-
-            if "mean_abs" in metrics:
-                self._mean_abs_error = float(_mean_abs_error(residuals=residuals))
-
-            if "bias" in metrics:
-                self._bias_error = float(_bias_error(residuals=residuals))
-
-            if "std" in metrics:
-                self._std_error = float(_std_error(residuals=residuals))
-
-            if "mean_r_squared" in metrics:
-                self._mean_r_squared = mean_r_squared_total / n
+        if metrics is not None and metrics != ["r_squared"]:
+            self.calculate_global_metrics(metrics=metrics, y_hat=y_hat, mean_r_squared_total=mean_r_squared_total)
 
         return y_hat
+
+    def calculate_global_metrics(self, metrics: Sequence[str], y_hat: np.ndarray, mean_r_squared_total) -> None:
+        """
+        Calculates the requested global metrics.
+
+        Args:
+            metrics: The requested global metrics. It is assumed that _check_and_format_specified_metrics was already
+                called.
+            y_hat: The predictions at all locations. It is assumed that these correspond to all data points provided to
+                fit.
+            mean_r_squared_total: The accumulated r_squared values for all local regressions.
+        """
+        residuals: np.ndarray = y_hat - self._y
+
+        if "residuals" in metrics:
+            self._residuals = residuals
+
+        if "mean_square" in metrics or "root_mean_square" in metrics:
+            self._mean_square_error = float(_mean_square_error(residuals=residuals))
+
+            if "root_mean_square" in metrics:
+                self._root_mean_square_error = math.sqrt(self._mean_square_error)
+
+        if "mean_abs" in metrics:
+            self._mean_abs_error = float(_mean_abs_error(residuals=residuals))
+
+        if "bias" in metrics:
+            self._bias_error = float(_bias_error(residuals=residuals))
+
+        if "std" in metrics:
+            self._std_error = float(_std_error(residuals=residuals))
+
+        if "mean_r_squared" in metrics:
+            self._mean_r_squared = mean_r_squared_total / y_hat.shape[0]
 
     def _calculate_weights(
         self, x_0: np.ndarray, bw1_global: Optional[Sequence[float]], bw2_global: Optional[Sequence[float]]
@@ -926,47 +938,84 @@ class Rsklpr:
     def mean_square_error(self) -> Optional[float]:
         """
         Returns:
-            The mean squared error if available, otherwise None.
+            The mean squared error if available, otherwise None. Note this metric can be lazily evaluated if residuals
+            are stored.
         """
+        if self._mean_square_error is None and self._residuals.shape[0] > 0:
+            self._mean_square_error = _mean_square_error(self.residuals)
+
         return self._mean_square_error
 
     @property
     def root_mean_square_error(self) -> Optional[float]:
         """
         Returns:
-            The root mean squared error if available, otherwise None.
+            The root mean squared error if available, otherwise None. Note this metric can be lazily evaluated if
+            residuals are stored.
         """
+        if self._root_mean_square_error is None and self._residuals.shape[0] > 0:
+            mse: Optional[float] = self._mean_square_error
+
+            if mse is not None:
+                self._root_mean_square_error = math.sqrt(mse)
+
         return self._root_mean_square_error
 
     @property
     def mean_abs_error(self) -> Optional[float]:
         """
         Returns:
-            The mean absolute error if available, otherwise None.
+            The mean absolute error if available, otherwise None. Note this metric can be lazily evaluated if residuals
+            are stored.
         """
+        if self._mean_abs_error is None and self._residuals.shape[0] > 0:
+            self._mean_abs_error = _mean_abs_error(self.residuals)
+
         return self._mean_abs_error
 
     @property
     def bias_error(self) -> Optional[float]:
         """
         Returns:
-            The error bias if available, otherwise None.
+            The error bias if available, otherwise None. Note this metric can be lazily evaluated if residuals are
+            stored.
         """
+        if self._bias_error is None and self._residuals.shape[0] > 0:
+            self._bias_error = _bias_error(self.residuals)
+
         return self._bias_error
 
     @property
     def std_error(self) -> Optional[float]:
         """
         Returns:
-            The error standard deviation if available, otherwise None.
+            The error standard deviation if available, otherwise None. Note this metric can be lazily evaluated if
+            residuals are stored.
         """
+        if self._std_error is None and self._residuals.shape[0] > 0:
+            self._std_error = _std_error(self.residuals)
 
         return self._std_error
 
     @property
     def r_squared(self) -> np.ndarray:
+        """
+        An array of all local WLS R-Square statistics where each entry corresponds to the fit datum at the same index.
+        The calculation is the same as in the statsmodels package for compatibility. These metrics can assist in
+        interpreting the results of the model but need to be interpreted correctly, see Willett and Singer (1988)
+        Another Cautionary Note about R-squared: It's use in weighted least squares regression analysis.
+
+        Returns:
+            All local WLS R-Square statistics.
+        """
         return self._r_squared
 
     @property
     def mean_r_squared(self) -> Optional[float]:
+        """
+        the mean of all local WLS R-Square statistics. See docstring for the r_squared property for more details.
+
+        Returns:
+            Mean of all local WLS R-Square statistics.
+        """
         return self._mean_r_squared
