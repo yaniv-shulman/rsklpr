@@ -1,5 +1,5 @@
 from typing import List, Optional, Union
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, _Call
 
 import numpy as np
 import pytest
@@ -523,6 +523,73 @@ def test_predict_error_metrics_expected_values(x: np.ndarray, y: np.ndarray, met
     assert target.mean_r_squared == pytest.approx(float(target.r_squared.mean()))
 
 
+def test_predict_error_metrics_specified_metrics_are_calculated() -> None:
+    """
+    Tests only the specified error metrics are calculated including all global metrics lazy evaluation when
+    'residuals' are specified
+    """
+    x: np.ndarray = generate_linear_1d()
+    y: np.ndarray = generate_linear_1d()
+    size_neighborhood: int = 10
+    asserted_metric: str
+    metric: str
+
+    for asserted_metric in all_metrics:
+        if asserted_metric in ("all", "residuals", "root_mean_square"):
+            continue
+
+        target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood)
+        target.fit(x=x, y=y)
+        target.predict(x=x, metrics=asserted_metric)
+
+        if asserted_metric in ("mean_square", "mean_abs", "bias", "std"):
+            asserted_metric += "_error"
+
+        for metric in all_metrics:
+            if metric in ("all", "root_mean_square"):
+                continue
+
+            if metric in ("mean_square", "mean_abs", "bias", "std"):
+                metric += "_error"
+
+            actual: Optional[Union[float, np.ndarray]] = getattr(target, metric)
+
+            if metric == asserted_metric:
+                if metric in ("residuals", "r_squared"):
+                    assert actual.shape[0] == y.shape[0]  # type: ignore[union-attr]
+                else:
+                    assert isinstance(actual, float)
+            else:
+                if metric in ("residuals", "r_squared"):
+                    assert actual.shape[0] == 0  # type: ignore[union-attr]
+                else:
+                    assert actual is None
+
+    target = Rsklpr(size_neighborhood=size_neighborhood)
+    target.fit(x=x, y=y)
+    target.predict(x=x, metrics="residuals")
+    assert target.residuals.shape == y.shape
+    assert isinstance(target.mean_square_error, float)
+    assert isinstance(target.root_mean_square_error, float)
+    assert isinstance(target.mean_abs_error, float)
+    assert isinstance(target.bias_error, float)
+    assert isinstance(target.std_error, float)
+    assert target.r_squared.shape[0] == 0
+    assert target.mean_r_squared is None
+
+    target = Rsklpr(size_neighborhood=size_neighborhood)
+    target.fit(x=x, y=y)
+    target.predict(x=x, metrics="root_mean_square")
+    assert target.residuals.shape[0] == 0
+    assert isinstance(target.mean_square_error, float)
+    assert isinstance(target.root_mean_square_error, float)
+    assert target.mean_abs_error is None
+    assert target.bias_error is None
+    assert target.std_error is None
+    assert target.r_squared.shape[0] == 0
+    assert target.mean_r_squared is None
+
+
 def test_weighted_local_regression_r_squared_is_none(mocker: MockerFixture) -> None:
     """Tests that the r_squared is not calculated nor returned when calculate_r_squared is False"""
     x: np.ndarray = generate_linear_1d().reshape((-1, 1))
@@ -549,3 +616,25 @@ def test_r_squared_raises_when_y_and_weights_different_shapes() -> None:
     with pytest.raises(ValueError) as exc_info:
         _r_squared(beta=np.asarray([12.3, 100.0]), x_w=x, y_w=y, y=y, weights=weights)
         assert "y and weights must have the same shape" in str(exc_info.value)
+
+
+def test_estimate_bootstrap_calls_estimate_with_the_metrics_only_once(mocker: MockerFixture) -> None:
+    x: np.ndarray = generate_linear_1d().reshape((-1, 1))
+    y: np.ndarray = generate_linear_1d()
+
+    estimate_mock: MagicMock = mocker.patch(
+        target="rsklpr.rsklpr.Rsklpr._estimate", return_value=rng.normal(size=y.shape[0])
+    )
+
+    target = Rsklpr(size_neighborhood=10)
+    target.fit(x=x, y=y)
+    target.predict_bootstrap(x=x, num_bootstrap_resamples=2, metrics=all_metrics)
+    i: int
+    call: _Call
+
+    for i, call in enumerate(estimate_mock.call_args_list):
+        actual: Optional[List[str]] = call.kwargs["metrics"]
+        if i == 0:
+            assert actual == all_metrics
+        else:
+            assert actual is None

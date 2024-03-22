@@ -514,8 +514,9 @@ class Rsklpr:
             metrics = self._check_and_format_specified_metrics(metrics=metrics, x_arr=x_arr)
 
             if "r_squared" in metrics or "mean_r_squared" in metrics:  # type: ignore[operator]
-                self._r_squared = np.empty(shape=(n,))
                 calculate_r_squared = True
+                if "r_squared" in metrics:  # type: ignore[operator]
+                    self._r_squared = np.empty(shape=(n,))
 
         i: int
 
@@ -657,12 +658,29 @@ class Rsklpr:
         return metrics
 
     def _estimate_bootstrap(
-        self, x: Union[np.ndarray, Sequence[Number], Sequence[Sequence[Number]], float], bootstrap_iterations: int
+        self,
+        x: Union[np.ndarray, Sequence[Number], Sequence[Sequence[Number]], float],
+        bootstrap_iterations: int,
+        metrics: Optional[Union[str, Sequence[str]]] = None,
     ) -> np.ndarray:
+        """
+        Estimates the value of m(x) at the locations. First a single fit is performed using all by calling predict with
+        no resampling. This value is the estimated value of the function. Following that additional bootstrap resamples
+        are performed to estimate the confidence interval. Note that any specified metrics are calculated only using the
+        first call to estimate using the entire data.
+
+        Args:
+            x: Predictor values at locations to estimate m(x), these should be at the original range of the predictor.
+            bootstrap_iterations: The number of bootstrap resamples to take.
+            metrics: See 'predict' docstring for more details.
+
+        Returns:
+
+        """
         x_arr: np.ndarray
         x_arr, _ = self._check_and_reshape_inputs(x=x)
         y_hat: np.ndarray = np.empty((x_arr.shape[0], bootstrap_iterations + 1))
-        y_hat[:, 0] = self._estimate(x=x_arr)
+        y_hat[:, 0] = self._estimate(x=x_arr, metrics=metrics)
         i: int
 
         for i in range(bootstrap_iterations):
@@ -687,7 +705,7 @@ class Rsklpr:
             )
 
             model.fit(x=x_resample, y=y_resample)
-            y_hat[:, i + 1] = model._estimate(x=x_arr)
+            y_hat[:, i + 1] = model._estimate(x=x_arr, metrics=None)
 
         return y_hat
 
@@ -725,41 +743,6 @@ class Rsklpr:
                 )
 
         return bw1_global, bw2_global
-
-    def fit(
-        self,
-        x: Union[np.ndarray, Sequence[Number], Sequence[Sequence[Number]]],
-        y: Union[np.ndarray, Sequence[Number]],
-    ) -> None:
-        """
-        Fits the model to the training set. The number of observations must not be smaller than the neighborhood size
-        specified.
-
-        Args:
-            x: The predictor values. Must be compatible with a numpy array of dimension two at most. The first axis
-                denotes the observation and the second axis the vector components of each observation, i.e. the
-                coordinates of data point i are given by x[i,:].
-            y: The response values at the corresponding predictor locations. Must be compatible with a 1 dimensional
-                numpy array.
-        """
-        x_arr: np.ndarray
-        y_arr: np.ndarray
-        x_arr, y_arr = self._check_and_reshape_inputs(x=x, y=y)  # type: ignore [assignment]
-        self._x = x_arr
-        self._y = y_arr
-        metric_params: Dict[str, Any]
-        p: float
-        metric_params, p = self._get_metric_params()
-
-        self._nearest_neighbors = NearestNeighbors(
-            n_neighbors=self._size_neighborhood,
-            algorithm="auto",
-            metric=self._metric_x,
-            p=p,
-            metric_params=metric_params,
-        )
-
-        self._nearest_neighbors.fit(self._x)
 
     def _get_metric_params(self) -> Tuple[Dict[str, Any], float]:
         """
@@ -847,6 +830,41 @@ class Rsklpr:
 
         return x, y
 
+    def fit(
+        self,
+        x: Union[np.ndarray, Sequence[Number], Sequence[Sequence[Number]]],
+        y: Union[np.ndarray, Sequence[Number]],
+    ) -> None:
+        """
+        Fits the model to the training set. The number of observations must not be smaller than the neighborhood size
+        specified.
+
+        Args:
+            x: The predictor values. Must be compatible with a numpy array of dimension two at most. The first axis
+                denotes the observation and the second axis the vector components of each observation, i.e. the
+                coordinates of data point i are given by x[i,:].
+            y: The response values at the corresponding predictor locations. Must be compatible with a 1 dimensional
+                numpy array.
+        """
+        x_arr: np.ndarray
+        y_arr: np.ndarray
+        x_arr, y_arr = self._check_and_reshape_inputs(x=x, y=y)  # type: ignore [assignment]
+        self._x = x_arr
+        self._y = y_arr
+        metric_params: Dict[str, Any]
+        p: float
+        metric_params, p = self._get_metric_params()
+
+        self._nearest_neighbors = NearestNeighbors(
+            n_neighbors=self._size_neighborhood,
+            algorithm="auto",
+            metric=self._metric_x,
+            p=p,
+            metric_params=metric_params,
+        )
+
+        self._nearest_neighbors.fit(self._x)
+
     def predict(
         self,
         x: Union[np.ndarray, Sequence[Number], Sequence[Sequence[Number]], float],
@@ -875,6 +893,7 @@ class Rsklpr:
         q_low: float = 0.025,
         q_high: float = 0.975,
         num_bootstrap_resamples: int = 50,
+        metrics: Optional[Union[str, Sequence[str]]] = None,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Predicts estimates of m(x) at the specified locations multiple times. The first estimate is done using the
@@ -887,6 +906,11 @@ class Rsklpr:
             q_low: The lower confidence quantile estimated from the posterior of y_hat.
             q_high: The upper confidence quantile estimated from the posterior of y_hat.
             num_bootstrap_resamples: The number of bootstrap resamples to take.
+            metrics: Optional error metrics to calculate. Options are 'residuals', 'mean_square', 'mean_abs',
+                'root_mean_square', 'bias', 'std', 'r_squared', 'mean_r_squared' and 'all'. Multiple metrics can be
+                specified as a Sequence, e.g a List. The metrics are made available through attributes on the model
+                object having similar corresponding names. Note that x must be exactly the same as the training data
+                provided to 'fit' if any metrics are specified.
 
         Returns:
             The estimated responses at the corresponding locations according to the original fit data and the low and
@@ -895,7 +919,7 @@ class Rsklpr:
         if num_bootstrap_resamples <= 0:
             raise ValueError("At least one bootstrap iteration need to be specified")
 
-        y_hat: np.ndarray = self._estimate_bootstrap(x=x, bootstrap_iterations=num_bootstrap_resamples)
+        y_hat: np.ndarray = self._estimate_bootstrap(x=x, bootstrap_iterations=num_bootstrap_resamples, metrics=metrics)
         y_conf_low: np.ndarray = np.quantile(a=y_hat, q=q_low, axis=1)
         y_conf_high: np.ndarray = np.quantile(a=y_hat, q=q_high, axis=1)
         return y_hat[:, 0], y_conf_low, y_conf_high
@@ -1013,7 +1037,7 @@ class Rsklpr:
     @property
     def mean_r_squared(self) -> Optional[float]:
         """
-        the mean of all local WLS R-Square statistics. See docstring for the r_squared property for more details.
+        The mean of all local WLS R-Square statistics. See docstring for the r_squared property for more details.
 
         Returns:
             Mean of all local WLS R-Square statistics.
