@@ -4,7 +4,7 @@ from numbers import Number
 from typing import Optional, Sequence, Tuple, Callable, List, Union, Any, Dict
 
 import numpy as np
-from numpy.random import default_rng as np_defualt_rng
+from numpy.random import default_rng as np_default_rng
 from sklearn.neighbors import NearestNeighbors
 
 from rsklpr.kde_statsmodels_impl.bandwidths import select_bandwidth
@@ -321,9 +321,9 @@ class Rsklpr:
             _laplacian_normalized if k1 == "laplacian" else _tricube_normalized
         )
 
-        self._rnd_gen: np.random.Generator = np_defualt_rng(seed=seed)
-        self._x: np.ndarray = np.ndarray(shape=())
-        self._y: np.ndarray = np.ndarray(shape=())
+        self._rnd_gen: np.random.Generator = np_default_rng(seed=seed)
+        self._x: np.ndarray = np.asarray([])
+        self._y: np.ndarray = np.asarray([])
         self._residuals: np.ndarray = np.asarray([])
         self._mean_square_error: Optional[float] = None
         self._root_mean_square_error: Optional[float] = None
@@ -332,6 +332,7 @@ class Rsklpr:
         self._std_error: Optional[float] = None
         self._r_squared: np.ndarray = np.asarray([])
         self._mean_r_squared: Optional[float] = None
+        self._fit: bool = False
         self._nearest_neighbors: NearestNeighbors
 
     def _calculate_bandwidth(  # type: ignore [return]
@@ -661,26 +662,20 @@ class Rsklpr:
         self,
         x: Union[np.ndarray, Sequence[Number], Sequence[Sequence[Number]], float],
         bootstrap_iterations: int,
-        metrics: Optional[Union[str, Sequence[str]]] = None,
     ) -> np.ndarray:
         """
-        Estimates the value of m(x) at the locations. First a single fit is performed using all by calling predict with
-        no resampling. This value is the estimated value of the function. Following that additional bootstrap resamples
-        are performed to estimate the confidence interval. Note that any specified metrics are calculated only using the
-        first call to estimate using the entire data.
+        Estimates the value of m(x) at the locations by bootstrap resamples.
 
         Args:
             x: Predictor values at locations to estimate m(x), these should be at the original range of the predictor.
             bootstrap_iterations: The number of bootstrap resamples to take.
-            metrics: See 'predict' docstring for more details.
 
         Returns:
-
+            All bootstrap prediction values at the locations.
         """
         x_arr: np.ndarray
         x_arr, _ = self._check_and_reshape_inputs(x=x)
-        y_hat: np.ndarray = np.empty((x_arr.shape[0], bootstrap_iterations + 1))
-        y_hat[:, 0] = self._estimate(x=x_arr, metrics=metrics)
+        y_hat: np.ndarray = np.empty((x_arr.shape[0], bootstrap_iterations))
         i: int
 
         for i in range(bootstrap_iterations):
@@ -705,7 +700,7 @@ class Rsklpr:
             )
 
             model.fit(x=x_resample, y=y_resample)
-            y_hat[:, i + 1] = model._estimate(x=x_arr, metrics=None)
+            y_hat[:, i] = model._estimate(x=x_arr)
 
         return y_hat
 
@@ -846,6 +841,9 @@ class Rsklpr:
             y: The response values at the corresponding predictor locations. Must be compatible with a 1 dimensional
                 numpy array.
         """
+        if self._fit:
+            raise ValueError("Fit already called, use a new instance if you need to fit new data.")
+
         x_arr: np.ndarray
         y_arr: np.ndarray
         x_arr, y_arr = self._check_and_reshape_inputs(x=x, y=y)  # type: ignore [assignment]
@@ -864,6 +862,7 @@ class Rsklpr:
         )
 
         self._nearest_neighbors.fit(self._x)
+        self._fit = True
 
     def predict(
         self,
@@ -893,36 +892,31 @@ class Rsklpr:
         q_low: float = 0.025,
         q_high: float = 0.975,
         num_bootstrap_resamples: int = 50,
-        metrics: Optional[Union[str, Sequence[str]]] = None,
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        return_all_bootstraps: bool = False,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[np.ndarray]]:
         """
-        Predicts estimates of m(x) at the specified locations multiple times. The first estimate is done using the
-        data provided when calling fit (the original sample), following additional 'num_bootstrap_resamples' estimates.
-        The method then uses all estimates to calculate confidence intervals. Note that calling fit with the training
-        data must be done first.
+        Predicts estimates of m(x) at the specified locations multiple times. The method then uses all estimates to
+        calculate the mean and quantiles of the bootstrap distribution that are intrpreted as confidence intervals (
+        basic quantiles method). Note that calling fit with the training data must be done first.
 
         Args:
             x: The locations to predict for.
             q_low: The lower confidence quantile estimated from the posterior of y_hat.
             q_high: The upper confidence quantile estimated from the posterior of y_hat.
             num_bootstrap_resamples: The number of bootstrap resamples to take.
-            metrics: Optional error metrics to calculate. Options are 'residuals', 'mean_square', 'mean_abs',
-                'root_mean_square', 'bias', 'std', 'r_squared', 'mean_r_squared' and 'all'. Multiple metrics can be
-                specified as a Sequence, e.g a List. The metrics are made available through attributes on the model
-                object having similar corresponding names. Note that x must be exactly the same as the training data
-                provided to 'fit' if any metrics are specified.
+            return_all_bootstraps: Return all bootstrap estimates if True, else return None.
 
         Returns:
-            The estimated responses at the corresponding locations according to the original fit data and the low and
-            high confidence bands.
+            The mean of the response bootstrap distribution at the corresponding locations and the low and high
+            confidence estimates.
         """
         if num_bootstrap_resamples <= 0:
             raise ValueError("At least one bootstrap iteration need to be specified")
 
-        y_hat: np.ndarray = self._estimate_bootstrap(x=x, bootstrap_iterations=num_bootstrap_resamples, metrics=metrics)
+        y_hat: np.ndarray = self._estimate_bootstrap(x=x, bootstrap_iterations=num_bootstrap_resamples)
         y_conf_low: np.ndarray = np.quantile(a=y_hat, q=q_low, axis=1)
         y_conf_high: np.ndarray = np.quantile(a=y_hat, q=q_high, axis=1)
-        return y_hat[:, 0], y_conf_low, y_conf_high
+        return y_hat.mean(axis=1), y_conf_low, y_conf_high, y_hat if return_all_bootstraps else None
 
     def fit_and_predict(
         self,

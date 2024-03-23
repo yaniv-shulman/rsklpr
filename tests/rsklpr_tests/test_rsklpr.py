@@ -1,5 +1,5 @@
 from typing import List, Optional, Union
-from unittest.mock import MagicMock, _Call
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
@@ -180,7 +180,7 @@ def test_rsklpr_smoke_test_1d_estimate_bootstrap_expected_output(
     actual: np.ndarray
     conf_low_actual: np.ndarray
     conf_upper_actual: np.ndarray
-    actual, conf_low_actual, conf_upper_actual = target.predict_bootstrap(x=x)
+    actual, conf_low_actual, conf_upper_actual, _ = target.predict_bootstrap(x=x)
     np.testing.assert_allclose(actual=actual, desired=y, atol=7e-3)
     np.testing.assert_allclose(actual=conf_low_actual, desired=y, atol=7e-3)
     np.testing.assert_allclose(actual=conf_upper_actual, desired=y, atol=7e-3)
@@ -190,7 +190,7 @@ def test_rsklpr_init_expected_values(mocker: MockerFixture) -> None:
     """
     Test that correct values are assigned during initialization.
     """
-    mocker.patch("rsklpr.rsklpr.np_defualt_rng")
+    mocker.patch("rsklpr.rsklpr.np_default_rng")
     target: Rsklpr = Rsklpr(size_neighborhood=15)
     assert target._size_neighborhood == 15
     assert target._degree == 1
@@ -201,10 +201,22 @@ def test_rsklpr_init_expected_values(mocker: MockerFixture) -> None:
     assert target._bw1 == "normal_reference"
     assert target._bw2 == "normal_reference"
     assert target._bw_global_subsample_size is None
-    rsklpr.rsklpr.np_defualt_rng.assert_called_once_with(seed=888)  # type: ignore [attr-defined]
+    assert target._seed == 888
+    rsklpr.rsklpr.np_default_rng.assert_called_once_with(seed=888)  # type: ignore [attr-defined]
     assert target._k1_func == _laplacian_normalized
+    assert target._x.shape == (0,)
+    assert target._y.shape == (0,)
+    assert target._residuals.shape == (0,)
+    assert target._mean_square_error is None
+    assert target._root_mean_square_error is None
+    assert target._mean_abs_error is None
+    assert target._bias_error is None
+    assert target._std_error is None
+    assert target._r_squared.shape == (0,)
+    assert target._mean_r_squared is None
+    assert not target._fit
 
-    mocker.patch("rsklpr.rsklpr.np_defualt_rng")
+    mocker.patch("rsklpr.rsklpr.np_default_rng")
     target = Rsklpr(
         size_neighborhood=25,
         degree=0,
@@ -227,8 +239,20 @@ def test_rsklpr_init_expected_values(mocker: MockerFixture) -> None:
     assert target._bw1 == "cv_ls_global"
     assert target._bw2 == "scott"
     assert target._bw_global_subsample_size == 50
-    rsklpr.rsklpr.np_defualt_rng.assert_called_once_with(seed=45)  # type: ignore [attr-defined]
+    assert target._seed == 45
+    rsklpr.rsklpr.np_default_rng.assert_called_once_with(seed=45)  # type: ignore [attr-defined]
     assert target._k1_func == _tricube_normalized
+    assert target._x.shape == (0,)
+    assert target._y.shape == (0,)
+    assert target._residuals.shape == (0,)
+    assert target._mean_square_error is None
+    assert target._root_mean_square_error is None
+    assert target._mean_abs_error is None
+    assert target._bias_error is None
+    assert target._std_error is None
+    assert target._r_squared.shape == (0,)
+    assert target._mean_r_squared is None
+    assert not target._fit
 
     target = Rsklpr(
         size_neighborhood=12,
@@ -523,10 +547,11 @@ def test_predict_error_metrics_expected_values(x: np.ndarray, y: np.ndarray, met
     assert target.mean_r_squared == pytest.approx(float(target.r_squared.mean()))
 
 
-def test_predict_error_metrics_specified_metrics_are_calculated() -> None:
+def test_predict_error_metrics_expected_metrics_are_calculated() -> None:
     """
-    Tests only the specified error metrics are calculated including all global metrics lazy evaluation when
-    'residuals' are specified
+    Tests only the expected error metrics are calculated. When residuals is specified all global metrics expected to be
+    lazily evaluated. When 'root_mean_square' is specified also 'mean_square' should become available due to it's use in
+    calculation
     """
     x: np.ndarray = generate_linear_1d()
     y: np.ndarray = generate_linear_1d()
@@ -591,7 +616,7 @@ def test_predict_error_metrics_specified_metrics_are_calculated() -> None:
 
 
 def test_weighted_local_regression_r_squared_is_none(mocker: MockerFixture) -> None:
-    """Tests that the r_squared is not calculated nor returned when calculate_r_squared is False"""
+    """Tests that r_squared is not calculated nor returned when calculate_r_squared is False"""
     x: np.ndarray = generate_linear_1d().reshape((-1, 1))
     y: np.ndarray = generate_linear_1d()
     weights: np.ndarray = rng.uniform(low=0.01, high=1, size=50).reshape((-1, 1))
@@ -618,23 +643,85 @@ def test_r_squared_raises_when_y_and_weights_different_shapes() -> None:
         assert "y and weights must have the same shape" in str(exc_info.value)
 
 
-def test_estimate_bootstrap_calls_estimate_with_the_metrics_only_once(mocker: MockerFixture) -> None:
+def test_estimate_bootstrap_expected_number_of_bootstrap_steps(mocker: MockerFixture) -> None:
+    """
+    Tests the expected nuber of estimate calls are performed and the arguments provided are correct.
+    """
     x: np.ndarray = generate_linear_1d().reshape((-1, 1))
     y: np.ndarray = generate_linear_1d()
+    num_bootstrap_resamples: int = 5
+    side_effect: List[np.ndarray] = [i * np.ones(shape=y.shape[0]) for i in range(num_bootstrap_resamples)]
 
     estimate_mock: MagicMock = mocker.patch(
-        target="rsklpr.rsklpr.Rsklpr._estimate", return_value=rng.normal(size=y.shape[0])
+        target="rsklpr.rsklpr.Rsklpr._estimate",
+        side_effect=side_effect,
     )
 
     target = Rsklpr(size_neighborhood=10)
     target.fit(x=x, y=y)
-    target.predict_bootstrap(x=x, num_bootstrap_resamples=2, metrics=all_metrics)
-    i: int
-    call: _Call
+    target.predict_bootstrap(x=x, num_bootstrap_resamples=num_bootstrap_resamples)
+    assert estimate_mock.call_count == 5
 
-    for i, call in enumerate(estimate_mock.call_args_list):
-        actual: Optional[List[str]] = call.kwargs["metrics"]
-        if i == 0:
-            assert actual == all_metrics
-        else:
-            assert actual is None
+    for call in estimate_mock.call_args_list:
+        np.testing.assert_array_equal(x, call.kwargs["x"])
+
+
+def test_estimate_bootstrap_expected_values_are_returned(mocker: MockerFixture) -> None:
+    """
+    Tests the expected values are returned.
+    """
+    x: np.ndarray = generate_linear_1d().reshape((-1, 1))
+    y: np.ndarray = generate_linear_1d()
+    num_bootstrap_resamples: int = 5
+
+    side_effect: List[np.ndarray] = [
+        np.linspace(start=i * 2, stop=(i + 1) * 2, num=y.shape[0]) for i in range(num_bootstrap_resamples)
+    ]
+
+    estimate_mock: MagicMock = mocker.patch(
+        target="rsklpr.rsklpr.Rsklpr._estimate",
+        side_effect=side_effect,
+    )
+
+    target = Rsklpr(size_neighborhood=10)
+    target.fit(x=x, y=y)
+    actual_mean: np.ndarray
+    actual_conf_low: np.ndarray
+    actual_conf_high: np.ndarray
+    actual_results: Optional[np.ndarray]
+
+    actual_mean, actual_conf_low, actual_conf_high, actual_results = target.predict_bootstrap(
+        x=x, num_bootstrap_resamples=num_bootstrap_resamples
+    )
+
+    expected: np.ndarray = np.asarray(side_effect).T
+    np.testing.assert_allclose(actual_mean, expected.mean(axis=1))
+    np.testing.assert_allclose(actual_conf_low, np.quantile(a=expected, q=0.025, axis=1))
+    np.testing.assert_allclose(actual_conf_high, np.quantile(a=expected, q=0.975, axis=1))
+    assert actual_results is None
+    estimate_mock.reset_mock(side_effect=True)
+    estimate_mock.side_effect = side_effect
+
+    actual_mean, actual_conf_low, actual_conf_high, actual_results = target.predict_bootstrap(
+        x=x, q_low=0.1, q_high=0.9, num_bootstrap_resamples=num_bootstrap_resamples, return_all_bootstraps=True
+    )
+
+    np.testing.assert_allclose(actual_mean, expected.mean(axis=1))
+    np.testing.assert_allclose(actual_conf_low, np.quantile(a=expected, q=0.1, axis=1))
+    np.testing.assert_allclose(actual_conf_high, np.quantile(a=expected, q=0.9, axis=1))
+    np.testing.assert_allclose(actual_results, expected)  # type: ignore[arg-type]
+
+
+def test_fit_raises_if_called_multiple_times() -> None:
+    """
+    Tests fit raises when called multiple times.
+    """
+    x: np.ndarray = generate_linear_1d().reshape((-1, 1))
+    y: np.ndarray = generate_linear_1d()
+    target = Rsklpr(size_neighborhood=10)
+    target.fit(x=x, y=y)
+
+    with pytest.raises(
+        expected_exception=ValueError, match="Fit already called, use a new instance if you need to fit new data."
+    ):
+        target.fit(x=x, y=y)
