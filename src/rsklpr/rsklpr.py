@@ -350,30 +350,29 @@ class Rsklpr:
         Returns:
             The estimated bandwidth for the data.
         """
-        if isinstance(bandwidth, Callable):  # type: ignore [arg-type]
+        if callable(bandwidth):  # type: ignore [arg-type]
             return bandwidth(data)  # type: ignore [operator]
-        elif isinstance(bandwidth, str):
-            if bandwidth in ("scott", "normal_reference"):
-                return select_bandwidth(x=data, bw=bandwidth, kernel=None).tolist()  # type: ignore [no-any-return]
-            elif bandwidth.startswith("cv_"):
-                subsample: np.ndarray = data
+        elif bandwidth in ("scott", "normal_reference"):
+            return select_bandwidth(x=data, bw=bandwidth, kernel=None).tolist()  # type: ignore [no-any-return]
+        elif bandwidth.startswith("cv_"):
+            subsample: np.ndarray = data
 
-                if (
-                    bandwidth == "cv_ls_global"
-                    and self._bw_global_subsample_size is not None
-                    and data.shape[0] > self._bw_global_subsample_size
-                ):
-                    sample_idx: np.ndarray = self._rnd_gen.choice(
-                        a=data.shape[0],
-                        size=min(int(data.shape[0]), self._bw_global_subsample_size),
-                    )
-                    subsample = data[sample_idx, :]
+            if (
+                bandwidth == "cv_ls_global"
+                and self._bw_global_subsample_size is not None
+                and data.shape[0] > self._bw_global_subsample_size
+            ):
+                sample_idx: np.ndarray = self._rnd_gen.choice(
+                    a=data.shape[0],
+                    size=min(int(data.shape[0]), self._bw_global_subsample_size),
+                )
+                subsample = data[sample_idx, :]
 
-                return KDEMultivariate(  # type: ignore [no-any-return]
-                    data=subsample,
-                    var_type="c" * _dim_data(data=subsample),
-                    bw="cv_ls",
-                ).bw
+            return KDEMultivariate(  # type: ignore [no-any-return]
+                data=subsample,
+                var_type="c" * _dim_data(data=subsample),
+                bw="cv_ls",
+            ).bw
         else:
             raise ValueError(f"Unknown bandwidth {bandwidth}")
 
@@ -516,8 +515,9 @@ class Rsklpr:
 
             if "r_squared" in metrics or "mean_r_squared" in metrics:  # type: ignore[operator]
                 calculate_r_squared = True
-                if "r_squared" in metrics:  # type: ignore[operator]
-                    self._r_squared = np.empty(shape=(n,))
+
+            if "r_squared" in metrics:  # type: ignore[operator]
+                self._r_squared = np.empty(shape=(n,))
 
         i: int
 
@@ -572,7 +572,7 @@ class Rsklpr:
         if "mean_square" in metrics or "root_mean_square" in metrics:
             self._mean_square_error = float(_mean_square_error(residuals=residuals))
 
-            if "root_mean_square" in metrics:
+            if "root_mean_square" in metrics:  # this if is nested to avoid the linter complaining about types
                 self._root_mean_square_error = math.sqrt(self._mean_square_error)
 
         if "mean_abs" in metrics:
@@ -750,18 +750,12 @@ class Rsklpr:
         Returns:
             The metric params and a 'p' parameter required to construct a NearestNeighbors object.
         """
-        metric_params: Dict[str, Any] = dict() if self._metric_x_params is None else self._metric_x_params.copy()
-        p: float = 2.0
+        metric_params: Dict[str, Any] = {} if self._metric_x_params is None else self._metric_x_params.copy()
+        p: float = metric_params.pop("p", 2.0)
 
-        if self._metric_x == "mahalanobis":
-            if "VI" not in metric_params.keys():
-                cov: np.ndarray = np.atleast_2d(np.cov(m=self._x, rowvar=False))
-                metric_params["VI"] = np.linalg.inv(cov)
-
-        elif self._metric_x == "minkowski":
-            if "p" in metric_params.keys():
-                p = metric_params["p"]
-                del metric_params["p"]
+        if self._metric_x == "mahalanobis" and "VI" not in metric_params.keys():
+            cov: np.ndarray = np.atleast_2d(np.cov(m=self._x, rowvar=False))
+            metric_params["VI"] = np.linalg.inv(cov)
 
         return metric_params, p
 

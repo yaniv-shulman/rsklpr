@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Dict, Any, Type
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -724,4 +724,86 @@ def test_fit_raises_if_called_multiple_times() -> None:
     with pytest.raises(
         expected_exception=ValueError, match="Fit already called, use a new instance if you need to fit new data."
     ):
+        target.fit(x=x, y=y)
+
+
+# Parametrized test cases for the happy path
+@pytest.mark.parametrize(
+    argnames="x, y, metric_x, metric_x_params, expected_metric_params, expected_p",
+    argvalues=[
+        (generate_linear_1d(), generate_linear_1d(), "euclidean", None, {}, 2.0),
+        (generate_linear_1d(), generate_linear_1d(), "minkowski", {}, {}, 2.0),
+        (generate_linear_1d(), generate_linear_1d(), "minkowski", {"p": 3}, {}, 3.0),
+        # VI not provided
+        (
+            generate_linear_nd(dim=3),
+            generate_quad_1d(),
+            "mahalanobis",
+            {},
+            {},  # The VI value is added dynamically in the test
+            2.0,
+        ),
+        # VI provided
+        (
+            generate_linear_nd(dim=3),
+            generate_quad_1d(),
+            "mahalanobis",
+            {"VI": np.eye(3)},
+            {"VI": np.eye(3)},
+            2.0,
+        ),
+    ],
+)
+def test_get_metric_params_expected_values(
+    x: np.ndarray,
+    y: np.ndarray,
+    metric_x: str,
+    metric_x_params: Optional[Dict[str, Any]],
+    expected_metric_params: Dict[str, Any],
+    expected_p: float,
+) -> None:
+    """Tests get_metric_params returns the expected values"""
+    target: Rsklpr = Rsklpr(size_neighborhood=10, metric_x=metric_x, metric_x_params=metric_x_params)
+    target.fit(x=x, y=y)
+    actual_metric_params: Dict[str, Any]
+    actual_p: float
+    actual_metric_params, actual_p = target._get_metric_params()
+    assert "p" not in actual_metric_params
+    assert actual_p == expected_p
+
+    if metric_x != "mahalanobis":
+        assert actual_metric_params == expected_metric_params
+    else:
+        if "VI" not in expected_metric_params:
+            expected_metric_params["VI"] = np.linalg.inv(np.cov(m=x, rowvar=False))
+
+        np.testing.assert_allclose(actual_metric_params["VI"], expected_metric_params["VI"])
+
+    assert actual_p == expected_p
+
+
+@pytest.mark.parametrize(
+    argnames=["x", "y", "metric_x", "metric_x_params", "expected_exception"],
+    argvalues=[
+        # Invalid metric_x parameter
+        (generate_linear_1d(), generate_linear_1d(), "invalid_metric", None, ValueError),
+        # Invalid metric_param
+        (generate_linear_1d(), generate_linear_1d(), "invalid_metric", {"bla": 5}, ValueError),
+        # Invalid type for metric_x_params
+        (generate_linear_1d(), generate_linear_1d(), "minkowski", "invalid_params", AttributeError),
+    ],
+)
+def test_get_metric_params_error_cases(
+    x: np.ndarray,
+    y: np.ndarray,
+    metric_x: str,
+    metric_x_params: Union[str, Optional[Dict[str, Any]]],
+    expected_exception: Type[Exception],
+) -> None:
+    """Tests the expected exception raised when incorrect values are provided"""
+    target: Rsklpr = Rsklpr(
+        size_neighborhood=10, metric_x=metric_x, metric_x_params=metric_x_params  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(expected_exception):
         target.fit(x=x, y=y)

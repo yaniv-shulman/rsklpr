@@ -1,7 +1,9 @@
 # Robust Local Polynomial Regression with Similarity Kernels #
 
+[![Downloads](https://static.pepy.tech/badge/rsklpr)](https://pepy.tech/project/rsklpr)
+
 ## TL;DR ##
-This library is useful to perform robust locally weighted regression in Python when:
+This library is useful to perform robust locally weighted regression (similar to [LOESS](https://en.wikipedia.org/wiki/Local_regression)) in Python when:
 1. There are no particular assumptions on the underlying function except that it is "reasonably smooth". In particular,
 you don't know which parametric model to specify or if an appropriate model exists. 
 1. There are no particular assumptions on the type and intensity of noise present.
@@ -24,6 +26,11 @@ Install from [PyPI](https://pypi.org/project/rsklpr/) using pip (preferred metho
 ```bash
 pip install rsklpr
 ```
+
+### What's new? ###
+- Version 0.7.0 - Metrics including local R-Squared and more efficient computation of WLS. 
+- Version 0.6.0 - Bootstrap inference and confidence intervals
+
 
 ## Details ##
 Local polynomial regression (LPR) is a powerful and flexible statistical technique that has gained increasing popularity
