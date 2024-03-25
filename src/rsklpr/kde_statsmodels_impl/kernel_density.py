@@ -30,6 +30,7 @@ A copy of KDE implementation from statsmodels https://www.statsmodels.org/stable
 remove statsmodels as a dependency of this package since statsmodels is quite heavy and pulls a lot of additional
 packages.
 """
+
 import numpy as np
 
 from rsklpr.kde_statsmodels_impl import kernels

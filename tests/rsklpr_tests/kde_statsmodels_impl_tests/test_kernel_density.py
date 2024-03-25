@@ -2,6 +2,7 @@
 Tests that the local copy of KDEMultivariate and select_bandwidth that are used in rsklpr are consistent with the
 implementation in statsmodels
 """
+
 from typing import Union, Sequence, Callable
 
 import numpy as np

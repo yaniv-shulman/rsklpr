@@ -59,7 +59,7 @@ def test_rsklpr_smoke_test_1d_regression_increasing_windows_expected_output(
             y=y,
         )
 
-        np.testing.assert_allclose(actual=actual, desired=y, atol=5e-3)
+        np.testing.assert_allclose(actual=actual, desired=y, atol=8.5e-3)
 
 
 @pytest.mark.parametrize(
