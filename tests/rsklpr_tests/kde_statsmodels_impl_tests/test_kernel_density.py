@@ -2,6 +2,7 @@
 Tests that the local copy of KDEMultivariate and select_bandwidth that are used in rsklpr are consistent with the
 implementation in statsmodels
 """
+
 from typing import Union, Sequence, Callable
 
 import numpy as np
@@ -11,15 +12,14 @@ from statsmodels.nonparametric.kernel_density import KDEMultivariate as SM_KDEMu
 
 from rsklpr.kde_statsmodels_impl.bandwidths import select_bandwidth
 from rsklpr.kde_statsmodels_impl.kernel_density import KDEMultivariate
-
-_rng: np.random.Generator = np.random.default_rng(seed=13)
+from tests.rsklpr_tests.utils import generate_linear_1d, generate_linear_nd
 
 
 def test_kdemultivariate_public_attributes_are_the_same() -> None:
     """
     Tests the public attributes for KDEMultivariate are consistent with statsmodels.
     """
-    data: np.ndarray = np.linspace(start=-8, stop=3, num=50) + _rng.uniform(low=-0.001, high=0.001, size=50)
+    data: np.ndarray = generate_linear_1d(start=-8, stop=3)
     target: KDEMultivariate = KDEMultivariate(data=data, var_type="c")
     sm_ref: SM_KDEMultivariate = SM_KDEMultivariate(data=data, var_type="c")
     assert sorted(dir(target)) == sorted(dir(sm_ref))
@@ -37,54 +37,9 @@ def test_kdemultivariate_public_attributes_are_the_same() -> None:
 
 @pytest.mark.parametrize(
     argnames="data",
-    argvalues=[
-        np.linspace(start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50)
-        + _rng.uniform(low=-0.001, high=0.001, size=50)
-        for _ in range(3)
-    ]
-    + [
-        np.concatenate(
-            [
-                np.linspace(
-                    start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50
-                ).reshape((-1, 1))
-                + _rng.uniform(low=-0.001, high=0.001, size=50).reshape((-1, 1)),
-                np.linspace(
-                    start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50
-                ).reshape((-1, 1))
-                + _rng.uniform(low=-0.001, high=0.001, size=50).reshape((-1, 1)),
-            ],
-            axis=1,
-        )
-        for _ in range(3)
-    ]
-    + [
-        np.concatenate(
-            [
-                np.linspace(
-                    start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50
-                ).reshape((-1, 1))
-                + _rng.uniform(low=-0.001, high=0.001, size=50).reshape((-1, 1)),
-                np.linspace(
-                    start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50
-                ).reshape((-1, 1))
-                + _rng.uniform(low=-0.001, high=0.001, size=50).reshape((-1, 1)),
-                np.linspace(
-                    start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50
-                ).reshape((-1, 1))
-                + _rng.uniform(low=-0.001, high=0.001, size=50).reshape((-1, 1)),
-                np.linspace(
-                    start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50
-                ).reshape((-1, 1))
-                + _rng.uniform(low=-0.001, high=0.001, size=50).reshape((-1, 1)),
-                np.linspace(
-                    start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50
-                ).reshape((-1, 1))
-                + _rng.uniform(low=-0.001, high=0.001, size=50).reshape((-1, 1)),
-            ],
-            axis=1,
-        )
-    ],
+    argvalues=[generate_linear_1d() for _ in range(3)]
+    + [generate_linear_nd(dim=2) for _ in range(3)]
+    + [generate_linear_nd(dim=5)],
 )
 @pytest.mark.parametrize(
     argnames="bw",
@@ -108,54 +63,9 @@ def test_kdemultivariate_density_is_equal(data: np.ndarray, bw: Union[str, Seque
 
 @pytest.mark.parametrize(
     argnames="x",
-    argvalues=[
-        np.linspace(start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50)
-        + _rng.uniform(low=-0.001, high=0.001, size=50)
-        for _ in range(3)
-    ]
-    + [
-        np.concatenate(
-            [
-                np.linspace(
-                    start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50
-                ).reshape((-1, 1))
-                + _rng.uniform(low=-0.001, high=0.001, size=50).reshape((-1, 1)),
-                np.linspace(
-                    start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50
-                ).reshape((-1, 1))
-                + _rng.uniform(low=-0.001, high=0.001, size=50).reshape((-1, 1)),
-            ],
-            axis=1,
-        )
-        for _ in range(3)
-    ]
-    + [
-        np.concatenate(
-            [
-                np.linspace(
-                    start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50
-                ).reshape((-1, 1))
-                + _rng.uniform(low=-0.001, high=0.001, size=50).reshape((-1, 1)),
-                np.linspace(
-                    start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50
-                ).reshape((-1, 1))
-                + _rng.uniform(low=-0.001, high=0.001, size=50).reshape((-1, 1)),
-                np.linspace(
-                    start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50
-                ).reshape((-1, 1))
-                + _rng.uniform(low=-0.001, high=0.001, size=50).reshape((-1, 1)),
-                np.linspace(
-                    start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50
-                ).reshape((-1, 1))
-                + _rng.uniform(low=-0.001, high=0.001, size=50).reshape((-1, 1)),
-                np.linspace(
-                    start=_rng.integers(low=-10, high=10), stop=_rng.integers(low=-10, high=10), num=50
-                ).reshape((-1, 1))
-                + _rng.uniform(low=-0.001, high=0.001, size=50).reshape((-1, 1)),
-            ],
-            axis=1,
-        )
-    ],
+    argvalues=[generate_linear_1d() for _ in range(3)]
+    + [generate_linear_nd(dim=2) for _ in range(3)]
+    + [generate_linear_nd(dim=5)],
 )
 @pytest.mark.parametrize(
     argnames="bw",
