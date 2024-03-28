@@ -26,6 +26,11 @@ jobs:
           curl -sSL https://install.python-poetry.org | python3 -
           PATH="${PATH}:${HOME}/.local/bin" && export PATH
           poetry config virtualenvs.create false && poetry install --with dev
+      - name: Lint
+        run: |
+          python -m black --check .
+          python -m ruff check .
+          python -m mypy .
       - name: Run tests
         run: python -m pytest -n auto
 
