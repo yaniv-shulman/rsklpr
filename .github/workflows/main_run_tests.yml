@@ -26,7 +26,7 @@ jobs:
           python -m pip install --upgrade pip
           curl -sSL https://install.python-poetry.org | python3 -
           PATH="${PATH}:${HOME}/.local/bin" && export PATH
-          poetry config virtualenvs.create false && poetry install --with dev --no-root
+          poetry config virtualenvs.create false && poetry install --with dev
       - name: Run tests
         run: python -m pytest -n auto
 
