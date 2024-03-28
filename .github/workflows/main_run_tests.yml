@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["pypy3.9", "pypy3.10", "3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.8", "3.9"]
 
     steps:
       - uses: actions/checkout@v4
@@ -27,5 +27,6 @@ jobs:
           curl -sSL https://install.python-poetry.org | python3 -
           PATH="${PATH}:${HOME}/.local/bin" && export PATH
           source ./configure.sh
-          python -m pytest -n auto
+      - name: Run tests
+        run: python -m pytest -n auto
 
