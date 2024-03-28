@@ -1,4 +1,4 @@
-name: PR run tests
+name: Linting and Tests
 
 on: 
   pull_request:
