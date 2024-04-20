@@ -727,7 +727,6 @@ def test_fit_raises_if_called_multiple_times() -> None:
         target.fit(x=x, y=y)
 
 
-# Parametrized test cases for the happy path
 @pytest.mark.parametrize(
     argnames="x, y, metric_x, metric_x_params, expected_metric_params, expected_p",
     argvalues=[
