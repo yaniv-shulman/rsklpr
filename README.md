@@ -57,4 +57,4 @@ packages.
 ## Contribution and feedback ##
 The paper is work in progress and the library in early stages of development but both are in a useful state.
 Contributions and feedback are most welcome both to the paper and the code. Please see
-[CONTRIBUTE.md](https://github.com/yaniv-shulman/rsklpr/tree/main/CONTRIBUTE.md) for further details.
+[CONTRIBUTING.md](https://github.com/yaniv-shulman/rsklpr/tree/main/CONTRIBUTING.md) for further details.
