@@ -1,8 +1,10 @@
 [tool.poetry]
 authors = ["Yaniv Shulman <yaniv@shulman.info>"]
 classifiers = [
+    "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Scientific/Engineering :: Mathematics",
 ]
 description = "Implementation of the Robust Local Polynomial Regression with Similarity Kernel draft paper"
@@ -10,7 +12,6 @@ homepage = "https://github.com/yaniv-shulman/rsklpr"
 keywords = [
     "statistics", "robust statistics", "regression", "robust regression", "local polynomial regression", "machine learning", "locally weighted regression",
 ]
-license = "GPL-3.0-only"
 name = "rsklpr"
 packages = [
     { include = "rsklpr", from = "src" }
