@@ -67,7 +67,6 @@ This section provides a brief overview of local polynomial regression and establ
 m(X_i) \approx \sum_{j=0}^p \frac{m^{(j)}(x)}{j!} (x - X_i)^j \coloneqq \sum_{j=0}^p \gamma_j(x)(x - X_i)^j
 \label{taylor_expansion}
 \end{align}
-
 To find an estimate $\hat{m}(x)$ of $m(x)$ the low-degree polynomial \eqref{taylor_expansion} is fitted to the $N$ nearest neighbors using weighted least squares such to minimize the empirical loss $\mathcal{L}_{lpr}( \cdot \, ; \mathcal{D}_N , h)$ :
 
 \begin{align}
@@ -80,7 +79,6 @@ To find an estimate $\hat{m}(x)$ of $m(x)$ the low-degree polynomial \eqref{tayl
 \hat{\gamma}(x) \coloneqq \min_{\gamma(x)} \mathcal{L}_{lpr}(x; \mathcal{D}_N,h)
 \label{beta_hat}
 \end{align}
-
 Where $\gamma, \hat{\gamma} \in \mathbb{R}^{p+1}$; $K_h(\cdot)$ is a scaled kernel, $h \in \mathbb{R}_{> 0}$ is the bandwidth parameter and $\mathcal{D}_N \subseteq \mathcal{D}_T$ is the subset of $N$ nearest neighbors of $x$ in the training set where the distance is measured on the predictors only. Having computed $\hat{\gamma}(x)$ the estimate of $\hat{m}(x)$ is taken as $\hat{\gamma}(x)_1$. Note the term kernel carries here the meaning typically used in the context of nonparametric regression i.e. a non-negative real-valued weighting function that is typically symmetric, unimodal at zero, integrable with a unit integral and whose value is non-increasing for the increasing distance between the $X_i$ and $x$. Higher degree polynomials and smaller $N$ generally increase the variance and decrease the bias of the estimator and vice versa \citep{Avery2010LiteratureRF}. For derivation of the local constant and local linear estimators for the multidimensional case see \citep{Garcia-Portugues2023}.
 
 \section{Robust weights with similarity kernels}
@@ -142,28 +140,74 @@ K_2 \left((x,y),(x', y') ; H_2 \right) = \hat{f}(x,y ; H_2) \hat{f}(x',y'; H_2)
 \end{align}
 Where the joint density can be estimated using the same aforementioned approach. \newline
 
-Regardless of the choice of kernel, the hyperparameters of this model are similar in essence to the standard local polynomial regression and include the span of included points, the kernels and their associated bandwidths. Note that this estimator can be replaced with a robust alternative and better results are anticipated by doing so however exploring this option is left for future work.
-
 \begin{figure}[t]
 \caption{The plot illustrates the proposed loss function, a number of common robust losses and the standard quadratic residual loss for comparison. It is assumed that that $K_2$ is equivalent to the standard normal density and the $K_1$ distance kernel scaling is excluded. The numbers appended to "rsklpr" indicate how many standard deviations away from the mean the density is calculated. It is evident that the loss is heavily attenuated in regions of low density.}
 \centering
 \includegraphics[width=1.0\textwidth]{losses_1d.png}1
-\end{figure}
+\end{figure} 
+
+Regardless of the choice of kernel, the hyperparameters of this model are similar in essence to the standard local polynomial regression and comprise the span of included points, the kernels and their associated bandwidths. Note that this estimator can be replaced with other robust density estimators and better results are anticipated by doing so however exploring this option is left for future work. 
+
+\section{Properties}
+
+This section discusses some properties of the estimator. Note the notation in this section is simplified by excluding explicit mentions of $D_N$ and $H$, however the analysis is conditional on the nearest neighbors in the sample, $D_N$.
+
+\subsection{Weighted arithmetic mean of the standard LPR}
+The proposed estimator is equivalent to using weighted arithmetic mean of the terms in the standard LPR loss \eqref{loss_lpr} with weights $w_i = \hat{f}(Y_i \, | \, X_i)$. \newline
+\textit{Proof}: The optimization is invariant to the scale of the objective, therefore:
+\begin{align}
+\hat{\beta}(x,y) \coloneqq & \min_{\beta(x,y)} \sum_{i=1}^N \left(  Y_i - \sum_{j=0}^p \beta_j (x, y) (x - X_i)^j \right)^2 K_{H_{1}} (x - X_i) \hat{f}(y \, | \, x) \hat{f}(Y_i \, | \, X_i) \\
+= & \min_{\beta(x,y)} \left( \sum_{i=1}^N \hat{f}(Y_i \, | \, X_i) \right)^{-1} \sum_{i=1}^N \left(  Y_i - \sum_{j=0}^p \beta_j (x, y) (x - X_i)^j \right)^2 K_{H_{1}} (x - X_i) \hat{f}(Y_i \, | \, X_i) \\
+= & \min_{\beta(x,y)} \left( \sum_{i=1}^N w_i \right)^{-1} \sum_{i=1}^N \left(  Y_i - \sum_{j=0}^p \beta_j (x, y) (x - X_i)^j \right)^2 K_{H_{1}} (x - X_i) w_i
+\label{alt_skr_opt_obj}
+\end{align}
+
+\subsection{Asymptotic degeneration of the estimator to the standard LPR}
+Asymptotically, the proposed estimator degenerates to the standard LPR when the weights $w_i$ are uncorrelated to the standard LPR terms. Formally, $\hat{\gamma}(x) = \hat{\beta}(x,y)  \; \forall y$ when \newline $\left(  Y - \sum_{j=0}^p \beta_j (x, y) (x - X)^j \right)^2 K_{H_{1}} (x - X)$ and $\hat{f}(Y \, | \, X)$ are uncorrelated. \newline
+\textit{Proof}: Define $g(X,Y) \coloneqq \left(  Y - \sum_{j=0}^p \beta_j (x, y) (x - X)^j \right)^2 K_{H_{1}} (x - X)$, it then follows that: 
+
+\begin{align}
+\hat{\beta}(x,y) \coloneqq & \min_{\beta(x,y)} \left( \sum_{i=1}^N \hat{f}(Y_i \, | \, X_i) \right)^{-1}  \sum_{i=1}^N \left(  Y_i - \sum_{j=0}^p \beta_j (x, y) (x - X_i)^j \right)^2 K_{H_{1}} (x - X_i) \hat{f}(Y_i \, | \, X_i) \\
+= & \min_{\beta(x,y)} \left( \sum_{i=1}^N \hat{f}(Y_i \, | \, X_i) \right)^{-1}  \sum_{i=1}^N g(X_i , Y_i) \hat{f}(Y_i \, | \, X_i) \\
+= & \min_{\beta(x,y)} \left( \frac{1}{N} \sum_{i=1}^N \hat{f}(Y_i \, | \, X_i) \right)^{-1} \frac{1}{N} \sum_{i=1}^N g(X_i , Y_i) \hat{f}(Y_i \, | \, X_i)
+\end{align} \newline
+When $N \rightarrow \infty$, due to the law of large numbers and the continuous mapping theorem it follows that:
+
+\begin{align}
+\lim_{N \rightarrow \infty} \left( \frac{1}{N} \sum_{i=1}^N \hat{f}(Y_i \, | \, X_i) \right)^{-1} 
+& \xrightarrow{a.s.} \mathbb{E} \left[ \frac{1}{\hat{f}(Y \, | \, X)} \right] \\
+\lim_{N \rightarrow \infty} \frac{1}{N}  \sum_{i=1}^N g(X , Y) \hat{f}(Y_i \, | \, X_i) & \xrightarrow{a.s.} \mathbb{E} \left[ g(X , Y) \hat{f}(Y \, | \, X) \right]
+\end{align}
+Combining the results above and assuming $\mathbb{E} \left[ \hat{f}(Y \, | \, X) \right] \neq 0$ it follows that:
+\begin{align}
+\hat{\beta}(x,y) \coloneqq \min_{\beta(x,y)} \frac{\mathbb{E} \left[ g(X , Y) \hat{f}(Y \, | \, X) \right]}{\mathbb{E} \left[ \hat{f}(Y \, | \, X) \right]}
+\end{align}
+If $g(X,Y)$ and $\hat{f}(Y \, | \, X)$ are uncorrelated then:
+\begin{align}
+\hat{\beta}(x,y) \coloneqq & \min_{\beta(x,y)} \frac{\mathbb{E} \left[ g(X , Y) \hat{f}(Y \, | \, X) \right]}{\mathbb{E} \left[ \hat{f}(Y \, | \, X) \right]} = \min_{\beta(x,y)} \frac{\mathbb{E} \left[ g(X , Y) \right] \mathbb{E} \left[ \hat{f}(Y \, | \, X) \right]}{\mathbb{E} \left[ \hat{f}(Y \, | \, X) \right]} = \min_{\beta(x,y)} \mathbb{E} \left[ g(X , Y) \right] \\
+= & \min_{\beta(x,y)} \lim_{N \rightarrow \infty} \frac{1}{N}  \sum_{i=1}^N g(X , Y) \\
+= & \min_{\beta(x,y)} \lim_{N \rightarrow \infty} \frac{1}{N}  \sum_{i=1}^N \left(  Y_i - \sum_{j=0}^p \beta_j (x, y) (x - X_i)^j \right)^2 K_{H_{1}} (x - X)
+\label{lim_beta}
+\end{align}
+Since the last equation \eqref{lim_beta} is independent of the value of $y$, it is equivalent to the standard LPR as per equation \eqref{loss_lpr}:
+\begin{align}
+\min_{\gamma(x)} \lim_{N \rightarrow \infty} \frac{1}{N} \sum_{i=1}^N \left(  Y_i - \sum_{j=0}^p \gamma_j (x) (x - X_i)^j \right)^2 K_{H_{1}} (x - X_i) = \hat{\gamma}(x)
+\end{align}
 
 \section{Experiments and implementation notes}
 \label{S:Experiments and implementation notes}
-
-\begin{figure}[t]
-\caption{Regression example of synthetically generated 1D data with heteroscedastic noise. Additional experimental results and demonstrations including multivariate settings and bootstrap based confidence intervals are available at \url{https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments/} as interactive Jupyter notebooks \cite{jupyter}}
-\centering
-\includegraphics[width=1.0\textwidth]{example_regression_1d_1.png}1
-\end{figure}
 
 The proposed method was implemented in Python. The distances between pairs are normalized to the range [0,1] in each neighborhood as in \citep{clevland79}. The simple Laplacian kernel $e^{- \, \norm{x-x'}}$ is used for $K_1(x,x';H_1)$ since it gave better and more efficient empirical results in tests than the tricube kernel recommended in \citep{clevland79}. A factorized multidimensional KDE using scaled Gaussian kernels is used for estimating the density. Five methods for estimating the bandwidth were used: Scott's rule \cite{scott2015multivariate}, Normal Reference, global LSCV,  local LSCV and local MLCV. Additionally the bandwidth for the predictor's kernel also uses in some of the experiments a simple function of the window size estimated empirically. Certain computations are omitted for efficiency since the local regression in equation \eqref{beta_loss_d} is invariant to the scale of the weights. This includes all scaling constants fixed in a given neighborhood concerning a specific local regression target including the computation of $\hat{f}(y \, | \, x)$ and $\hat{f}(x,y)$ in equations \eqref{cond_kernel_def} and \eqref{joint_kernel_def} respectively. Experiments were performed on a number of synthetic benchmarks to evaluate the effectiveness of the method's linear and quadratic variants in comparison to other methods of the local polynomial regression family including LOWESS and iterative robust LOWESS \cite{seabold2010statsmodels}, local linear and local constant kernel regression \cite{seabold2010statsmodels}, local quadratic regression \cite{localreg} and radial basis function network \cite{localreg}. \newline
 
 The experiments comprise a number settings including various non-linear synthetic curves and planes with added noise. These have variants of dense and sparse data, homoscedastic and heteroscedastic noise characteristics and various neighborhood sizes. The results indicate there is no best universal method and that different methods work better in a given setting. However, the proposed method offers competitive performance across the board and gives the best results in a large number of settings and in particular in heteroscedastic settings. It is further shown the proposed method generally improves on it's direct counterparts LOESS/LOWESS and quadratic LPR using a single iteration. In addition it appears far less sensitive to the choice of neighborhood size and has substantial reduced variance in this respect. This last quality makes it an attractive choice since it is more likely for the analyst to select an "appropriate" hyperparameter value when there is no ground truth available.
 
 The experimental results are available at \url{https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments/} as interactive Jupyter notebooks \cite{jupyter}. 
+
+\begin{figure}[t]
+\caption{Regression example of synthetically generated 1D data with heteroscedastic noise. Additional experimental results and demonstrations including multivariate settings and bootstrap based confidence intervals are available at \url{https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments/} as interactive Jupyter notebooks \cite{jupyter}}
+\centering
+\includegraphics[width=1.0\textwidth]{example_regression_1d_1.png}1
+\end{figure}
 
 \section{Future work and research directions}
 \label{S:Future work and research directions}
