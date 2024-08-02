@@ -424,7 +424,7 @@ class Rsklpr:
             var_type=var_type + "c",
             bw=(
                 self._bw2
-                if (self._bw2 in ("cv_ls", "cv_ml") or isinstance(self._bw1, List))
+                if (self._bw2 in ("cv_ls", "cv_ml") or isinstance(self._bw2, List))
                 else (
                     self._calculate_bandwidth(bandwidth=self._bw2, data=xy_neighbors)  # type: ignore [arg-type]
                     if bw2_global is None
