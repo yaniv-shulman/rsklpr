@@ -152,47 +152,82 @@ Regardless of the choice of kernel, the hyperparameters of this model are simila
 
 This section discusses some properties of the estimator. Note the notation in this section is simplified by excluding explicit mentions of $D_N$ and $H$, however the analysis is conditional on the nearest neighbors in the sample, $D_N$.
 
-\subsection{Weighted arithmetic mean of the standard LPR}
-The proposed estimator is equivalent to using weighted arithmetic mean of the terms in the standard LPR loss \eqref{loss_lpr} with weights $w_i = \hat{f}(Y_i \, | \, X_i)$. \newline
-\textit{Proof}: The optimization is invariant to the scale of the objective, therefore:
+\subsection{Invariance to \( y \) at the regression location and simplification of the objective}
+
+The objective \eqref{beta_loss_d} is invariant to the value of \( y \) at the location \( (x, y) \) for the proposed similarity kernels.
+
+\textit{Proof}: The optimization is invariant to the scale of the objective function. Therefore:
+
 \begin{align}
-\hat{\beta}(x,y) \coloneqq & \min_{\beta(x,y)} \sum_{i=1}^N \left(  Y_i - \sum_{j=0}^p \beta_j (x, y) (x - X_i)^j \right)^2 K_{H_{1}} (x - X_i) \hat{f}(y \, | \, x) \hat{f}(Y_i \, | \, X_i) \\
-= & \min_{\beta(x,y)} \left( \sum_{i=1}^N \hat{f}(Y_i \, | \, X_i) \right)^{-1} \sum_{i=1}^N \left(  Y_i - \sum_{j=0}^p \beta_j (x, y) (x - X_i)^j \right)^2 K_{H_{1}} (x - X_i) \hat{f}(Y_i \, | \, X_i) \\
-= & \min_{\beta(x,y)} \left( \sum_{i=1}^N w_i \right)^{-1} \sum_{i=1}^N \left(  Y_i - \sum_{j=0}^p \beta_j (x, y) (x - X_i)^j \right)^2 K_{H_{1}} (x - X_i) w_i
+\hat{\beta}(x,y) &\coloneqq \min_{\beta(x,y)} \sum_{i=1}^N \left(  Y_i - \sum_{j=0}^p \beta_j (x, y) (x - X_i)^j \right)^2 K_{H_{1}} (x - X_i) \hat{f}(x,y) \hat{f}(X_i, Y_i) \\
+&= \sum_{i=1}^N \left(  Y_i - \sum_{j=0}^p \beta_j (x, y) (x - X_i)^j \right)^2 K_{H_{1}} (x - X_i) \hat{f}(X_i, Y_i)
+\label{invariant_to_y}
+\end{align}
+
+The equality holds because \( \hat{f}(x,y) \) is a constant scalar that uniformly scales the weights. Since the objective is now independent of \( y \), it follows that:
+
+\begin{align}
+\hat{\beta}(x,y) &\coloneqq \min_{\beta(x)} \sum_{i=1}^N \left(  Y_i - \sum_{j=0}^p \beta_j (x) (x - X_i)^j \right)^2 K_{H_{1}} (x - X_i) \hat{f}(X_i, Y_i) \\
+&\coloneqq \; \hat{\beta}(x) \quad \forall y
+\label{independence_of_y}
+\end{align}
+
+This simplification enables more efficient calculations of the estimator because the dependence on \( y \) is removed from the objective function. Note that \( \hat{f}(X_i,Y_i) \) can also be replaced with \( \hat{f}(Y_i \, | \, X_i) \) with similar results.
+
+\subsection{Weighted arithmetic mean of the standard LPR}
+
+The proposed estimator is equivalent to the weighted arithmetic mean of the terms in the standard LPR loss \eqref{loss_lpr}, with weights \( w_i = \hat{f}(X_i, Y_i) \).
+
+\textit{Proof}: Since the optimization is invariant to scaling, we have:
+
+\begin{align}
+\hat{\beta}(x) &\coloneqq \min_{\beta(x)} \sum_{i=1}^N \left( Y_i - \sum_{j=0}^p \beta_j (x) (x - X_i)^j \right)^2 K_{H_{1}} (x - X_i) \hat{f}(X_i, Y_i) \\
+&= \min_{\beta(x)} \left( \sum_{i=1}^N \hat{f}(X_i, Y_i) \right)^{-1} \sum_{i=1}^N \left( Y_i - \sum_{j=0}^p \beta_j (x) (x - X_i)^j \right)^2 K_{H_{1}} (x - X_i) \hat{f}(X_i, Y_i) \\
+&= \min_{\beta(x)} \left( \sum_{i=1}^N w_i \right)^{-1} \sum_{i=1}^N \left( Y_i - \sum_{j=0}^p \beta_j (x) (x - X_i)^j \right)^2 K_{H_{1}} (x - X_i) w_i
 \label{alt_skr_opt_obj}
 \end{align}
 
+The normalization by \( \sum_{i=1}^N w_i \) shows the equivalence to the weighted arithmetic mean, with the weights \( w_i = \hat{f}(X_i, Y_i) \).
+
 \subsection{Asymptotic degeneration of the estimator to the standard LPR}
-Asymptotically, the proposed estimator degenerates to the standard LPR when the weights $w_i$ are uncorrelated to the standard LPR terms. Formally, $\hat{\gamma}(x) = \hat{\beta}(x,y)  \; \forall y$ when \newline $\left(  Y - \sum_{j=0}^p \beta_j (x, y) (x - X)^j \right)^2 K_{H_{1}} (x - X)$ and $\hat{f}(Y \, | \, X)$ are uncorrelated. \newline
-\textit{Proof}: Define $g(X,Y) \coloneqq \left(  Y - \sum_{j=0}^p \beta_j (x, y) (x - X)^j \right)^2 K_{H_{1}} (x - X)$, it then follows that: 
 
-\begin{align}
-\hat{\beta}(x,y) \coloneqq & \min_{\beta(x,y)} \left( \sum_{i=1}^N \hat{f}(Y_i \, | \, X_i) \right)^{-1}  \sum_{i=1}^N \left(  Y_i - \sum_{j=0}^p \beta_j (x, y) (x - X_i)^j \right)^2 K_{H_{1}} (x - X_i) \hat{f}(Y_i \, | \, X_i) \\
-= & \min_{\beta(x,y)} \left( \sum_{i=1}^N \hat{f}(Y_i \, | \, X_i) \right)^{-1}  \sum_{i=1}^N g(X_i , Y_i) \hat{f}(Y_i \, | \, X_i) \\
-= & \min_{\beta(x,y)} \left( \frac{1}{N} \sum_{i=1}^N \hat{f}(Y_i \, | \, X_i) \right)^{-1} \frac{1}{N} \sum_{i=1}^N g(X_i , Y_i) \hat{f}(Y_i \, | \, X_i)
-\end{align} \newline
-When $N \rightarrow \infty$, due to the law of large numbers and the continuous mapping theorem it follows that:
+Asymptotically, the proposed estimator degenerates to the standard LPR when the weights \( w_i \) are uncorrelated with the standard LPR terms. Formally, as \( N \to \infty \), \( \hat{\beta}(x) \to \hat{\gamma}(x) \), where \( \hat{\gamma}(x) \) is the standard LPR estimator, and the condition \(\left( Y - \sum_{j=0}^p \beta_j(x) (x - X)^j \right)^2 K_{H_1}(x - X)\) and \( \hat{f}(X, Y) \) are uncorrelated. We assume that \( (X_i, Y_i) \) are independent and identically distributed (i.i.d.) random variables and that \( \hat{f}(X, Y) > 0 \) almost everywhere.
 
+\textit{Proof}: Define
+\[
+g(X, Y) \coloneqq \left( Y - \sum_{j=0}^p \beta_j(x)(x - X)^j \right)^2 K_{H_1}(x - X),
+\]
+it follows that:
 \begin{align}
-\lim_{N \rightarrow \infty} \left( \frac{1}{N} \sum_{i=1}^N \hat{f}(Y_i \, | \, X_i) \right)^{-1} 
-& \xrightarrow{a.s.} \mathbb{E} \left[ \frac{1}{\hat{f}(Y \, | \, X)} \right] \\
-\lim_{N \rightarrow \infty} \frac{1}{N}  \sum_{i=1}^N g(X , Y) \hat{f}(Y_i \, | \, X_i) & \xrightarrow{a.s.} \mathbb{E} \left[ g(X , Y) \hat{f}(Y \, | \, X) \right]
+\hat{\beta}(x) &\coloneqq \min_{\beta(x)} \left( \sum_{i=1}^N \hat{f}(X_i, Y_i) \right)^{-1} \sum_{i=1}^N \left( Y_i - \sum_{j=0}^p \beta_j(x) (x - X_i)^j \right)^2 K_{H_1}(x - X_i) \hat{f}(X_i, Y_i) \\
+&= \min_{\beta(x)} \left( \sum_{i=1}^N \hat{f}(X_i, Y_i) \right)^{-1} \sum_{i=1}^N g(X_i, Y_i) \hat{f}(X_i, Y_i) \\
+&= \min_{\beta(x)} \left( \frac{1}{N} \sum_{i=1}^N \hat{f}(X_i, Y_i) \right)^{-1} \frac{1}{N} \sum_{i=1}^N g(X_i, Y_i) \hat{f}(X_i, Y_i)
 \end{align}
-Combining the results above and assuming $\mathbb{E} \left[ \hat{f}(Y \, | \, X) \right] \neq 0$ it follows that:
+
+As \( N \to \infty \), by the law of large numbers and the continuous mapping theorem, we obtain:
 \begin{align}
-\hat{\beta}(x,y) \coloneqq \min_{\beta(x,y)} \frac{\mathbb{E} \left[ g(X , Y) \hat{f}(Y \, | \, X) \right]}{\mathbb{E} \left[ \hat{f}(Y \, | \, X) \right]}
+\lim_{N \to \infty} \left( \frac{1}{N} \sum_{i=1}^N \hat{f}(X_i, Y_i) \right)^{-1} &\xrightarrow{a.s.} \mathbb{E} \left[ \frac{1}{\hat{f}(X, Y)} \right] \\
+\lim_{N \to \infty} \frac{1}{N} \sum_{i=1}^N g(X_i, Y_i) \hat{f}(X_i, Y_i) &\xrightarrow{a.s.} \mathbb{E} \left[ g(X, Y) \hat{f}(X, Y) \right]
 \end{align}
-If $g(X,Y)$ and $\hat{f}(Y \, | \, X)$ are uncorrelated then:
+
+Assuming \( \mathbb{E}[\hat{f}(X, Y)] \neq 0 \), it follows that:
 \begin{align}
-\hat{\beta}(x,y) \coloneqq & \min_{\beta(x,y)} \frac{\mathbb{E} \left[ g(X , Y) \hat{f}(Y \, | \, X) \right]}{\mathbb{E} \left[ \hat{f}(Y \, | \, X) \right]} = \min_{\beta(x,y)} \frac{\mathbb{E} \left[ g(X , Y) \right] \mathbb{E} \left[ \hat{f}(Y \, | \, X) \right]}{\mathbb{E} \left[ \hat{f}(Y \, | \, X) \right]} = \min_{\beta(x,y)} \mathbb{E} \left[ g(X , Y) \right] \\
-= & \min_{\beta(x,y)} \lim_{N \rightarrow \infty} \frac{1}{N}  \sum_{i=1}^N g(X , Y) \\
-= & \min_{\beta(x,y)} \lim_{N \rightarrow \infty} \frac{1}{N}  \sum_{i=1}^N \left(  Y_i - \sum_{j=0}^p \beta_j (x, y) (x - X_i)^j \right)^2 K_{H_{1}} (x - X)
-\label{lim_beta}
+\hat{\beta}(x) &\coloneqq \min_{\beta(x)} \frac{\mathbb{E} \left[ g(X, Y) \hat{f}(X, Y) \right]}{\mathbb{E} \left[ \hat{f}(X, Y) \right]}
 \end{align}
-Since the last equation \eqref{lim_beta} is independent of the value of $y$, it is equivalent to the standard LPR as per equation \eqref{loss_lpr}:
+If \( g(X, Y) \) and \( \hat{f}(X, Y) \) are uncorrelated, then:
 \begin{align}
-\min_{\gamma(x)} \lim_{N \rightarrow \infty} \frac{1}{N} \sum_{i=1}^N \left(  Y_i - \sum_{j=0}^p \gamma_j (x) (x - X_i)^j \right)^2 K_{H_{1}} (x - X_i) = \hat{\gamma}(x)
+\hat{\beta}(x) &\coloneqq \min_{\beta(x)} \frac{\mathbb{E} \left[ g(X, Y) \hat{f}(X, Y) \right]}{\mathbb{E} \left[ \hat{f}(X, Y) \right]} = \min_{\beta(x)} \mathbb{E} \left[ g(X, Y) \right]
 \end{align}
+Thus, as \( N \to \infty \):
+\begin{align}
+\hat{\beta}(x) &= \min_{\beta(x)} \lim_{N \to \infty} \frac{1}{N} \sum_{i=1}^N g(X_i, Y_i) \\
+&= \min_{\beta(x)} \lim_{N \to \infty} \frac{1}{N} \sum_{i=1}^N \left( Y_i - \sum_{j=0}^p \beta_j(x) (x - X_i)^j \right)^2 K_{H_1}(x - X_i)
+\end{align}
+
+By removing the $ \frac{1}{N} $ term from the summation in the limiting case, we recover the standard LPR estimator. This is because the optimization is invariant to scale, and removing $ \frac{1}{N} $ simply leads to a minimization of the sum of squared residuals, which is the essence of the standard LPR. Thus, the proposed estimator degenerates to the standard LPR in this finite-sample setting as $ N \to \infty $, provided the sum does not diverge.
+
+The goal of the proposed method is to prevent the degeneration to standard LPR by ensuring that the weights $ f(X,Y) $ are correlated with the residuals. If $ f(X,Y) $ becomes uncorrelated with $ g(X,Y) $, the weighting scheme would lose its intended robustness, treating all points equally, and the estimator would revert to the standard LPR, losing the benefits of outlier mitigation. The method is designed to avoid this by using similarity kernels that ensure the weight function $ f(X,Y) $ reflects the local structure of the data, with the expectation that large residuals are indicative of outliers or lower density regions.
+
 
 \section{Experiments and implementation notes}
 \label{S:Experiments and implementation notes}
