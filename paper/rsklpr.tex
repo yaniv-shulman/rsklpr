@@ -191,7 +191,7 @@ The normalization by \( \sum_{i=1}^N w_i \) shows the equivalence to the weighte
 
 \subsection{Asymptotic degeneration of the estimator to the standard LPR}
 
-Asymptotically, the proposed estimator degenerates to the standard LPR when the weights \( w_i \) are uncorrelated with the standard LPR terms. Formally, as \( N \to \infty \), \( \hat{\beta}(x) \to \hat{\gamma}(x) \), where \( \hat{\gamma}(x) \) is the standard LPR estimator, and the condition \(\left( Y - \sum_{j=0}^p \beta_j(x) (x - X)^j \right)^2 K_{H_1}(x - X)\) and \( \hat{f}(X, Y) \) are uncorrelated. We assume that \( (X_i, Y_i) \) are independent and identically distributed (i.i.d.) random variables and that \( \hat{f}(X, Y) > 0 \) almost everywhere.
+Asymptotically, the proposed estimator degenerates to the standard LPR when the weights \( w_i \) are uncorrelated with the standard LPR terms. Formally, as \( N \to \infty \), \( \hat{\beta}(x) \to \hat{\gamma}(x) \), where \( \hat{\gamma}(x) \) is the standard LPR estimator, and the condition that \(\left( Y - \sum_{j=0}^p \beta_j(x) (x - X)^j \right)^2 K_{H_1}(x - X)\) and \( \hat{f}(X, Y) \) are uncorrelated holds. It is assumed that \( (X_i, Y_i) \) are independent and identically distributed (i.i.d.) random variables and that \( \hat{f}(X, Y) > 0 \) almost everywhere.
 
 \textit{Proof}: Define
 \[
@@ -199,44 +199,42 @@ g(X, Y) \coloneqq \left( Y - \sum_{j=0}^p \beta_j(x)(x - X)^j \right)^2 K_{H_1}(
 \]
 it follows that:
 \begin{align}
-\hat{\beta}(x) &\coloneqq \min_{\beta(x)} \left( \sum_{i=1}^N \hat{f}(X_i, Y_i) \right)^{-1} \sum_{i=1}^N \left( Y_i - \sum_{j=0}^p \beta_j(x) (x - X_i)^j \right)^2 K_{H_1}(x - X_i) \hat{f}(X_i, Y_i) \\
-&= \min_{\beta(x)} \left( \sum_{i=1}^N \hat{f}(X_i, Y_i) \right)^{-1} \sum_{i=1}^N g(X_i, Y_i) \hat{f}(X_i, Y_i) \\
-&= \min_{\beta(x)} \left( \frac{1}{N} \sum_{i=1}^N \hat{f}(X_i, Y_i) \right)^{-1} \frac{1}{N} \sum_{i=1}^N g(X_i, Y_i) \hat{f}(X_i, Y_i)
+\hat{\beta}(x) &\coloneqq \min_{\beta(x)} \left( \sum_{i=1}^N \hat{f}(X_i, Y_i) \right)^{-1} \sum_{i=1}^N g(X_i, Y_i) \hat{f}(X_i, Y_i) \\
+&= \min_{\beta(x)} \left( \frac{1}{N} \sum_{i=1}^N \hat{f}(X_i, Y_i) \right)^{-1} \left( \frac{1}{N} \sum_{i=1}^N g(X_i, Y_i) \hat{f}(X_i, Y_i) \right)
 \end{align}
 
-As \( N \to \infty \), by the law of large numbers and the continuous mapping theorem, we obtain:
+As \( N \to \infty \), by the law of large numbers, we obtain:
 \begin{align}
-\lim_{N \to \infty} \left( \frac{1}{N} \sum_{i=1}^N \hat{f}(X_i, Y_i) \right)^{-1} &\xrightarrow{a.s.} \mathbb{E} \left[ \frac{1}{\hat{f}(X, Y)} \right] \\
-\lim_{N \to \infty} \frac{1}{N} \sum_{i=1}^N g(X_i, Y_i) \hat{f}(X_i, Y_i) &\xrightarrow{a.s.} \mathbb{E} \left[ g(X, Y) \hat{f}(X, Y) \right]
+\left( \frac{1}{N} \sum_{i=1}^N \hat{f}(X_i, Y_i) \right)^{-1} &\xrightarrow{a.s.} \frac{1}{\mathbb{E} \left[ \hat{f}(X, Y) \right]} \\
+\frac{1}{N} \sum_{i=1}^N g(X_i, Y_i) \hat{f}(X_i, Y_i) &\xrightarrow{a.s.} \mathbb{E} \left[ g(X, Y) \hat{f}(X, Y) \right]
 \end{align}
 
 Assuming \( \mathbb{E}[\hat{f}(X, Y)] \neq 0 \), it follows that:
 \begin{align}
-\hat{\beta}(x) &\coloneqq \min_{\beta(x)} \frac{\mathbb{E} \left[ g(X, Y) \hat{f}(X, Y) \right]}{\mathbb{E} \left[ \hat{f}(X, Y) \right]}
+\hat{\beta}(x) &\xrightarrow{a.s.} \min_{\beta(x)} \frac{\mathbb{E} \left[ g(X, Y) \hat{f}(X, Y) \right]}{\mathbb{E} \left[ \hat{f}(X, Y) \right]}
 \end{align}
+
 If \( g(X, Y) \) and \( \hat{f}(X, Y) \) are uncorrelated, then:
 \begin{align}
-\hat{\beta}(x) &\coloneqq \min_{\beta(x)} \frac{\mathbb{E} \left[ g(X, Y) \hat{f}(X, Y) \right]}{\mathbb{E} \left[ \hat{f}(X, Y) \right]} = \min_{\beta(x)} \mathbb{E} \left[ g(X, Y) \right]
+\mathbb{E} \left[ g(X, Y) \hat{f}(X, Y) \right] &= \mathbb{E} \left[ g(X, Y) \right] \mathbb{E} \left[ \hat{f}(X, Y) \right] \\
+\hat{\beta}(x) &\xrightarrow{a.s.} \min_{\beta(x)} \mathbb{E} \left[ g(X, Y) \right]
 \end{align}
-Thus, as \( N \to \infty \):
+
+Therefore, as \( N \to \infty \):
 \begin{align}
-\hat{\beta}(x) &= \min_{\beta(x)} \lim_{N \to \infty} \frac{1}{N} \sum_{i=1}^N g(X_i, Y_i) \\
-&= \min_{\beta(x)} \lim_{N \to \infty} \frac{1}{N} \sum_{i=1}^N \left( Y_i - \sum_{j=0}^p \beta_j(x) (x - X_i)^j \right)^2 K_{H_1}(x - X_i)
+\hat{\beta}(x) &\xrightarrow{a.s.} \min_{\beta(x)} \mathbb{E} \left[ \left( Y - \sum_{j=0}^p \beta_j(x) (x - X)^j \right)^2 K_{H_1}(x - X) \right]
 \end{align}
 
-By removing the $ \frac{1}{N} $ term from the summation in the limiting case, we recover the standard LPR estimator. This is because the optimization is invariant to scale, and removing $ \frac{1}{N} $ simply leads to a minimization of the sum of squared residuals, which is the essence of the standard LPR. Thus, the proposed estimator degenerates to the standard LPR in this finite-sample setting as $ N \to \infty $, provided the sum does not diverge.
-
-The goal of the proposed method is to prevent the degeneration to standard LPR by ensuring that the weights $ f(X,Y) $ are correlated with the residuals. If $ f(X,Y) $ becomes uncorrelated with $ g(X,Y) $, the weighting scheme would lose its intended robustness, treating all points equally, and the estimator would revert to the standard LPR, losing the benefits of outlier mitigation. The method is designed to avoid this by using similarity kernels that ensure the weight function $ f(X,Y) $ reflects the local structure of the data, with the expectation that large residuals are indicative of outliers or lower density regions.
-
+This is the same objective minimized by the standard LPR estimator in the asymptotic sense. Thus, the proposed estimator degenerates to the standard LPR as \( N \to \infty \), provided that \( g(X, Y) \) and \( \hat{f}(X, Y) \) are uncorrelated.
 
 \section{Experiments and implementation notes}
 \label{S:Experiments and implementation notes}
 
 The proposed method was implemented in Python. The distances between pairs are normalized to the range [0,1] in each neighborhood as in \citep{clevland79}. The simple Laplacian kernel $e^{- \, \norm{x-x'}}$ is used for $K_1(x,x';H_1)$ since it gave better and more efficient empirical results in tests than the tricube kernel recommended in \citep{clevland79}. A factorized multidimensional KDE using scaled Gaussian kernels is used for estimating the density. Five methods for estimating the bandwidth were used: Scott's rule \cite{scott2015multivariate}, Normal Reference, global LSCV,  local LSCV and local MLCV. Additionally the bandwidth for the predictor's kernel also uses in some of the experiments a simple function of the window size estimated empirically. Certain computations are omitted for efficiency since the local regression in equation \eqref{beta_loss_d} is invariant to the scale of the weights. This includes all scaling constants fixed in a given neighborhood concerning a specific local regression target including the computation of $\hat{f}(y \, | \, x)$ and $\hat{f}(x,y)$ in equations \eqref{cond_kernel_def} and \eqref{joint_kernel_def} respectively. Experiments were performed on a number of synthetic benchmarks to evaluate the effectiveness of the method's linear and quadratic variants in comparison to other methods of the local polynomial regression family including LOWESS and iterative robust LOWESS \cite{seabold2010statsmodels}, local linear and local constant kernel regression \cite{seabold2010statsmodels}, local quadratic regression \cite{localreg} and radial basis function network \cite{localreg}. \newline
 
-The experiments comprise a number settings including various non-linear synthetic curves and planes with added noise. These have variants of dense and sparse data, homoscedastic and heteroscedastic noise characteristics and various neighborhood sizes. The results indicate there is no best universal method and that different methods work better in a given setting. However, the proposed method offers competitive performance across the board and gives the best results in a large number of settings and in particular in heteroscedastic settings. It is further shown the proposed method generally improves on it's direct counterparts LOESS/LOWESS and quadratic LPR using a single iteration. In addition it appears far less sensitive to the choice of neighborhood size and has substantial reduced variance in this respect. This last quality makes it an attractive choice since it is more likely for the analyst to select an "appropriate" hyperparameter value when there is no ground truth available.
+The experiments comprise a number settings including various non-linear synthetic curves and planes with added noise. These have variants of dense and sparse data, homoscedastic and heteroscedastic noise characteristics and various neighborhood sizes. The results indicate there is no best universal method and that different methods work better in a given setting. However, the proposed method offers competitive performance across the board and gives the best results in a large number of settings and in particular in heteroscedastic settings. It is further shown the proposed method generally improves on it's direct counterparts LOESS/LOWESS and quadratic LPR using a single iteration. In addition it appears far less sensitive to the choice of neighborhood size and has substantial reduced variance in this respect. This last quality makes it an attractive choice since it is more likely for the analyst to select an "appropriate" hyperparameter value when there is no ground truth available. \newline
 
-The experimental results are available at \url{https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments/} as interactive Jupyter notebooks \cite{jupyter}. 
+The experimental results are available at \url{https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments/} as interactive Jupyter notebooks \cite{jupyter}.
 
 \begin{figure}[t]
 \caption{Regression example of synthetically generated 1D data with heteroscedastic noise. Additional experimental results and demonstrations including multivariate settings and bootstrap based confidence intervals are available at \url{https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments/} as interactive Jupyter notebooks \cite{jupyter}}
@@ -247,6 +245,8 @@ The experimental results are available at \url{https://nbviewer.org/github/yaniv
 \section{Future work and research directions}
 \label{S:Future work and research directions}
 This work proposes a new robust variant of LPR and as such there are many aspects that need to be explored and are left for future work. As the proposed method generalize the standard LPR it does not preclude replacing some of the standard LPR components in equation \eqref{beta_loss_d} with other and robust alternatives including robust methods for bandwidth selection and robust alternatives to the standard quadratic residual function. Another avenue for developing this framework is investigating additional kernels $K_D$ and exploring the impact of robust density estimators on performance.
+
+\newpage
 
 \bibliographystyle{abbrv}
 
