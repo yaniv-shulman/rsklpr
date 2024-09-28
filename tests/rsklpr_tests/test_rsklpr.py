@@ -428,7 +428,7 @@ def test_weighted_local_regression_1d_expected_values(
     x_0: np.ndarray, x: np.ndarray, y: np.ndarray, weights: np.ndarray
 ) -> None:
     """test the weighted linear regression implementation gives the expected results for the 1D case"""
-    actual: np.ndarray
+    actual: float
     r_squared: Optional[float]
 
     actual, r_squared = _weighted_local_regression(
@@ -438,7 +438,7 @@ def test_weighted_local_regression_1d_expected_values(
     x_sm: np.ndarray = sm.add_constant(x)
     model_sm = sm.WLS(endog=y, exog=x_sm, weights=weights)
     results_sm: RegressionResults = model_sm.fit()
-    assert float(actual) == pytest.approx(float(results_sm.params[0] + x_0 * results_sm.params[1]))
+    assert float(actual) == pytest.approx(float((results_sm.params[0] + x_0 * results_sm.params[1]).item()))
     assert r_squared == pytest.approx(float(results_sm.rsquared))
 
 
@@ -471,7 +471,7 @@ def test_weighted_local_regression_2d_expected_values(
     x_0: np.ndarray, x: np.ndarray, y: np.ndarray, weights: np.ndarray
 ) -> None:
     """test the weighted linear regression implementation gives the expected results for the 2D case"""
-    actual: np.ndarray
+    actual: float
     r_squared: Optional[float]
 
     actual, r_squared = _weighted_local_regression(
@@ -621,7 +621,7 @@ def test_weighted_local_regression_r_squared_is_none(mocker: MockerFixture) -> N
     y: np.ndarray = generate_linear_1d()
     weights: np.ndarray = rng.uniform(low=0.01, high=1, size=50).reshape((-1, 1))
     r_squared_mock: MagicMock = mocker.patch("rsklpr.rsklpr._r_squared", return_value=1.0)
-    actual: np.ndarray
+    actual: float
     r_squared: Optional[float]
 
     actual, r_squared = _weighted_local_regression(
