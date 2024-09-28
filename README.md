@@ -28,6 +28,7 @@ pip install rsklpr
 ```
 
 ### What's new? ###
+- Version 1.0.0 - Dropped support for Python 3.8 and added support for Python 3.12.
 - Version 0.7.0 - Metrics including local R-Squared and more efficient computation of WLS. 
 - Version 0.6.0 - Bootstrap inference and confidence intervals
 

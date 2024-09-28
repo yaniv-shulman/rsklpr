@@ -33,7 +33,7 @@ def _mean_square_error(residuals: np.ndarray) -> float:
     Returns:
         The mean squared error.
     """
-    return float(np.mean(residuals**2))
+    return float(np.mean(residuals**2).item())
 
 
 def _mean_abs_error(residuals: np.ndarray) -> float:
@@ -47,7 +47,7 @@ def _mean_abs_error(residuals: np.ndarray) -> float:
         The mean absolute error.
     """
 
-    return float(np.mean(np.abs(residuals)))
+    return float(np.mean(np.abs(residuals)).item())
 
 
 def _bias_error(residuals: np.ndarray) -> float:
@@ -60,7 +60,7 @@ def _bias_error(residuals: np.ndarray) -> float:
     Returns:
         The residuals bias.
     """
-    return float(np.mean(residuals))
+    return float(np.mean(residuals).item())
 
 
 def _std_error(residuals: np.ndarray) -> float:
@@ -73,7 +73,7 @@ def _std_error(residuals: np.ndarray) -> float:
     Returns:
         The residuals standard deviation.
     """
-    return float(np.std(residuals))
+    return float(np.std(residuals).item())
 
 
 def _r_squared(beta: np.ndarray, x_w: np.ndarray, y_w: np.ndarray, y: np.ndarray, weights: np.ndarray) -> float:
@@ -96,8 +96,8 @@ def _r_squared(beta: np.ndarray, x_w: np.ndarray, y_w: np.ndarray, y: np.ndarray
 
     y_hat: np.ndarray = x_w @ beta
     e: np.ndarray = y_hat - y_w
-    sse: float = float(e.T @ e)
-    sst_centered: float = float(np.sum(weights * (y - np.average(y, weights=weights)) ** 2))
+    sse: float = float((e.T @ e).item())
+    sst_centered: float = float((np.sum(weights * (y - np.average(y, weights=weights)) ** 2)).item())
     return 1.0 - sse / sst_centered
 
 
@@ -108,7 +108,7 @@ def _weighted_local_regression(
     weights: np.ndarray,
     degree: int,
     calculate_r_squared: bool = False,
-) -> Tuple[np.ndarray, Optional[float]]:
+) -> Tuple[float, Optional[float]]:
     """
     Calculates the closed form matrix equations weighted constant or linear local regression centered at a point.
 
@@ -151,7 +151,7 @@ def _weighted_local_regression(
     if calculate_r_squared:
         r_squared = _r_squared(beta=beta, x_w=x_mat_w, y_w=y_w, y=y, weights=weights)
 
-    return beta[0], r_squared
+    return float(beta[0].item()), r_squared
 
 
 def _dim_data(data: np.ndarray) -> int:
