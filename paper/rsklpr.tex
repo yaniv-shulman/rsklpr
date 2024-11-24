@@ -40,7 +40,7 @@ This is a draft version of work in progress, content will be revisited in subseq
 
 
 \begin{abstract}
-Local polynomial regression is a powerful and flexible statistical technique that has gained increasing popularity in recent years due to its ability to model complex relationships between variables. Local polynomial regression generalizes the polynomial regression and moving average methods by fitting a low-degree polynomial to a nearest neighbors subset of the data at the location. The polynomial is fitted using weighted ordinary least squares, giving more weight to nearby points and less weight to points further away. Local polynomial regression is however susceptible to outliers and high leverage points which may cause an adverse impact on the estimation accuracy. The main contribution of this paper is to revisit the kernel that is used to produce local regression weights. The simple yet effective idea is to generalize the kernel such that both the predictor and the response are used to calculate weights. Within this framework, two positive definite kernels are proposed that assign robust weights to mitigate the adverse effect of outliers in the local neighborhood by estimating and utilizing the density at the local locations. The method is implemented in the Python programming language and is made publicly available at \url{https://github.com/yaniv-shulman/rsklpr}. Experimental results on synthetic benchmarks across a range of settings demonstrate that the proposed method achieves competitive results and generally improves on the standard local polynomial regression method.
+Local Polynomial Regression (LPR) is a widely used nonparametric method for modeling complex relationships due to its flexibility and simplicity. It estimates a regression function by fitting low-degree polynomials to localized subsets of the data, weighted by proximity. However, traditional LPR is sensitive to outliers and high-leverage points, which can significantly affect estimation accuracy. This paper revisits the kernel function used to compute regression weights and proposes a novel framework that incorporates both predictor and response variables in the weighting mechanism. By introducing two positive definite kernels, the proposed method robustly estimates weights, mitigating the influence of outliers through localized density estimation. The method is implemented in Python and is publicly available at \url{https://github.com/yaniv-shulman/rsklpr}, demonstrating competitive performance in synthetic benchmark experiments. Compared to standard LPR, the proposed approach consistently improves robustness and accuracy, especially in heteroscedastic and noisy environments, without requiring multiple iterations. This advancement provides a promising extension to traditional LPR, opening new possibilities for robust regression applications.
 \end{abstract}
 \end{frontmatter}
 
@@ -57,7 +57,7 @@ LPR is however susceptible to outliers, high leverage points and functions with 
 
 The main contribution of this paper is to revisit the kernel used to produce regression weights. The simple yet effective idea is to generalize the kernel such that both the predictor and the response are used to calculate weights. Within this framework, two positive definite kernels are proposed that assign robust weights to mitigate the adverse effect of outliers in the local neighborhood by estimating the density of the response at the local locations. Note the proposed framework does not preclude the use of robust loss functions, robust bandwidth selectors and standardization techniques. In addition the method is implemented in the Python programming language and is made publicly available. Experimental results on synthetic benchmarks demonstrate that the proposed method achieves competitive results and generally performs better than LOESS/LOWESS using only a single training iteration.
 
-The remainder of the paper is organized as follows: In section \ref{S:Local polynomial regression}, a brief overview of the mathematical formulation of local polynomial regression is provided. In section \ref{S:Robust weights with similarity kernels}, a framework for robust weights as well as specific robust positive definite kernels are proposed. In section \ref{S:Experiments and implementation notes}, implementation notes and experimental results are provided. Finally, in section \ref{S:Future work and research directions}, the paper concludes with directions for future research.
+The remainder of the paper is organized as follows: In section \ref{S:Local polynomial regression}, a brief overview of the mathematical formulation of local polynomial regression is provided. In section \ref{S:Robust weights with similarity kernels}, a framework for robust weights as well as specific robust positive definite kernels are proposed. Section \ref{S:Properties} provides an analysis of the estimator and a discussion of its properties. In section \ref{S:Experiments and implementation notes}, implementation notes and experimental results are provided. Finally, in section \ref{S:Future work and research directions}, the paper concludes with directions for future research.
 
 \section{Local polynomial regression}
 \label{S:Local polynomial regression}
@@ -149,6 +149,7 @@ Where the joint density can be estimated using the same aforementioned approach.
 Regardless of the choice of kernel, the hyperparameters of this model are similar in essence to the standard local polynomial regression and comprise the span of included points, the kernels and their associated bandwidths. Note that this estimator can be replaced with other robust density estimators and better results are anticipated by doing so however exploring this option is left for future work. 
 
 \section{Properties}
+\label{S:Properties}
 
 This section discusses some properties of the estimator. Note the notation in this section is simplified by excluding explicit mentions of $D_N$ and $H$, however the analysis is conditional on the nearest neighbors in the sample, $D_N$.
 
@@ -227,50 +228,67 @@ Therefore, as \( N \to \infty \):
 
 This is the same objective minimized by the standard LPR estimator in the asymptotic sense. Thus, the proposed estimator degenerates to the standard LPR as \( N \to \infty \), provided that \( g(X, Y) \) and \( \hat{f}(X, Y) \) are uncorrelated.
 
-\subsection{Relationship to kernel methods and RKHS}
+\subsection{Relationship to Kernel Methods and RKHS}
 
-In this subsection, we explore the relationship of the proposed method to kernel methods and Reproducing Kernel Hilbert Spaces (RKHS). The use of positive definite kernels in defining the weights \(K_{\mathcal{D}}\) allows the proposed estimator to be interpreted within the RKHS framework, providing deeper insights into its properties and connections to existing kernel-based methods.
+In this subsection, the relationship of the proposed method to kernel methods and Reproducing Kernel Hilbert Spaces (RKHS) is explored. The use of positive definite kernels in defining the weights $K_\mathcal{D}$ allows the proposed estimator to be interpreted within the RKHS framework, providing deeper insights into its properties and connections to existing kernel-based methods.
 
-Recall that in the proposed method, the weights in the loss function \eqref{loss_rsk} are defined using a positive definite kernel \(K_{\mathcal{D}}\) on the data domain \(\mathcal{D}\):
+Recall that in the proposed method, the weights in the loss function \eqref{loss_rsk} are defined using a compound positive definite kernel $K_\mathcal{D}$ on the data domain $\mathcal{D}$:
 
-\begin{align} 
-\mathcal{L}_{\text{rsk}}(x, y; \mathcal{D}, N, H) \coloneqq \sum_{i=1}^N \left( Y_i - \sum_{j=0}^p \beta_j (x, y) (x - X_i)^j \right)^2 K_{\mathcal{D}} \left((x,y),(X_i, Y_i); H \right). \label{loss_rsk_repeat} 
+\begin{align}
+\mathcal{L}_{\text{rsk}}(x, y; \mathcal{D}_N, H) \coloneqq \sum_{i=1}^N \left( Y_i - \sum_{j=0}^p \beta_j(x, y) (x - X_i)^j \right)^2 K_{\mathcal{D}} \left( (x, y), (X_i, Y_i); H \right). \label{loss_rsk_repeat}
 \end{align}
 
-Since \(K_{\mathcal{D}}\) is positive definite, there exists a feature mapping \(\phi: \mathcal{D} \to \mathcal{H}\), where \(\mathcal{H}\) is a Hilbert space, such that:
+As per equation \eqref{compound_kernel_def}, the kernel $K_\mathcal{D}$ is defined as a product of two positive definite kernels:
 
-\begin{align} 
-K_{\mathcal{D}} \left( (x, y), (x', y') \right) = \langle \phi(x, y), \phi(x', y') \rangle_{\mathcal{H}}. \label{kernel_feature_map} 
+\begin{align}
+K_{\mathcal{D}} \left( (x, y), (x', y'); H_1, H_2 \right) = K_1(x, x'; H_1) \cdot K_2 \left( (x, y), (x', y'); H_2 \right), \label{compound_kernel_def_repeat}
 \end{align}
 
-This allows us to interpret the weights \(K_{\mathcal{D}}((x,y),(X_i,Y_i))\) as inner products in the feature space \(\mathcal{H}\). Consequently, the loss function \eqref{loss_rsk_repeat} can be viewed as a weighted least squares problem where the weights are determined by the similarity between the feature representations of the data points and the point of interest. Furthermore, consider the role of the Kernel Density Estimator (KDE) in the proposed method. The KDE at a point \((x,y)\) is given by:
+where $K_1$ is a kernel function depending only on the predictors $x$ and $x'$, typically chosen as the traditional distance-based kernel used in local polynomial regression, and $K_2$ is a kernel function that incorporates both predictors and responses.
 
-\begin{align} 
-\hat{f}(x, y) = \frac{1}{N} \sum_{i=1}^N K_{\mathcal{D}} \left( (x, y), (X_i, Y_i) \right). \label{kde_kernel} 
+Since $K_\mathcal{D}$ is a product of positive definite kernels, it is itself a positive definite kernel. Therefore, there exists a feature mapping $\phi: \mathcal{D} \to \mathcal{H}$, where $\mathcal{H}$ is a Hilbert space, such that:
+
+\begin{align}
+K_{\mathcal{D}} \left( (x, y), (x', y') \right) = \langle \phi(x, y), \phi(x', y') \rangle_{\mathcal{H}}. \label{kernel_feature_map}
 \end{align}
 
-Substituting the feature map representation of the kernel from \eqref{kernel_feature_map}, we have:
+Thus, the weights $K_\mathcal{D}((x,y),(X_i,Y_i))$ can be interpreted as inner products in the feature space $\mathcal{H}$. Consequently, the loss function \eqref{loss_rsk_repeat} can be viewed as a weighted least squares problem where the weights are determined by the similarity between the feature representations of the data points and the point of interest.
 
-\begin{align} 
-\hat{f}(x, y) = \frac{1}{N} \sum_{i=1}^N \langle \phi(x, y), \phi(X_i, Y_i) \rangle_{\mathcal{H}}. \label{kde_inner_product} 
+Furthermore, consider the role of the Kernel Density Estimator (KDE) in the proposed method. The KDE at a point $(x,y)$ is given by:
+
+\begin{align}
+\hat{f}(x, y) = \frac{1}{N} \sum_{i=1}^N K_2 \left( (x, y), (X_i, Y_i); H_2 \right). \label{kde_kernel_correct}
 \end{align}
 
-This expression shows that the KDE at \((x,y)\) is proportional to the inner product between the feature mapping \(\phi(x,y)\) and the mean of the feature mappings of the data:
+Note that the KDE uses $K_2$, not the full kernel $K_\mathcal{D}$, since $K_2$ is the kernel used in the density estimation of the joint (or conditional) distribution involving both $x$ and $y$.
 
-\begin{align} 
-\hat{\mu}_{\phi} = \frac{1}{N} \sum_{i=1}^N \phi(X_i, Y_i), \label{mean_feature} 
+Since $K_2$ is a positive definite kernel, there exists a feature mapping $\psi: \mathcal{D} \to \mathcal{G}$, where $\mathcal{G}$ is another Hilbert space, such that:
+
+\begin{align}
+K_2 \left( (x, y), (x', y') \right) = \langle \psi(x, y), \psi(x', y') \rangle_{\mathcal{G}}. \label{kernel_feature_map_k2}
+\end{align}
+
+Therefore, the KDE at $(x,y)$ can be expressed in terms of inner products in the feature space $\mathcal{G}$:
+
+\begin{align}
+\hat{f}(x, y) = \frac{1}{N} \sum_{i=1}^N \langle \psi(x, y), \psi(X_i, Y_i) \rangle_{\mathcal{G}}. \label{kde_inner_product_k2}
+\end{align}
+
+This expression shows that the KDE at $(x,y)$ is proportional to the inner product between the feature mapping $\psi(x,y)$ and the mean of the feature mappings of the data:
+
+\begin{align}
+\hat{\nu}_{\psi} = \frac{1}{N} \sum_{i=1}^N \psi(X_i, Y_i), \label{mean_feature_k2}
 \end{align}
 
 so that:
 
-\begin{align} 
-\hat{f}(x, y) = \langle \phi(x, y), \hat{\mu}_{\phi} \rangle_{\mathcal{H}}. \label{kde_mean_inner_product} 
+\begin{align}
+\hat{f}(x, y) = \langle \psi(x, y), \hat{\nu}_{\psi} \rangle_{\mathcal{G}}. \label{kde_mean_inner_product_k2}
 \end{align}
 
-This interpretation reveals that the KDE evaluates how closely the feature representation of the point \((x,y)\) aligns with the mean feature representation of the data. In the context of the proposed method, this insight is significant because the weights assigned to each data point in the regression are influenced by this alignment.
+This interpretation shows that the KDE measures how closely the feature representation $\psi(x, y)$ of a point $(x, y)$ aligns with the average feature representation $\hat{\nu}_{\psi}$ of the data in the space induced by $K_2$. In the proposed method, this alignment influences the weights in the regression, as the density estimates $\hat{f}(x, y)$ or $\hat{f}(Y_i \mid X_i)$ derived from $K_2$ directly affect the overall weights $K_\mathcal{D}((x, y), (X_i, Y_i))$. This interplay underpins the robustness and adaptability of the proposed method.
 
-
-By utilizing positive definite kernels in defining the weights \(K_{\mathcal{D}}\), the proposed method inherently operates within the framework of Reproducing Kernel Hilbert Spaces (RKHS). This connection allows us to interpret the estimator in terms of feature mappings and inner products in a Hilbert space. Specifically, the weights assigned to each data point are influenced by the similarity between their feature representations and that of the point of interest. This perspective not only provides deeper insights into the weighting mechanism but also opens up possibilities for incorporating regularization techniques common in kernel methods. For instance, the RKHS framework could facilitate the addition of a regularization term to the loss function to control the smoothness of the estimator and prevent overfitting. Such an extension could leverage the representer theorem to ensure that the solution remains in the span of the kernel functions, leading to computational efficiency and theoretical guarantees on the estimator's properties.
+By leveraging positive definite kernels for defining $K_\mathcal{D}$, the method inherently operates within the RKHS framework, where weights represent similarities in feature space. This perspective highlights the connection between the kernel-based weighting and the feature mappings, offering insights into the estimator's flexibility and robustness.
 
 
 \section{Experiments and Implementation Notes}
@@ -299,9 +317,6 @@ The complete experimental results are available as interactive Jupyter notebooks
 This work introduces a new robust variant of Local Polynomial Regression (LPR), opening several avenues for further exploration and refinement. Since the proposed method generalizes the traditional LPR, there are opportunities to replace certain standard components in equation \eqref{beta_loss_d} with more robust alternatives. These could include approaches such as robust methods for bandwidth selection or substituting the conventional quadratic residual function with alternatives better suited for handling outliers.
 
 Additionally, further development of this framework may involve exploring different kernel functions \(K_D\) and assessing how robust density estimators influence overall performance. Extending the method within the RKHS framework presents another valuable direction. This could allow for the introduction of a regularization term in the loss function, enhancing control over estimator smoothness and mitigating the risk of overfitting. Through these future directions, the robustness and adaptability of the proposed method could be substantially advanced.
-
-
-\newpage
 
 \bibliographystyle{abbrv}
 
