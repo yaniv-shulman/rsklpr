@@ -63,7 +63,7 @@ The remainder of the paper is organized as follows: In section \ref{S:Local Poly
 
 \section{Local Polynomial Regression}
 \label{S:Local Polynomial Regression}
-This section provides a brief overview of local polynomial regression and establishes the notation subsequently used. Let $( X, Y )$ be a random pair and $\mathcal{D}_T = \{(X_i,Y_i)\}_{i=1}^{T} \subseteq \mathcal{D}$ be a training set comprising a sample of $T$ data pairs. Suppose that $(X , Y) \sim f_{XY}$ a continuous density and $X \sim f_X$ the marginal distribution of $X$. Let $Y \in \mathbb{R}$ be a continuous response and assume a model of the form $Y_i=m(X_i) + \epsilon_i, \; i \in 1,... \, ,T$ where $m(\cdot): \mathbb{R}^d \rightarrow \mathbb{R }$ is an unknown function and $\epsilon_i$ are independently distributed error terms having zero mean representing random variability not included in $X_i$ such that $\mathbb{E}[Y \, | \,X=x] = m(x)$. There are no global assumptions about the function $m(\cdot)$ other than that it is smooth and that locally it can be well approximated by a low degree polynomial as per Taylor’s theorem. Local polynomial regression is a class of nonparametric regression methods that estimate the unknown regression function $m(\cdot)$ by combining the classical least squares method with the versatility of non-linear regression. The local $p$-th order Taylor expansion for $x \in \mathbb{R}$ near a point $X_i$ yields:
+This section provides a brief overview of local polynomial regression and establishes the notation subsequently used. Let $( X, Y )$ be a random pair and $\mathcal{D}_T = \{(X_i,Y_i)\}_{i=1}^{T} \subseteq \mathcal{D}$ be a training set comprising a sample of $T$ data pairs. Suppose that $(X , Y) \sim f_{XY}$ a continuous density and $X \sim f_X$ the marginal distribution of $X$. Let $Y \in \mathbb{R}$ be a continuous response and assume a model of the form $Y_i=m(X_i) + \epsilon_i, \; i \in 1,... \, ,T$ where $m(\cdot): \mathbb{R}^d \rightarrow \mathbb{R }$ is an unknown function and $\epsilon_i$ are independently distributed error terms having zero mean representing random variability not included in $X_i$ such that $\mathbb{E}[Y \mid X=x] = m(x)$. There are no global assumptions about the function $m(\cdot)$ other than that it is smooth and that locally it can be well approximated by a low degree polynomial as per Taylor’s theorem. Local polynomial regression is a class of nonparametric regression methods that estimate the unknown regression function $m(\cdot)$ by combining the classical least squares method with the versatility of non-linear regression. The local $p$-th order Taylor expansion for $x \in \mathbb{R}$ near a point $X_i$ yields:
 
 \begin{align}
 m(X_i) \approx \sum_{j=0}^p \frac{m^{(j)}(x)}{j!} (x - X_i)^j \coloneqq \sum_{j=0}^p \gamma_j(x)(x - X_i)^j
@@ -123,12 +123,12 @@ Where $K_1: \mathbb{R}^d \times \mathbb{R}^d \rightarrow \mathbb{R}_+$ and $K_2:
 \subsection*{Conditional Density} 
 The first proposed method for $K_2$ is proportional to the estimated localized conditional marginal distribution of the response variable at the location:
 \begin{align}
-K_2 \left((x,y),(x', y') ; H_2 \right) = \hat{f}(y \, | \, x ; H_2) \hat{f}(y' \, | \, x'; H_2)
+K_2 \left((x,y),(x', y') ; H_2 \right) = \hat{f}(y \mid x ; H_2) \hat{f}(y' \mid x'; H_2)
 \label{cond_kernel_def}
 \end{align}
 The nonparametric conditional density estimation is performed using the Parzen–Rosenblatt window (kernel density estimator):
 \begin{align}
-\hat{f}(y \, | \, x; H_2) &= \hat{f} (x, y ; H_2) / \hat{f} (x; H_2) \\
+\hat{f}(y \mid x; H_2) &= \hat{f} (x, y ; H_2) / \hat{f} (x; H_2) \\
 &= \hat{f} (v ; \mathbf{H}_v) / \hat{f} (x; \mathbf{H}_x) \\
 &= \frac{|\mathbf{H}_x|^{1/2} \sum_{i=1}^N K_v \left( \mathbf{H}_v^{-1/2} (v - V_i) \right)} {|\mathbf{H}_v|^{1/2} \sum_{i=1}^N K_x \left( \mathbf{H}_x^{-1/2} (x - X_i) \right)}
 \label{conditional_prob_est}
@@ -175,7 +175,7 @@ The equality holds because \( \hat{f}(x,y) \) is a constant scalar that uniforml
 \label{independence_of_y}
 \end{align}
 
-This simplification enables more efficient calculations of the estimator because the dependence on \( y \) is removed from the objective function. Note that \( \hat{f}(X_i,Y_i) \) can also be replaced with \( \hat{f}(Y_i \, | \, X_i) \) with similar results.
+This simplification enables more efficient calculations of the estimator because the dependence on \( y \) is removed from the objective function. Note that \( \hat{f}(X_i,Y_i) \) can also be replaced with \( \hat{f}(Y_i \mid X_i) \) with similar results.
 
 \subsection{Weighted Arithmetic Mean of the Standard LPR}
 
@@ -228,7 +228,7 @@ Therefore, as \( N \to \infty \):
 \hat{\beta}(x) &\xrightarrow{a.s.} \min_{\beta(x)} \mathbb{E} \left[ \left( Y - \sum_{j=0}^p \beta_j(x) (x - X)^j \right)^2 K_{H_1}(x - X) \right]
 \end{align}
 
-This is the same objective minimized by the standard LPR estimator in the asymptotic sense. Thus, the proposed estimator degenerates to the standard LPR as \( N \to \infty \), provided that \( g(X, Y) \) and \( \hat{f}(X, Y) \) are uncorrelated.
+This is the same objective minimized by the standard LPR estimator in the asymptotic sense. Thus, the proposed estimator degenerates to the standard LPR as \( N \to \infty \), provided that \( g(X, Y) \) and \( \hat{f}(X, Y) \) are uncorrelated. Note that one such special case is when \( \hat{f}(Y \mid X) \) follows a uniform distribution.
 
 \subsection{Asymptotic Equivalence in Expected Loss Function to Standard LPR under the Normality Assumption}
 \label{S}
@@ -355,6 +355,63 @@ The convergence of the expected loss functions suggests that the robust method a
 
 By down-weighting outliers and points in regions of low density, the robust method can exhibit different variance properties, potentially improving robustness and efficiency in finite samples, particularly under heteroscedastic noise or the presence of outliers. This variance adjustment underscores the practical advantage of the robust method but also highlights the need for further theoretical analysis to fully characterize its asymptotic variance and distribution.
 
+\subsection{Asymptotic Bias under Non-Normal Conditional Distributions} \label{s:AsymptoticBias}
+
+While the proposed robust estimator aligns asymptotically with standard local polynomial regression (LPR) under the assumption of conditional normality, real-world data often deviate from this idealized condition. When the conditional distribution \( f(Y \mid X) \) is not normal, particularly if it exhibits asymmetry, the asymptotic behavior of the estimator can be affected, potentially introducing bias.
+
+To explore the implications of non-normal conditional distributions on the asymptotic properties of the proposed estimator, consider the expected loss function:
+
+\begin{align}
+\mathbb{E}\left[ \mathcal{L}_{\text{rsk}}(x) \right] = N \iint \left( Y - \beta(X; x) \right)^2 K_1\left( \frac{X - x}{h} \right) K_2\left( (x, Y), (X, Y); H_2 \right) f(X, Y) \, dY \, dX. \label{eq:expected_loss_asym}
+\end{align}
+
+Assuming that \( K_2 \propto f(Y \mid X) \) and recognizing that \( f(X, Y) = f(Y \mid X) f(X) \), the expected loss simplifies to:
+
+\begin{align}
+\mathbb{E}\left[ \mathcal{L}_{\text{rsk}}(x) \right] \propto N \iint \left( Y - \beta(X; x) \right)^2 K_1\left( \frac{X - x}{h} \right) \left[ f(Y \mid X) \right]^2 f(X) \, dY \, dX. \label{eq:simplified_loss_asym}
+\end{align}
+
+When \( f(Y \mid X) \) is asymmetric, the squared conditional density \( [f(Y \mid X)]^2 \) alters the weighting in the loss function in a way that can shift the effective mean and variance. Specifically, the expected value of \( Y \) under the squared density \( [f(Y \mid X)]^2 \) is generally not equal to the mean \( m(X) \) of the original conditional distribution.
+
+This shift implies that the minimization of the expected loss function may lead the estimator to converge to a value different from the true regression function \( m(X) \), introducing an asymptotic bias. The magnitude and direction of this bias depend on the nature of the asymmetry in \( f(Y \mid X) \).
+
+To quantify the asymptotic bias in a general sense, consider that the mean of the squared conditional density \( [f(Y \mid X)]^2 \) is given by:
+
+\begin{align}
+\mu'(X) = \frac{\int Y [f(Y \mid X)]^2 \, dY}{\int [f(Y \mid X)]^2 \, dY}.
+\end{align}
+
+Similarly, the variance under the squared density is:
+
+\begin{align}
+\sigma'^2(X) = \frac{\int (Y - \mu'(X))^2 [f(Y \mid X)]^2 \, dY}{\int [f(Y \mid X)]^2 \, dY}.
+\end{align}
+
+The expected loss function then becomes:
+
+\begin{align}
+\mathbb{E}\left[ \mathcal{L}_{\text{rsk}}(x) \right] \propto N \int K_1\left( \frac{X - x}{h} \right) f(X) \left( \left( \mu'(X) - \beta(X; x) \right)^2 + \sigma'^2(X) \right) \, dX.
+\end{align}
+
+Since \( \sigma'^2(X) \) does not depend on \( \beta(X; x) \), minimizing \( \mathbb{E}\left[ \mathcal{L}_{\text{rsk}}(x) \right] \) with respect to \( \beta(X; x) \) is equivalent to minimizing:
+
+\begin{align}
+J(\beta(X; x)) = \int K_1\left( \frac{X - x}{h} \right) f(X) \left( \mu'(X) - \beta(X; x) \right)^2 \, dX.
+\end{align}
+
+Therefore, the estimator \( \beta(X; x) \) converges to \( \mu'(X) \) rather than \( m(X) \). The asymptotic bias at point \( x \) can thus be quantified as:
+
+\begin{align}
+\text{Bias}(x) = \mu'(x) - m(x).
+\end{align}
+
+This bias arises because the mean under the squared conditional density \( \mu'(X) \) differs from the mean \( m(X) \) of the original conditional distribution \( f(Y \mid X) \). The amount of bias depends on the degree and nature of asymmetry in \( f(Y \mid X) \).
+
+A detailed example illustrating this effect, including specific calculations of \( \mu'(X) \) and \( \sigma'^2(X) \) for a particular asymmetric distribution, is provided in Appendix~\ref{appendix:asym_bias_example}. This example demonstrates how the asymmetry of \( f(Y \mid X) \) can lead to a shift in the estimator's asymptotic target due to the squared density weighting.
+
+In practice, the presence of asymmetry in the conditional distribution may introduce some bias into the estimator. However, the robust weighting scheme of the proposed method can still provide advantages in terms of reducing the influence of outliers and improving estimation in the presence of heteroscedasticity or heavy-tailed errors. The trade-off between asymptotic bias and robustness to outliers should be considered in practical applications.
+
+
 
 \subsection{Relationship to Kernel Methods and RKHS}
 
@@ -424,7 +481,7 @@ By leveraging positive definite kernels for defining $K_\mathcal{D}$, the method
 
 The proposed method was implemented in Python. Following \citep{clevland79}, distances between pairs in each neighborhood are normalized to the range \([0,1]\). For the kernel function \(K_1(x,x';H_1)\), a simple Laplacian kernel \(e^{- \, \norm{x-x'}}\) was used, as it demonstrated more efficient and consistent empirical performance than the tricube kernel suggested in \citep{clevland79}. For density estimation, a factorized multidimensional KDE with scaled Gaussian kernels was applied. Five bandwidth estimation methods were tested: Scott's rule \cite{scott2015multivariate}, the Normal Reference rule, global Least Squares Cross-Validation (LSCV), local LSCV, and local Modified Least Squares Cross-Validation (MLCV). In some experiments, the bandwidth for the predictor kernel was empirically adjusted as a simple function of the window size.
 
-For computational efficiency, certain calculations were omitted because the local regression in equation \eqref{beta_loss_d} is invariant to the scale of the weights. This includes excluding scaling constants fixed within a neighborhood for a specific local regression target, such as those in computing \(\hat{f}(y \, | \, x)\) and \(\hat{f}(x,y)\) in equations \eqref{cond_kernel_def} and \eqref{joint_kernel_def}, respectively. 
+For computational efficiency, certain calculations were omitted because the local regression in equation \eqref{beta_loss_d} is invariant to the scale of the weights. This includes excluding scaling constants fixed within a neighborhood for a specific local regression target, such as those in computing \(\hat{f}(y \mid  x)\) and \(\hat{f}(x,y)\) in equations \eqref{cond_kernel_def} and \eqref{joint_kernel_def}, respectively. 
 
 Experiments were conducted using a variety of synthetic benchmarks to evaluate the performance of the method’s linear and quadratic variants against other local polynomial regression methods. These include LOWESS and iterative robust LOWESS \cite{seabold2010statsmodels}, local linear and local constant kernel regression \cite{seabold2010statsmodels}, local quadratic regression \cite{localreg}, and radial basis function networks \cite{localreg}. 
 
@@ -439,6 +496,12 @@ The complete experimental results are available as interactive Jupyter notebooks
 \includegraphics[width=1.0\textwidth]{example_regression_1d_1.png}1
 \end{figure}
 
+
+\subsubsection*{Simulation Studies}
+
+TODO: Perform empirical studies to assess the impact of asymmetry on the estimator's performance in realistic settings. Such studies may reveal that the bias introduced by asymmetry is offset by the robustness gains in finite samples.
+
+
 \section{Future Work and Research Directions}
 \label{S:Future work and research directions}
 
@@ -446,8 +509,105 @@ This work introduces a new robust variant of Local Polynomial Regression (LPR), 
 
 Additionally, further development of this framework may involve exploring different kernel functions \(K_D\) and assessing how robust density estimators influence overall performance. Extending the method within the RKHS framework presents another valuable direction. This could allow for the introduction of a regularization term in the loss function, enhancing control over estimator smoothness and mitigating the risk of overfitting. Through these future directions, the robustness and adaptability of the proposed method could be substantially advanced.
 
+\newpage
+
 \bibliographystyle{abbrv}
 
 \bibliography{refs}
+
+\newpage
+
+\appendix
+\section{Asymptotic Bias Example with Exponential Conditional Distribution} \label{appendix:asym_bias_example}
+
+In this appendix, we provide a detailed example illustrating how asymmetry in the conditional distribution \( f(Y \mid X) \) can introduce asymptotic bias in the proposed estimator due to the squared density weighting. Specifically, we consider the case where the conditional distribution of \( Y \) given \( X \) is exponential, a common asymmetric distribution.
+
+\subsection{Setup of the Example}
+
+Suppose that for each fixed \( X \), the conditional distribution \( Y \mid X \) follows an exponential distribution shifted by \( m(X) \):
+
+\begin{align}
+f(Y \mid X) = \lambda(X) \exp\left( -\lambda(X) (Y - m(X)) \right), \quad \text{for } Y \geq m(X),
+\end{align}
+
+where \( \lambda(X) > 0 \) is the rate parameter, and \( m(X) \) is the location parameter (shift), which represents the true regression function we aim to estimate.
+
+The mean and variance of this distribution are:
+
+\begin{align}
+\mathbb{E}[Y \mid X] &= m(X) + \frac{1}{\lambda(X)}, \\
+\operatorname{Var}[Y \mid X] &= \frac{1}{\lambda^2(X)}.
+\end{align}
+
+\subsection{Computing the Squared Density}
+
+The squared conditional density is:
+
+\begin{align}
+[f(Y \mid X)]^2 = \left( \lambda(X) \right)^2 \exp\left( -2\lambda(X) (Y - m(X)) \right), \quad \text{for } Y \geq m(X).
+\end{align}
+
+This squared density is proportional to an exponential distribution with rate parameter \( 2\lambda(X) \):
+
+\begin{align}
+g(Y \mid X) = \frac{[f(Y \mid X)]^2}{\int_{m(X)}^\infty [f(u \mid X)]^2 \, du} = 2\lambda(X) \exp\left( -2\lambda(X) (Y - m(X)) \right), \quad \text{for } Y \geq m(X).
+\end{align}
+
+\subsection{Calculating the Mean and Variance under the Squared Density}
+
+The mean and variance of \( Y \) under the squared density \( g(Y \mid X) \) are:
+
+\begin{align}
+\mu'(X) &= \mathbb{E}_{g}[Y \mid X] = m(X) + \frac{1}{2\lambda(X)}, \\
+\sigma'^2(X) &= \operatorname{Var}_{g}[Y \mid X] = \frac{1}{(2\lambda(X))^2}.
+\end{align}
+
+\subsection{Deriving the Asymptotic Bias}
+
+As per the analysis in Section~\ref{s:AsymptoticBias}, the expected loss function simplifies to:
+
+\begin{align}
+\mathbb{E}\left[ \mathcal{L}_{\text{rsk}}(x) \right] \propto N \int K_1\left( \frac{X - x}{h} \right) f(X) \left( \left( \mu'(X) - \beta(X; x) \right)^2 + \sigma'^2(X) \right) \, dX.
+\end{align}
+
+Minimizing with respect to \( \beta(X; x) \) leads to the estimator converging to \( \beta(X; x) = \mu'(X) \). Therefore, the asymptotic bias at point \( x \) is:
+
+\begin{align}
+\text{Bias}(x) &= \mu'(x) - m(x) \\
+&= \left( m(x) + \frac{1}{2\lambda(x)} \right) - m(x) \\
+&= \frac{1}{2\lambda(x)}.
+\end{align}
+
+This expression shows that the estimator is asymptotically biased upwards by \( \frac{1}{2\lambda(x)} \) compared to the true regression function \( m(x) \).
+
+\subsection{Interpretation}
+
+The bias arises because the weighting induced by \( [f(Y \mid X)]^2 \) effectively shifts the mean of the distribution used in the expected loss function. In the case of the exponential distribution, squaring the density doubles the rate parameter from \( \lambda(X) \) to \( 2\lambda(X) \), reducing the mean from \( m(X) + \frac{1}{\lambda(X)} \) to \( m(X) + \frac{1}{2\lambda(X)} \).
+
+This shift means that the estimator targets \( \mu'(X) \) instead of \( m(X) \), resulting in an asymptotic bias proportional to \( \frac{1}{2\lambda(X)} \).
+
+\subsection{Numerical Example}
+
+For illustrative purposes, consider \( \lambda(X) = 1 \) for all \( X \). Then, the bias simplifies to:
+
+\begin{align}
+\text{Bias}(x) = \frac{1}{2}.
+\end{align}
+
+In this case, the estimator is asymptotically biased upwards by \( 0.5 \) units at every point \( x \).
+
+\subsection{Implications for the Estimator}
+
+This example demonstrates that when the conditional distribution \( f(Y \mid X) \) is asymmetric, the proposed estimator may not converge to the true regression function \( m(X) \) as \( N \to \infty \), but rather to a biased version shifted by \( \mu'(X) - m(X) \).
+
+In practice, the magnitude of the bias depends on the degree of asymmetry and the rate parameter \( \lambda(X) \). For large \( \lambda(X) \), the bias diminishes, and the estimator approaches \( m(X) \). However, for small \( \lambda(X) \), the bias becomes more significant.
+
+\subsection{Conclusion}
+
+This example illustrates how asymmetry in the conditional distribution \( f(Y \mid X) \) can introduce asymptotic bias in the proposed estimator due to the squared density weighting. It underscores the importance of considering the nature of the conditional distribution when applying the robust estimator and highlights the potential trade-off between robustness to outliers and asymptotic bias.
+
+In practical applications, one may need to assess whether the benefits of robustness outweigh the potential bias introduced, especially in cases where the conditional distribution is significantly asymmetric.
+
+
 
 \end{document}
