@@ -42,7 +42,7 @@ import numpy as np
 import pandas as pd
 
 from experiments.common import plot_results, ExperimentConfig
-from experiments.data.synthetic_benchmarks import benchmark_curve_1
+from experiments.data.synthetic_normal_benchmarks import benchmark_curve_1
 from rsklpr.rsklpr import Rsklpr
 
 experiment_config: ExperimentConfig = ExperimentConfig(
@@ -89,13 +89,12 @@ plot_results(
 ```
 ![Example usage curve_plot](./example_usage_curve.png)
 
-
 ```python
 import numpy as np
 import pandas as pd
 
 from experiments.common import plot_results, ExperimentConfig
-from experiments.data.synthetic_benchmarks import benchmark_plane_2
+from experiments.data.synthetic_normal_benchmarks import benchmark_plane_2
 from rsklpr.rsklpr import Rsklpr
 
 experiment_config: ExperimentConfig = ExperimentConfig(

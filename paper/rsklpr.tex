@@ -156,6 +156,7 @@ Regardless of the choice of kernel, the hyperparameters of this model are simila
 This section discusses some properties of the estimator. Note the notation in this section is simplified by excluding explicit mentions of $D_N$ and $H$, however the analysis is conditional on the nearest neighbors in the sample, $D_N$.
 
 \subsection{Invariance to \( y \) at the Regression Location and Simplification of the Objective}
+\label{SS: Invariance to at the Regression Location and Simplification of the Objective}
 
 The objective \eqref{beta_loss_d} is invariant to the value of \( y \) at the location \( (x, y) \) for the proposed similarity kernels.
 
@@ -190,7 +191,7 @@ The proposed estimator is equivalent to the weighted arithmetic mean of the term
 \label{alt_skr_opt_obj}
 \end{align}
 
-The normalization by \( \sum_{i=1}^N w_i \) shows the equivalence to the weighted arithmetic mean, with the weights \( w_i = \hat{f}(X_i, Y_i) \).
+The normalization by \( \sum_{i=1}^N w_i \) shows the equivalence to the weighted arithmetic mean, with the weights \( w_i = \hat{f}(X_i, Y_i) \). Note the weights can be equivalently replaced with \( w_i = \hat{f}(Y_i \mid X_i) \).
 
 \subsection{Asymptotic degeneration of the estimator to the standard LPR}
 
@@ -230,142 +231,71 @@ Therefore, as \( N \to \infty \):
 
 This is the same objective minimized by the standard LPR estimator in the asymptotic sense. Thus, the proposed estimator degenerates to the standard LPR as \( N \to \infty \), provided that \( g(X, Y) \) and \( \hat{f}(X, Y) \) are uncorrelated. Note that one such special case is when \( \hat{f}(Y \mid X) \) follows a uniform distribution.
 
-\subsection{Asymptotic Equivalence in Expected Loss Function to Standard LPR under the Normality Assumption}
+\subsection{Asymptotic Convergence of the Expected Loss Function under the Normality Assumption}
 \label{S}
 
-In this section, a detailed asymptotic analysis of the proposed estimator is provided under the assumption that the conditional distribution \( f(Y \mid X) \) is normal. The goal is to demonstrate that, under certain conditions, the expected loss function simplifies to a form analogous to that of standard local polynomial regression (LPR).
+In this section, we establish that under the assumption of conditional normality, the expected loss function minimized by the proposed robust estimator converges asymptotically to that of standard local polynomial regression (LPR). As a consequence, both methods target the same underlying regression function \(m(x)\) in expectation.
 
-\subsubsection*{\textbf{Assumptions}}
-
-The following assumptions are in place:
-
-\begin{enumerate}[label=(A\arabic*)]
-    \item \textbf{Independent and Identically Distributed Data:} The data points $\{(X_i, Y_i)\}_{i=1}^N$ are independent and identically distributed (i.i.d.) samples from the joint distribution $f(X, Y)$.
-
-    \item \textbf{Kernel Functions:}
-    \begin{enumerate}[label=(\alph*)]
-        \item The predictor $X$ is univariate. This simplifies the analysis; extension to multivariate $X$ would require a bandwidth matrix $\mathbf{H}$.
-        
-        \item The kernel $K_1(u)$ is a symmetric, bounded, and integrable function satisfying $\int_{-\infty}^\infty K_1(u) \, du = 1$.
-        
-        \item The bandwidth $h$ for $K_1$ satisfies $h \to 0$ and $N h \to \infty$ as $N \to \infty$.
-        
-        \item The similarity kernel $K_2\left( (x, Y_i), (X_i, Y_i); H_2 \right)$ is proportional to an estimate of the conditional density:
-        \[
-        K_2\left( (x, Y_i), (X_i, Y_i); H_2 \right) \propto \hat{f}(Y_i \mid X_i),
-        \]
-        where $\hat{f}(Y_i \mid X_i)$ is a kernel density estimator of the conditional density of $Y$ given $X$, which converges to $f(Y_i \mid X_i)$ as $N \to \infty$.
-    \end{enumerate}
-
-    \item \textbf{Conditional Normality:} The conditional distribution  \( f( Y \mid X = x) \) is normally distributed with mean $m(X)$ and variance $\sigma^2(X)$:
-    \[
-   f(   Y \mid X = x ) \sim \mathcal{N}\left( m(X), \sigma^2(X) \right).
-    \]
-
-    \item \textbf{Smoothness of Functions:} The regression function $m(X)$ and the variance function $\sigma^2(X)$ are twice continuously differentiable in a neighborhood of $x$.
-
-    \item \textbf{Finite and Positive Variance:} The variance $\sigma^2(X)$ is finite and strictly positive for all $X$ in the domain.
-
-\end{enumerate}
-
-\subsubsection*{\textbf{Expected Loss Function}}
-
-Recall that the proposed loss function is:
-
+To proceed, consider the data-generating process and the associated assumptions. Let \((X_i, Y_i)\), \(i=1,\ldots,N\), be i.i.d. observations drawn from a joint distribution with density \(f(X,Y)\). Suppose that for each fixed \(x\), the conditional density \(f(Y \mid X=x)\) is given by:
 \begin{align}
-\mathcal{L}_{rsk}(x) = \sum_{i=1}^N \left( Y_i - \beta(X_i; x) \right)^2 K_1\left( \frac{X_i - x}{h} \right) K_2\left( (x, Y_i), (X_i, Y_i); H_2 \right), \label{eq:loss}
+f(Y \mid X=x) = \frac{1}{\sqrt{2\pi \sigma^2(x)}} \exp\left(-\frac{(Y - m(x))^2}{2\sigma^2(x)}\right),
+\label{eq:normal_assumption}
 \end{align}
-where
-\[
-\beta(X_i; x) = \sum_{j=0}^p \beta_j(x)(X_i - x)^j.
-\]
+where \(m(x) = \mathbb{E}[Y \mid X=x]\) and \(\sigma^2(x) = \mathbb{E}[(Y - m(x))^2 \mid X=x]\) are both continuous functions in a neighborhood of the point of interest \(x\). This assumption of normality is often reasonable in many settings or can serve as a benchmark for understanding the behavior of the estimator.
 
-Under assumption (A2d), $K_2\left((x, Y_i), (X_i, Y_i); H_2\right) \propto f(Y_i \mid X_i)$ as $N \to \infty$. For the purpose of asymptotic analysis, it is assumed that $N \to \infty$ and that $K_2$ is proportional to $f(Y_i \mid X_i)$. Therefore, the expected loss function can be expressed as:
-
+We recall that the proposed robust estimator is defined through the minimization of:
 \begin{align}
-\mathbb{E}\left[ \mathcal{L}_{rsk}(x) \right] = N \iint \left( Y - \beta(X; x) \right)^2 K_1\left( \frac{X - x}{h} \right) K_2\left( (x, Y), (X, Y); H_2 \right) f(X, Y) \, dY \, dX. \label{eq:expected_loss}
+\mathcal{L}_{rsk}(x) = \sum_{i=1}^N \left(Y_i - \sum_{j=0}^p \beta_j(x)(x - X_i)^j\right)^2 K_{H_1}(x - X_i)\hat{f}(Y_i \mid X_i),
+\label{eq:robust_loss_repeat}
+\end{align}
+where \(\hat{f}(Y_i \mid X_i)\) is a nonparametric estimate of \(f(Y_i \mid X_i)\) with bandwidth $H_2$, and \(K_{H_1}\) is a kernel function applied to the predictors with bandwidth \(H_1\). For simplicity, if \(X\) is univariate, we set \(H_1 = h\). Our analysis is then conducted subject to the usual nonparametric conditions as \(N \to \infty\), with \(h \to 0\) and \(N h \to \infty\).
+
+
+Taking expectations, we consider:
+\begin{align}
+\mathbb{E}[\mathcal{L}_{rsk}(x)] = \mathbb{E}\left[\sum_{i=1}^N \left(Y_i - \sum_{j=0}^p \beta_j(x)(x - X_i)^j\right)^2 K_{h}(x - X_i) f(Y_i \mid X_i) \right],
+\label{eq:expected_loss_rsk}
+\end{align}
+where we have replaced \(\hat{f}(Y_i \mid X_i)\) with its limiting form \(f(Y_i \mid X_i)\) as \(N \to \infty\). This step is justified by standard results in nonparametric density estimation, which ensure that \(\hat{f}(Y_i \mid X_i) \xrightarrow{a.s.} f(Y_i \mid X_i)\). Since we are concerned with asymptotic behavior and \(\hat{f}(Y_i \mid X_i)\) is a consistent estimator, the limiting substitution is appropriate. Note that the factor \(\sum_{i=1}^N\) and normalization constants are not crucial to the argument, as they do not affect the location of the minimizer.
+
+Recall that the expected loss function is expressed as an integral over the joint density \(f(X,Y)\):
+\begin{align}
+\mathbb{E}[\mathcal{L}_{rsk}(x)] = \iint \left( (Y - \beta(X;x))^2 K_{h}(x - X) [f(Y \mid X)]^2 \right) f(X) \, dY \, dX.
 \end{align}
 
-Substituting $K_2 \propto f(Y \mid X)$ and $f(X, Y) = f(Y \mid X) f(X)$, we have:
-
+Under the normality assumption, we now focus on the integrand \((Y - \beta(X;x))^2 [f(Y \mid X)]^2\). Since \(f(Y \mid X)\) is Gaussian, \([f(Y \mid X)]^2\) is also proportional to a Gaussian density, but with the same mean \(m(X)\) and halved variance \(\sigma^2(X)/2\). More precisely, for each fixed \(X=x\),
 \begin{align}
-\mathbb{E}\left[ \mathcal{L}_{rsk}(x) \right] \propto N \iint \left( Y - \beta(X; x) \right)^2 K_1\left( \frac{X - x}{h} \right) \left[f(Y \mid X)\right]^2 f(X) \, dY \, dX, \label{eq:simplified_loss}
+[f(Y \mid X)]^2 \propto \frac{1}{\sqrt{\pi \sigma^2(x)}} \exp\left(-\frac{(Y - m(x))^2}{\sigma^2(x)}\right).
 \end{align}
 
-which further simplifies to:
-
+Integrating out \(Y\), we consider the expectation:
 \begin{align}
-\mathbb{E}\left[ \mathcal{L}_{rsk}(x) \right] \propto N \int f(X) K_1\left( \frac{X - x}{h} \right) \int \left( Y - \beta(X; x) \right)^2  \left[f(Y \mid X)\right]^2  \, dY \, dX, \label{eq:further_simplified_loss}
+\int (Y - \beta(X;x))^2 [f(Y \mid X)]^2 dY.
+\end{align}
+Since this integral is now taken with respect to a Gaussian density centered at \(m(X)\) but with half the original variance, we obtain:
+\begin{align}
+\int (Y - \beta(X;x))^2 [f(Y \mid X)]^2 dY = (m(X) - \beta(X;x))^2 + \frac{\sigma^2(X)}{2}.
 \end{align}
 
-\subsubsection*{Simplifying the Inner Integral of $Y$}
-
-Under assumption (A3), $f (Y \mid X )$ follows a normal distribution:
-
+Substituting this result back into the expectation, we have:
 \begin{align}
-f(Y \mid X) = \frac{1}{\sqrt{2\pi \sigma^2(X)}} \exp\left( -\frac{(Y - m(X))^2}{2 \sigma^2(X)} \right). \label{eq:conditional_density}
+\mathbb{E}[\mathcal{L}_{rsk}(x)] \propto N \int f(X) K_{H_1}\left(\frac{X - x}{h}\right) \left((m(X) - \beta(X;x))^2 + \frac{\sigma^2(X)}{2}\right) dX.
 \end{align}
-
-Therefore, the squared conditional density is:
-
+Because \(\frac{\sigma^2(X)}{2}\) does not depend on \(\beta(X;x)\), it does not influence the minimization. Thus, minimizing \(\mathbb{E}[\mathcal{L}_{rsk}(x)]\) with respect to \(\beta_j(x)\) is equivalent to minimizing:
 \begin{align}
-\left[f(Y \mid X)\right]^2 = \left( \frac{1}{\sqrt{2\pi \sigma^2(X)}} \right)^2 \exp\left( -\frac{(Y - m(X))^2}{\sigma^2(X)} \right). \label{eq:squared_density}
+\int f(X) K_{H_1}\left(\frac{X - x}{h}\right) (m(X) - \beta(X;x))^2 dX.
 \end{align}
+This matches precisely the objective that standard LPR minimizes in expectation. Hence, under the normality assumption and as \(N \to \infty\), the proposed robust estimator and the standard LPR estimator identify the same target function \(m(x)\).
 
-This is proportional to a normal density with mean $m(X)$ and variance $\sigma^2(X)/2$:
+In summary, when the conditional distribution is normal, the weighting mechanism introduced by \(\hat{f}(Y_i \mid X_i)\) does not alter the asymptotic solution in expectation. While the proposed approach may achieve increased robustness to outliers and noise in finite samples, it retains the desirable asymptotic correctness of standard LPR. This result provides a theoretical anchor: under idealized (normal) conditions, the robust method and standard LPR coincide asymptotically in expectation, ensuring no asymptotic penalty is incurred for adopting the robust weighting scheme.
 
-\begin{align}
-\left[f(Y \mid X)\right]^2 \propto \phi\left( Y; m(X), \frac{\sigma^2(X)}{2} \right), \label{eq:scaled_density}
-\end{align}
-where $\phi(Y; \mu, \sigma^2)$ is the normal density function.
 
-\subsubsection*{Evaluating the Inner Integral}
-
-The inner integral is:
-
-\begin{align}
-E_Y = \int \left( Y - \beta(X; x) \right)^2 \left[f(Y \mid X)\right]^2 \, dY. \label{eq:inner_integral}
-\end{align}
-
-Since $\left[f(Y \mid X)\right]^2$ is proportional to $\phi\left(Y; m(X), \sigma^2(X)/2\right)$, we can evaluate $E_Y$ using the expectation of square deviations under the normal distribution:
-
-\begin{align}
-E_Y = \left( m(X)- \beta(X; x) \right)^2 + \frac{\sigma^2(X)}{2}. \label{eq:inner_result}
-\end{align}
-
-\subsubsection*{Simplifying the Expected Loss Function}
-
-Substituting \( E_Y \) back into equation \eqref{eq:simplified_loss}, we have:
-
-\begin{align}
-\mathbb{E}\left[ \mathcal{L}_{rsk}(x) \right] \propto N \int f(X) K_1\left( \frac{X - x}{h} \right)  \left( \left( m(X) - \beta(X; x) \right)^2 + \frac{\sigma^2(X)}{2} \right) \, dX. \label{eq:final_loss}
-\end{align}
-
-Since \( \frac{\sigma^2(X)}{2} \) does not depend on \( \beta_j(x) \), minimizing \( \mathbb{E}[\mathcal{L}_{rsk}(x)] \) with respect to \( \beta_j(x) \) is equivalent to minimizing:
-
-\begin{align}
-J(\beta(x)) = \int f(X) K_1\left( \frac{X - x}{h} \right)  \left( m(X) - \beta(X; x) \right)^2 \, dX. \label{eq:objective}
-\end{align}
-
-This is the same objective function minimized by the standard LPR in expectation. Therefore, under the normality assumption and as \( N \to \infty \), the expected loss functions of the proposed method and the standard LPR converge, indicating that both methods target the same regression function \( m(x) \) on average.
-
-\subsubsection*{Implications and Discussion}
-
-The convergence of the expected loss functions suggests that the robust method and standard LPR aim to estimate the same underlying regression function asymptotically. However, this equivalence in expectation does not imply identical behavior in distribution. The robust method’s weighting scheme, which adjusts the influence of data points based on their estimated densities, affects the variability of the estimator.
-
-By down-weighting outliers and points in regions of low density, the robust method can exhibit different variance properties, potentially improving robustness and efficiency in finite samples, particularly under heteroscedastic noise or the presence of outliers. This variance adjustment underscores the practical advantage of the robust method but also highlights the need for further theoretical analysis to fully characterize its asymptotic variance and distribution.
 
 \subsection{Asymptotic Bias under Non-Normal Conditional Distributions} \label{s:AsymptoticBias}
 
 While the proposed robust estimator aligns asymptotically with standard local polynomial regression (LPR) under the assumption of conditional normality, real-world data often deviate from this idealized condition. When the conditional distribution \( f(Y \mid X) \) is not normal, particularly if it exhibits asymmetry, the asymptotic behavior of the estimator can be affected, potentially introducing bias.
 
 To explore the implications of non-normal conditional distributions on the asymptotic properties of the proposed estimator, consider the expected loss function:
-
-\begin{align}
-\mathbb{E}\left[ \mathcal{L}_{\text{rsk}}(x) \right] = N \iint \left( Y - \beta(X; x) \right)^2 K_1\left( \frac{X - x}{h} \right) K_2\left( (x, Y), (X, Y); H_2 \right) f(X, Y) \, dY \, dX. \label{eq:expected_loss_asym}
-\end{align}
-
-Assuming that \( K_2 \propto f(Y \mid X) \) and recognizing that \( f(X, Y) = f(Y \mid X) f(X) \), the expected loss simplifies to:
 
 \begin{align}
 \mathbb{E}\left[ \mathcal{L}_{\text{rsk}}(x) \right] \propto N \iint \left( Y - \beta(X; x) \right)^2 K_1\left( \frac{X - x}{h} \right) \left[ f(Y \mid X) \right]^2 f(X) \, dY \, dX. \label{eq:simplified_loss_asym}
@@ -407,10 +337,31 @@ Therefore, the estimator \( \beta(X; x) \) converges to \( \mu'(X) \) rather tha
 
 This bias arises because the mean under the squared conditional density \( \mu'(X) \) differs from the mean \( m(X) \) of the original conditional distribution \( f(Y \mid X) \). The amount of bias depends on the degree and nature of asymmetry in \( f(Y \mid X) \).
 
-A detailed example illustrating this effect, including specific calculations of \( \mu'(X) \) and \( \sigma'^2(X) \) for a particular asymmetric distribution, is provided in Appendix~\ref{appendix:asym_bias_example}. This example demonstrates how the asymmetry of \( f(Y \mid X) \) can lead to a shift in the estimator's asymptotic target due to the squared density weighting.
+A detailed example illustrating this effect, including specific calculations of \( \mu'(X) \) and \( \sigma'^2(X) \) for a particular asymmetric distribution, is provided in \ref{appendix:asym_bias_example}. This example demonstrates how the asymmetry of \( f(Y \mid X) \) can lead to a shift in the estimator's asymptotic target due to the squared density weighting.
 
-In practice, the presence of asymmetry in the conditional distribution may introduce some bias into the estimator. However, the robust weighting scheme of the proposed method can still provide advantages in terms of reducing the influence of outliers and improving estimation in the presence of heteroscedasticity or heavy-tailed errors. The trade-off between asymptotic bias and robustness to outliers should be considered in practical applications.
+In practice, the presence of asymmetry in the conditional distribution may introduce some bias into the estimator. However, the robust weighting scheme of the proposed method can still provide advantages in terms of reducing the influence of outliers and improving estimation in the presence of heteroscedasticity or heavy-tailed errors. The trade-off between asymptotic bias and robustness to outliers should be considered in practical applications. Experiments on synthetic benchmarks demonstrate that, if the data is not overly dense, the proposed estimator sometimes achieves better results in terms of RMSE than the standard LPR and consistently substantially outperforms the iterative robust LOESS estimator. More details are provided in Section \ref{S:Experiments and implementation notes}.
 
+\subsection*{Trade-off Between Robustness and Bias via the \( K_2 \) Kernel and Bandwidth Selection}
+
+The proposed estimator utilizes the \( K_2 \) kernel to adjust data point weights based on both predictors and responses, controlling the trade-off between robustness and bias through the negative correlation between weights and residuals. The bandwidth \( H_2 \) of the \( K_2 \) kernel plays a crucial role in this mechanism.
+
+In the loss function \eqref{loss_rsk}, each data point is weighted by:
+
+\[
+w_i = K_{H_1}(x - X_i) \hat{f}(Y_i \mid X_i; H_2),
+\]
+
+where \( K_{H_1} \) is a kernel based on the predictors, and \( \hat{f}(Y_i \mid X_i; H_2) \) is the estimated conditional density of the response at \( Y_i \) given \( X_i \). The \( K_2 \) kernel assigns lower weights to less probable responses, effectively down-weighting outliers and inducing a negative correlation between the weights \( w_i \) and residuals \( r_i = Y_i - \hat{m}(X_i) \).
+
+The bandwidth \( H_2 \) controls the sensitivity of \( K_2 \) to variations in the response. Adjusting \( H_2 \) influences the degree of negative correlation between weights and residuals:
+
+For very small \( H_2 \) values the density estimator \( \hat{f}(Y_i \mid X_i; H_2) \) becomes sharply peaked at each \( Y_i \), resembling delta functions. Since this occurs for all data points, the weights \( w_i \) become nearly uniform after normalization, diminishing the influence of residuals on the weights. Conversely, for very large \( H_2 \) the density estimator \( \hat{f}(Y_i \mid X_i; H_2) \) becomes nearly constant across different \( Y_i \), resulting in weights primarily determined by \( K_{H_1}(x - X_i) \). In both extremes, the negative correlation between weights and residuals diminishes due to the weights becoming more uniform across data points.
+
+An intermediate bandwidth \( H_2 \) achieves a balance between robustness and bias. It allows \( K_2 \) to assign weights that vary appropriately with the residuals, effectively down-weighting outliers while giving sufficient weight to informative points. The optimal \( H_2 \) depends on the data distribution and can be selected using methods like cross-validation or adaptive techniques based on local data characteristics.
+
+By adjusting the bandwidth parameters, the estimator can realize a continuum of behaviors, ranging from the standard LPR approach to a more robust estimation regime. At one extreme, a larger bandwidth for \( K_2 \) effectively reduces the influence of response variability and approaches standard LPR. At the other extreme, a more restrictive bandwidth amplifies the role of local density and similarity, enhancing robustness but potentially introducing bias. This trade-off allows for nuanced tuning to suit specific applications and data characteristics. In settings with dense data, for example, reducing the bandwidth can dynamically control potential bias in high-density regions, yielding a locally tailored balance between robustness and accuracy. This adaptive capability opens the door for more sophisticated, context-dependent bandwidth selection strategies but is left for future work.
+
+In summary, the \( K_2 \) kernel enables control over the robustness-bias trade-off by adjusting the negative correlation between weights and residuals through bandwidth selection. Proper choice of \( H_2 \) allows the estimator to mitigate the influence of outliers while maintaining low bias, effectively combining the strengths of robust and standard local polynomial regression.
 
 
 \subsection{Relationship to Kernel Methods and RKHS}
@@ -491,7 +442,7 @@ The complete experimental results are available as interactive Jupyter notebooks
 
 
 \begin{figure}[t]
-\caption{Regression example of synthetically generated 1D data with heteroscedastic noise. Additional experimental results and demonstrations including multivariate settings and bootstrap based confidence intervals are available at \url{https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments/} as interactive Jupyter notebooks \cite{jupyter}}
+\caption{Regression example of synthetically generated 1D data with heteroscedastic normal noise. Additional experimental results and demonstrations including multivariate settings and bootstrap based confidence intervals are available at \url{https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments/} as interactive Jupyter notebooks \cite{jupyter}}
 \centering
 \includegraphics[width=1.0\textwidth]{example_regression_1d_1.png}1
 \end{figure}
