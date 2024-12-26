@@ -35,7 +35,7 @@ def benchmark_curve_exponential(num_points: int) -> Tuple[np.ndarray, np.ndarray
     )
 
 
-def benchmark_curve_lognormal(num_points: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+def benchmark_curve_log_normal(num_points: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Generates a dataset of points sampled from a log-normal distribution where the mean matches a smooth curve.
 

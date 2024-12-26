@@ -182,7 +182,7 @@ This simplification enables more efficient calculations of the estimator because
 
 The proposed estimator is equivalent to the weighted arithmetic mean of the terms in the standard LPR loss \eqref{loss_lpr}, with weights \( w_i = \hat{f}(X_i, Y_i) \).
 
-\textit{Proof}: Since the optimization is invariant to scaling, we have:
+\textit{Proof}: Since the optimization is invariant to scaling:
 
 \begin{align}
 \hat{\beta}(x) &\coloneqq \min_{\beta(x)} \sum_{i=1}^N \left( Y_i - \sum_{j=0}^p \beta_j (x) (x - X_i)^j \right)^2 K_{H_{1}} (x - X_i) \hat{f}(X_i, Y_i) \\
@@ -207,7 +207,7 @@ it follows that:
 &= \min_{\beta(x)} \left( \frac{1}{N} \sum_{i=1}^N \hat{f}(X_i, Y_i) \right)^{-1} \left( \frac{1}{N} \sum_{i=1}^N g(X_i, Y_i) \hat{f}(X_i, Y_i) \right)
 \end{align}
 
-As \( N \to \infty \), by the law of large numbers, we obtain:
+As \( N \to \infty \), by the law of large numbers:
 \begin{align}
 \left( \frac{1}{N} \sum_{i=1}^N \hat{f}(X_i, Y_i) \right)^{-1} &\xrightarrow{a.s.} \frac{1}{\mathbb{E} \left[ \hat{f}(X, Y) \right]} \\
 \frac{1}{N} \sum_{i=1}^N g(X_i, Y_i) \hat{f}(X_i, Y_i) &\xrightarrow{a.s.} \mathbb{E} \left[ g(X, Y) \hat{f}(X, Y) \right]
@@ -248,19 +248,19 @@ We recall that the proposed robust estimator is defined through the minimization
 \mathcal{L}_{rsk}(x) = \sum_{i=1}^N \left(Y_i - \sum_{j=0}^p \beta_j(x)(x - X_i)^j\right)^2 K_{H_1}(x - X_i)\hat{f}(Y_i \mid X_i),
 \label{eq:robust_loss_repeat}
 \end{align}
-where \(\hat{f}(Y_i \mid X_i)\) is a nonparametric estimate of \(f(Y_i \mid X_i)\) with bandwidth $H_2$, and \(K_{H_1}\) is a kernel function applied to the predictors with bandwidth \(H_1\). For simplicity, if \(X\) is univariate, we set \(H_1 = h\). Our analysis is then conducted subject to the usual nonparametric conditions as \(N \to \infty\), with \(h \to 0\) and \(N h \to \infty\).
+where \(\hat{f}(Y_i \mid X_i)\) is a nonparametric estimate of \(f(Y_i \mid X_i)\) with bandwidth $H_2$, and \(K_{H_1}\) is a kernel function applied to the predictors with bandwidth \(H_1\). For simplicity, if \(X\) is univariate, set \(H_1 = h\). The analysis is then conducted subject to the usual nonparametric conditions as \(N \to \infty\), with \(h \to 0\) and \(N h \to \infty\).
 
 
-Taking expectations, we consider:
+Taking expectations of both sides:
 \begin{align}
 \mathbb{E}[\mathcal{L}_{rsk}(x)] = \mathbb{E}\left[\sum_{i=1}^N \left(Y_i - \sum_{j=0}^p \beta_j(x)(x - X_i)^j\right)^2 K_{h}(x - X_i) f(Y_i \mid X_i) \right],
 \label{eq:expected_loss_rsk}
 \end{align}
-where we have replaced \(\hat{f}(Y_i \mid X_i)\) with its limiting form \(f(Y_i \mid X_i)\) as \(N \to \infty\). This step is justified by standard results in nonparametric density estimation, which ensure that \(\hat{f}(Y_i \mid X_i) \xrightarrow{a.s.} f(Y_i \mid X_i)\). Since we are concerned with asymptotic behavior and \(\hat{f}(Y_i \mid X_i)\) is a consistent estimator, the limiting substitution is appropriate. Note that the factor \(\sum_{i=1}^N\) and normalization constants are not crucial to the argument, as they do not affect the location of the minimizer.
+where \(\hat{f}(Y_i \mid X_i)\) is replaced with its limiting form \(f(Y_i \mid X_i)\) as \(N \to \infty\). This step is justified by standard results in nonparametric density estimation, which ensure that a consistent estimator \(\hat{f}(Y_i \mid X_i) \xrightarrow{a.s.} f(Y_i \mid X_i)\) under asymptotic behavior.
 
 Recall that the expected loss function is expressed as an integral over the joint density \(f(X,Y)\):
 \begin{align}
-\mathbb{E}[\mathcal{L}_{rsk}(x)] = \iint \left( (Y - \beta(X;x))^2 K_{h}(x - X) [f(Y \mid X)]^2 \right) f(X) \, dY \, dX.
+\mathbb{E}[\mathcal{L}_{rsk}(x)] = N \iint \left( (Y - \beta(X;x))^2 K_{h}(x - X) [f(Y \mid X)]^2 \right) f(X) \, dY \, dX.
 \end{align}
 
 Under the normality assumption, we now focus on the integrand \((Y - \beta(X;x))^2 [f(Y \mid X)]^2\). Since \(f(Y \mid X)\) is Gaussian, \([f(Y \mid X)]^2\) is also proportional to a Gaussian density, but with the same mean \(m(X)\) and halved variance \(\sigma^2(X)/2\). More precisely, for each fixed \(X=x\),
@@ -279,11 +279,11 @@ Since this integral is now taken with respect to a Gaussian density centered at 
 
 Substituting this result back into the expectation, we have:
 \begin{align}
-\mathbb{E}[\mathcal{L}_{rsk}(x)] \propto N \int f(X) K_{H_1}\left(\frac{X - x}{h}\right) \left((m(X) - \beta(X;x))^2 + \frac{\sigma^2(X)}{2}\right) dX.
+\mathbb{E}[\mathcal{L}_{rsk}(x)] \propto N \int f(X) K_{1}\left(\frac{X - x}{h}\right) \left((m(X) - \beta(X;x))^2 + \frac{\sigma^2(X)}{2}\right) dX.
 \end{align}
 Because \(\frac{\sigma^2(X)}{2}\) does not depend on \(\beta(X;x)\), it does not influence the minimization. Thus, minimizing \(\mathbb{E}[\mathcal{L}_{rsk}(x)]\) with respect to \(\beta_j(x)\) is equivalent to minimizing:
 \begin{align}
-\int f(X) K_{H_1}\left(\frac{X - x}{h}\right) (m(X) - \beta(X;x))^2 dX.
+\int f(X) K_{1}\left(\frac{X - x}{h}\right) (m(X) - \beta(X;x))^2 dX.
 \end{align}
 This matches precisely the objective that standard LPR minimizes in expectation. Hence, under the normality assumption and as \(N \to \infty\), the proposed robust estimator and the standard LPR estimator identify the same target function \(m(x)\).
 
@@ -339,7 +339,7 @@ This bias arises because the mean under the squared conditional density \( \mu'(
 
 A detailed example illustrating this effect, including specific calculations of \( \mu'(X) \) and \( \sigma'^2(X) \) for a particular asymmetric distribution, is provided in \ref{appendix:asym_bias_example}. This example demonstrates how the asymmetry of \( f(Y \mid X) \) can lead to a shift in the estimator's asymptotic target due to the squared density weighting.
 
-In practice, the presence of asymmetry in the conditional distribution may introduce some bias into the estimator. However, the robust weighting scheme of the proposed method can still provide advantages in terms of reducing the influence of outliers and improving estimation in the presence of heteroscedasticity or heavy-tailed errors. The trade-off between asymptotic bias and robustness to outliers should be considered in practical applications. Experiments on synthetic benchmarks demonstrate that, if the data is not overly dense, the proposed estimator sometimes achieves better results in terms of RMSE than the standard LPR and consistently substantially outperforms the iterative robust LOESS estimator. More details are provided in Section \ref{S:Experiments and implementation notes}.
+In practice, the presence of asymmetry in the conditional distribution may introduce some bias into the estimator. However, the robust weighting scheme of the proposed method can still provide advantages in terms of reducing the influence of outliers and improving estimation in the presence of heteroscedasticity or heavy-tailed errors. The trade-off between asymptotic bias and robustness to outliers should be considered in practical applications. Experiments on synthetic benchmarks demonstrate that, if the data is not overly dense, the proposed estimator sometimes achieves better results in terms of RMSE than the standard LPR and typically substantially outperforms the iterative robust LOESS estimator. Experimental details are provided in Section \ref{S:Experiments and implementation notes}.
 
 \subsection*{Trade-off Between Robustness and Bias via the \( K_2 \) Kernel and Bandwidth Selection}
 
@@ -353,7 +353,7 @@ w_i = K_{H_1}(x - X_i) \hat{f}(Y_i \mid X_i; H_2),
 
 where \( K_{H_1} \) is a kernel based on the predictors, and \( \hat{f}(Y_i \mid X_i; H_2) \) is the estimated conditional density of the response at \( Y_i \) given \( X_i \). The \( K_2 \) kernel assigns lower weights to less probable responses, effectively down-weighting outliers and inducing a negative correlation between the weights \( w_i \) and residuals \( r_i = Y_i - \hat{m}(X_i) \).
 
-The bandwidth \( H_2 \) controls the sensitivity of \( K_2 \) to variations in the response. Adjusting \( H_2 \) influences the degree of negative correlation between weights and residuals:
+The bandwidth \( H_2 \) controls the sensitivity of \( K_2 \) to variations in the response by adjusting the degree of negative correlation between weights and residuals:
 
 For very small \( H_2 \) values the density estimator \( \hat{f}(Y_i \mid X_i; H_2) \) becomes sharply peaked at each \( Y_i \), resembling delta functions. Since this occurs for all data points, the weights \( w_i \) become nearly uniform after normalization, diminishing the influence of residuals on the weights. Conversely, for very large \( H_2 \) the density estimator \( \hat{f}(Y_i \mid X_i; H_2) \) becomes nearly constant across different \( Y_i \), resulting in weights primarily determined by \( K_{H_1}(x - X_i) \). In both extremes, the negative correlation between weights and residuals diminishes due to the weights becoming more uniform across data points.
 
@@ -396,8 +396,6 @@ Furthermore, consider the role of the Kernel Density Estimator (KDE) in the prop
 \hat{f}(x, y) = \frac{1}{N} \sum_{i=1}^N K_2 \left( (x, y), (X_i, Y_i); H_2 \right). \label{kde_kernel_correct}
 \end{align}
 
-Note that the KDE uses $K_2$, not the full kernel $K_\mathcal{D}$, since $K_2$ is the kernel used in the density estimation of the joint (or conditional) distribution involving both $x$ and $y$.
-
 Since $K_2$ is a positive definite kernel, there exists a feature mapping $\psi: \mathcal{D} \to \mathcal{G}$, where $\mathcal{G}$ is another Hilbert space, such that:
 
 \begin{align}
@@ -428,29 +426,72 @@ By leveraging positive definite kernels for defining $K_\mathcal{D}$, the method
 
 
 \section{Experiments and Implementation Notes}
-\label{S:Experiments and implementation notes}
 
-The proposed method was implemented in Python. Following \citep{clevland79}, distances between pairs in each neighborhood are normalized to the range \([0,1]\). For the kernel function \(K_1(x,x';H_1)\), a simple Laplacian kernel \(e^{- \, \norm{x-x'}}\) was used, as it demonstrated more efficient and consistent empirical performance than the tricube kernel suggested in \citep{clevland79}. For density estimation, a factorized multidimensional KDE with scaled Gaussian kernels was applied. Five bandwidth estimation methods were tested: Scott's rule \cite{scott2015multivariate}, the Normal Reference rule, global Least Squares Cross-Validation (LSCV), local LSCV, and local Modified Least Squares Cross-Validation (MLCV). In some experiments, the bandwidth for the predictor kernel was empirically adjusted as a simple function of the window size.
+This section presents an evaluation of the proposed Robust Similarity Kernel Local Polynomial Regression (RSKLPR) method, implemented in Python. The experiments focus on comparing the performance of RSKLPR against existing local regression techniques under synthetic settings with different noise characteristics.
 
-For computational efficiency, certain calculations were omitted because the local regression in equation \eqref{beta_loss_d} is invariant to the scale of the weights. This includes excluding scaling constants fixed within a neighborhood for a specific local regression target, such as those in computing \(\hat{f}(y \mid  x)\) and \(\hat{f}(x,y)\) in equations \eqref{cond_kernel_def} and \eqref{joint_kernel_def}, respectively. 
+\subsection{Implementation Details}
+The implementation normalizes distances in each neighborhood to the range $[0, 1]$, consistent with the approach in \cite{Cleveland1979}. For the kernel $K_1(x, x')$, a Laplacian kernel $e^{-\|x - x'\|}$ was selected, demonstrating more consistent and efficient performance compared to alternatives like the tricube kernel. For density estimation in $K_2$, a factorized multidimensional Kernel Density Estimator (KDE) with scaled Gaussian kernels was used. Bandwidth selection for the density estimation was explored using five methods: Scott’s Rule \cite{Scott2015}, the Normal Reference Rule, Global Least Squares Cross-Validation (LSCV), Local LSCV, and Local Modified Least Squares Cross-Validation (MLCV). Additionally, the bandwidth for the predictor kernel $K_1$ was empirically adjusted as a function of the window size in certain experiments. Scaling constants within neighborhoods, such as those in $\hat{f}(y | x)$ and $\hat{f}(x, y)$, were excluded for computational efficiency, as they do not impact the local regression results.
 
-Experiments were conducted using a variety of synthetic benchmarks to evaluate the performance of the method’s linear and quadratic variants against other local polynomial regression methods. These include LOWESS and iterative robust LOWESS \cite{seabold2010statsmodels}, local linear and local constant kernel regression \cite{seabold2010statsmodels}, local quadratic regression \cite{localreg}, and radial basis function networks \cite{localreg}. 
+\subsection*{Experimental Design}
+Synthetic datasets were generated with both additive Gaussian and asymmetric noise to simulate various regression scenarios. The following characteristics were varied: noise types, including homoscedastic and heteroscedastic Gaussian noise as well as asymmetric noise distributions (Exponential, Log-normal, Gamma, and Weibull); data density, encompassing both sparse and dense data regimes; and regression complexity, modeling non-linear curves and surfaces. Performance was evaluated using Root Mean Square Error (RMSE) and sensitivity to neighborhood size. For asymmetric noise settings, RMSE trends were analyzed as a function of data density.
 
-The experimental setups included several non-linear synthetic curves and planes with added noise, representing dense and sparse data, homoscedastic and heteroscedastic noise characteristics, and different neighborhood sizes. The results indicate that no single method universally outperforms the others; performance varies by setting. However, the proposed method exhibited competitive performance overall, delivering the best results across numerous settings, particularly in heteroscedastic environments. It also generally outperformed its direct counterparts, LOESS/LOWESS and quadratic LPR, with just a single iteration. Moreover, the proposed method showed lower sensitivity to neighborhood size, resulting in reduced variance. This stability makes it an attractive option, especially when choosing hyperparameters without ground truth data.
+\subsection*{Results and Observations}
+Under Gaussian noise settings, the proposed method performed competitively across a range of synthetic settings. Unlike iterative robust variants, RSKLPR achieved these results with a single iteration. A regression example with heteroscedastic Gaussian noise is shown in Figure~\ref{fig:gaussian_noise}. The proposed method aligns closely with the true regression function while effectively mitigating the influence of noise.
 
-The complete experimental results are available as interactive Jupyter notebooks at \url{https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments/} \cite{jupyter}.
+Under asymmetric noise distributions, RSKLPR exhibited robust performance in low- and medium-density settings, outperforming standard LPR and iterative robust variants. In high-density settings, the performance of RSKLPR converged to that of standard LPR. This aligns with theoretical predictions that the robust weighting mechanism becomes less influential as data density increases. Figure~\ref{fig:asymmetric_noise} presents RMSE trends for asymmetric noise distributions, illustrating that RSKLPR achieves comparable or better performance with fewer iterations.
 
+The robustness-bias trade-off in RSKLPR is controlled by the bandwidth $H_2$ of the kernel $K_2$. Small bandwidths enhance robustness by down-weighting outliers but may introduce bias, while larger bandwidths reduce bias but diminish robustness. An intermediate bandwidth provides an optimal balance, as demonstrated in experiments.
+
+\subsection*{Summary}
+Overall, RSKLPR demonstrated significant advantages in heteroscedastic and noisy environments, particularly in sparse data settings. The stability of the method with respect to hyperparameters makes it an attractive option for applications where robust regression is critical. Complete experimental results, including multivariate settings and bootstrap-based confidence intervals, are available at the accompanying \href{https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments/}{repository}. This section highlights the potential of RSKLPR to provide robust and computationally efficient regression solutions across diverse scenarios. Future work will explore its application to real-world datasets and further refine the trade-off between robustness and bias.
 
 \begin{figure}[t]
-\caption{Regression example of synthetically generated 1D data with heteroscedastic normal noise. Additional experimental results and demonstrations including multivariate settings and bootstrap based confidence intervals are available at \url{https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments/} as interactive Jupyter notebooks \cite{jupyter}}
+\caption{Regression example of synthetically generated 1D data with heteroscedastic Gaussian noise. Additional experimental results and demonstrations including multivariate settings and bootstrap based confidence intervals are available at \url{https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments/} as interactive Jupyter notebooks \cite{jupyter}}
 \centering
-\includegraphics[width=1.0\textwidth]{example_regression_1d_1.png}1
+\includegraphics[width=1.0\textwidth]{example_regression_1d_1.png}
+\label{fig:gaussian_noise}
 \end{figure}
 
 
-\subsubsection*{Simulation Studies}
-
-TODO: Perform empirical studies to assess the impact of asymmetry on the estimator's performance in realistic settings. Such studies may reveal that the bias introduced by asymmetry is offset by the robustness gains in finite samples.
+\begin{figure}[h!]
+    \centering
+    % Row 1, Column 1
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{graphics/exponential_asymmetrical_increasing_numpoints.png}
+        \caption{Exponential}
+        \label{fig:plot1}
+    \end{subfigure}
+    \hfill
+    % Row 1, Column 2
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{graphics/gamma_asymmetrical_increasing_numpoints.png}
+        \caption{Gamma}
+        \label{fig:plot2}
+    \end{subfigure}
+    
+    \vspace{1em} % Vertical space between rows
+    
+    % Row 2, Column 1
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{graphics/log_normal_asymmetrical_increasing_numpoints.png}
+        \caption{Log-normal}
+        \label{fig:plot3}
+    \end{subfigure}
+    \hfill
+    % Row 2, Column 2
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{graphics/weibull_asymmetrical_increasing_numpoints.png}
+        \caption{Weibull}
+        \label{fig:plot4}
+    \end{subfigure}
+    
+    \caption{RMSE as a function of the data desnity for asymmetric data distribtions for LOWESS, Robust LOWESS and the proposed method (RSKLPR).}
+    \label{fig:2x2_grid}
+\end{figure}
 
 
 \section{Future Work and Research Directions}
@@ -465,100 +506,5 @@ Additionally, further development of this framework may involve exploring differ
 \bibliographystyle{abbrv}
 
 \bibliography{refs}
-
-\newpage
-
-\appendix
-\section{Asymptotic Bias Example with Exponential Conditional Distribution} \label{appendix:asym_bias_example}
-
-In this appendix, we provide a detailed example illustrating how asymmetry in the conditional distribution \( f(Y \mid X) \) can introduce asymptotic bias in the proposed estimator due to the squared density weighting. Specifically, we consider the case where the conditional distribution of \( Y \) given \( X \) is exponential, a common asymmetric distribution.
-
-\subsection{Setup of the Example}
-
-Suppose that for each fixed \( X \), the conditional distribution \( Y \mid X \) follows an exponential distribution shifted by \( m(X) \):
-
-\begin{align}
-f(Y \mid X) = \lambda(X) \exp\left( -\lambda(X) (Y - m(X)) \right), \quad \text{for } Y \geq m(X),
-\end{align}
-
-where \( \lambda(X) > 0 \) is the rate parameter, and \( m(X) \) is the location parameter (shift), which represents the true regression function we aim to estimate.
-
-The mean and variance of this distribution are:
-
-\begin{align}
-\mathbb{E}[Y \mid X] &= m(X) + \frac{1}{\lambda(X)}, \\
-\operatorname{Var}[Y \mid X] &= \frac{1}{\lambda^2(X)}.
-\end{align}
-
-\subsection{Computing the Squared Density}
-
-The squared conditional density is:
-
-\begin{align}
-[f(Y \mid X)]^2 = \left( \lambda(X) \right)^2 \exp\left( -2\lambda(X) (Y - m(X)) \right), \quad \text{for } Y \geq m(X).
-\end{align}
-
-This squared density is proportional to an exponential distribution with rate parameter \( 2\lambda(X) \):
-
-\begin{align}
-g(Y \mid X) = \frac{[f(Y \mid X)]^2}{\int_{m(X)}^\infty [f(u \mid X)]^2 \, du} = 2\lambda(X) \exp\left( -2\lambda(X) (Y - m(X)) \right), \quad \text{for } Y \geq m(X).
-\end{align}
-
-\subsection{Calculating the Mean and Variance under the Squared Density}
-
-The mean and variance of \( Y \) under the squared density \( g(Y \mid X) \) are:
-
-\begin{align}
-\mu'(X) &= \mathbb{E}_{g}[Y \mid X] = m(X) + \frac{1}{2\lambda(X)}, \\
-\sigma'^2(X) &= \operatorname{Var}_{g}[Y \mid X] = \frac{1}{(2\lambda(X))^2}.
-\end{align}
-
-\subsection{Deriving the Asymptotic Bias}
-
-As per the analysis in Section~\ref{s:AsymptoticBias}, the expected loss function simplifies to:
-
-\begin{align}
-\mathbb{E}\left[ \mathcal{L}_{\text{rsk}}(x) \right] \propto N \int K_1\left( \frac{X - x}{h} \right) f(X) \left( \left( \mu'(X) - \beta(X; x) \right)^2 + \sigma'^2(X) \right) \, dX.
-\end{align}
-
-Minimizing with respect to \( \beta(X; x) \) leads to the estimator converging to \( \beta(X; x) = \mu'(X) \). Therefore, the asymptotic bias at point \( x \) is:
-
-\begin{align}
-\text{Bias}(x) &= \mu'(x) - m(x) \\
-&= \left( m(x) + \frac{1}{2\lambda(x)} \right) - m(x) \\
-&= \frac{1}{2\lambda(x)}.
-\end{align}
-
-This expression shows that the estimator is asymptotically biased upwards by \( \frac{1}{2\lambda(x)} \) compared to the true regression function \( m(x) \).
-
-\subsection{Interpretation}
-
-The bias arises because the weighting induced by \( [f(Y \mid X)]^2 \) effectively shifts the mean of the distribution used in the expected loss function. In the case of the exponential distribution, squaring the density doubles the rate parameter from \( \lambda(X) \) to \( 2\lambda(X) \), reducing the mean from \( m(X) + \frac{1}{\lambda(X)} \) to \( m(X) + \frac{1}{2\lambda(X)} \).
-
-This shift means that the estimator targets \( \mu'(X) \) instead of \( m(X) \), resulting in an asymptotic bias proportional to \( \frac{1}{2\lambda(X)} \).
-
-\subsection{Numerical Example}
-
-For illustrative purposes, consider \( \lambda(X) = 1 \) for all \( X \). Then, the bias simplifies to:
-
-\begin{align}
-\text{Bias}(x) = \frac{1}{2}.
-\end{align}
-
-In this case, the estimator is asymptotically biased upwards by \( 0.5 \) units at every point \( x \).
-
-\subsection{Implications for the Estimator}
-
-This example demonstrates that when the conditional distribution \( f(Y \mid X) \) is asymmetric, the proposed estimator may not converge to the true regression function \( m(X) \) as \( N \to \infty \), but rather to a biased version shifted by \( \mu'(X) - m(X) \).
-
-In practice, the magnitude of the bias depends on the degree of asymmetry and the rate parameter \( \lambda(X) \). For large \( \lambda(X) \), the bias diminishes, and the estimator approaches \( m(X) \). However, for small \( \lambda(X) \), the bias becomes more significant.
-
-\subsection{Conclusion}
-
-This example illustrates how asymmetry in the conditional distribution \( f(Y \mid X) \) can introduce asymptotic bias in the proposed estimator due to the squared density weighting. It underscores the importance of considering the nature of the conditional distribution when applying the robust estimator and highlights the potential trade-off between robustness to outliers and asymptotic bias.
-
-In practical applications, one may need to assess whether the benefits of robustness outweigh the potential bias introduced, especially in cases where the conditional distribution is significantly asymmetric.
-
-
 
 \end{document}
