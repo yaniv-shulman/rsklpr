@@ -59,7 +59,7 @@ LPR is however susceptible to outliers, high leverage points and functions with 
 
 The main contribution of this paper is to revisit the kernel used to produce regression weights. The simple yet effective idea is to generalize the kernel such that both the predictor and the response are used to calculate weights. Within this framework, two positive definite kernels are proposed that assign robust weights to mitigate the adverse effect of outliers in the local neighborhood by estimating the density of the response at the local locations. Note the proposed framework does not preclude the use of robust loss functions, robust bandwidth selectors and standardization techniques. In addition the method is implemented in the Python programming language and is made publicly available. Experimental results on synthetic benchmarks demonstrate that the proposed method achieves competitive results and generally performs better than LOESS/LOWESS using only a single training iteration.
 
-The remainder of the paper is organized as follows: In section \ref{S:Local Polynomial Regression}, a brief overview of the mathematical formulation of local polynomial regression is provided. In section \ref{S:Robust Weights with Similarity Kernels}, a framework for robust weights as well as specific robust positive definite kernels are proposed. Section \ref{S:Properties} provides an analysis of the estimator and a discussion of its properties. In section \ref{S:Experiments and implementation notes}, implementation notes and experimental results are provided. Finally, in section \ref{S:Future work and research directions}, the paper concludes with directions for future research.
+The remainder of the paper is organized as follows: In Section \ref{S:Local Polynomial Regression}, a brief overview of the mathematical formulation of local polynomial regression is provided. In Section \ref{S:Robust Weights with Similarity kernels}, a framework for robust weights as well as specific robust positive definite kernels are proposed. Section \ref{S:Properties} provides an analysis of the estimator and a discussion of its properties. In Section \ref{S:Experiments and Implementation Notes}, implementation notes and experimental results are provided. Finally, in Section \ref{S:Future work and research directions}, the paper concludes with directions for future research.
 
 \section{Local Polynomial Regression}
 \label{S:Local Polynomial Regression}
@@ -339,9 +339,9 @@ This bias arises because the mean under the squared conditional density \( \mu'(
 
 A detailed example illustrating this effect, including specific calculations of \( \mu'(X) \) and \( \sigma'^2(X) \) for a particular asymmetric distribution, is provided in \ref{appendix:asym_bias_example}. This example demonstrates how the asymmetry of \( f(Y \mid X) \) can lead to a shift in the estimator's asymptotic target due to the squared density weighting.
 
-In practice, the presence of asymmetry in the conditional distribution may introduce some bias into the estimator. However, the robust weighting scheme of the proposed method can still provide advantages in terms of reducing the influence of outliers and improving estimation in the presence of heteroscedasticity or heavy-tailed errors. The trade-off between asymptotic bias and robustness to outliers should be considered in practical applications. Experiments on synthetic benchmarks demonstrate that, if the data is not overly dense, the proposed estimator sometimes achieves better results in terms of RMSE than the standard LPR and typically substantially outperforms the iterative robust LOESS estimator. Experimental details are provided in Section \ref{S:Experiments and implementation notes}.
+In practice, the presence of asymmetry in the conditional distribution may introduce some bias into the estimator. However, the robust weighting scheme of the proposed method can still provide advantages in terms of reducing the influence of outliers and improving estimation in the presence of heteroscedasticity or heavy-tailed errors. The trade-off between asymptotic bias and robustness to outliers should be considered in practical applications. Experiments on synthetic benchmarks in Section \ref{S:Experiments and Implementation Notes} demonstrate that, if the data is not overly dense, the proposed estimator often achieves comparable or better results in terms of RMSE than the standard LPR and typically substantially outperforms the iterative robust LOESS estimator.
 
-\subsection*{Trade-off Between Robustness and Bias via the \( K_2 \) Kernel and Bandwidth Selection}
+\subsection{Trade-off Between Robustness and Bias via the \( K_2 \) Kernel and Bandwidth Selection}
 
 The proposed estimator utilizes the \( K_2 \) kernel to adjust data point weights based on both predictors and responses, controlling the trade-off between robustness and bias through the negative correlation between weights and residuals. The bandwidth \( H_2 \) of the \( K_2 \) kernel plays a crucial role in this mechanism.
 
@@ -351,11 +351,9 @@ In the loss function \eqref{loss_rsk}, each data point is weighted by:
 w_i = K_{H_1}(x - X_i) \hat{f}(Y_i \mid X_i; H_2),
 \]
 
-where \( K_{H_1} \) is a kernel based on the predictors, and \( \hat{f}(Y_i \mid X_i; H_2) \) is the estimated conditional density of the response at \( Y_i \) given \( X_i \). The \( K_2 \) kernel assigns lower weights to less probable responses, effectively down-weighting outliers and inducing a negative correlation between the weights \( w_i \) and residuals \( r_i = Y_i - \hat{m}(X_i) \).
+where \( K_{H_1} \) is a kernel based on the predictors, and \(K_2 \coloneqq \hat{f}(Y_i \mid X_i; H_2) \) is the estimated conditional density of the response at \( Y_i \) given \( X_i \). The \( K_2 \) kernel assigns lower weights to less probable responses, effectively down-weighting outliers and inducing a negative correlation between the weights \( w_i \) and residuals \( r_i = Y_i - \hat{m}(X_i) \).
 
-The bandwidth \( H_2 \) controls the sensitivity of \( K_2 \) to variations in the response by adjusting the degree of negative correlation between weights and residuals:
-
-For very small \( H_2 \) values the density estimator \( \hat{f}(Y_i \mid X_i; H_2) \) becomes sharply peaked at each \( Y_i \), resembling delta functions. Since this occurs for all data points, the weights \( w_i \) become nearly uniform after normalization, diminishing the influence of residuals on the weights. Conversely, for very large \( H_2 \) the density estimator \( \hat{f}(Y_i \mid X_i; H_2) \) becomes nearly constant across different \( Y_i \), resulting in weights primarily determined by \( K_{H_1}(x - X_i) \). In both extremes, the negative correlation between weights and residuals diminishes due to the weights becoming more uniform across data points.
+The bandwidth \( H_2 \) controls the sensitivity of \( K_2 \) to variations in the response by adjusting the degree of negative correlation between weights and residuals. For very small \( H_2 \) values the density estimator \( \hat{f}(Y_i \mid X_i; H_2) \) becomes sharply peaked at each \( Y_i \), resembling delta functions. Since this occurs for all data points, the weights \( w_i \) become nearly uniform after normalization, diminishing the influence of residuals on the weights. Conversely, for very large \( H_2 \) the density estimator \( \hat{f}(Y_i \mid X_i; H_2) \) becomes nearly constant across different \( Y_i \), resulting in weights primarily determined by \( K_{H_1}(x - X_i) \). In both extremes, the negative correlation between weights and residuals diminishes due to the weights becoming more uniform across data points.
 
 An intermediate bandwidth \( H_2 \) achieves a balance between robustness and bias. It allows \( K_2 \) to assign weights that vary appropriately with the residuals, effectively down-weighting outliers while giving sufficient weight to informative points. The optimal \( H_2 \) depends on the data distribution and can be selected using methods like cross-validation or adaptive techniques based on local data characteristics.
 
@@ -426,32 +424,27 @@ By leveraging positive definite kernels for defining $K_\mathcal{D}$, the method
 
 
 \section{Experiments and Implementation Notes}
+\label{S:Experiments and Implementation Notes}
 
-This section presents an evaluation of the proposed Robust Similarity Kernel Local Polynomial Regression (RSKLPR) method, implemented in Python. The experiments focus on comparing the performance of RSKLPR against existing local regression techniques under synthetic settings with different noise characteristics.
+This section presents an evaluation of the proposed method (RSKLPR), implemented in Python and published as an open source package \href{https://github.com/yaniv-shulman/rsklpr}{https://github.com/yaniv-shulman/rsklpr}. The experiments focus on comparing the performance of RSKLPR against existing local regression techniques under synthetic settings with different noise characteristics.
 
-\subsection{Implementation Details}
-The implementation normalizes distances in each neighborhood to the range $[0, 1]$, consistent with the approach in \cite{Cleveland1979}. For the kernel $K_1(x, x')$, a Laplacian kernel $e^{-\|x - x'\|}$ was selected, demonstrating more consistent and efficient performance compared to alternatives like the tricube kernel. For density estimation in $K_2$, a factorized multidimensional Kernel Density Estimator (KDE) with scaled Gaussian kernels was used. Bandwidth selection for the density estimation was explored using five methods: Scott’s Rule \cite{Scott2015}, the Normal Reference Rule, Global Least Squares Cross-Validation (LSCV), Local LSCV, and Local Modified Least Squares Cross-Validation (MLCV). Additionally, the bandwidth for the predictor kernel $K_1$ was empirically adjusted as a function of the window size in certain experiments. Scaling constants within neighborhoods, such as those in $\hat{f}(y | x)$ and $\hat{f}(x, y)$, were excluded for computational efficiency, as they do not impact the local regression results.
+\subsection*{Implementation Details}
+The implementation normalizes distances in each neighborhood to the range $[0, 1]$, consistent with the approach in \cite{clevland79}. For the kernel $K_1(x, x')$, a Laplacian kernel $e^{-\|x - x'\|}$ was selected, demonstrating more consistent and efficient performance compared to alternatives like the tricube kernel. For density estimation in $K_2$, a factorized multidimensional Kernel Density Estimator (KDE) with scaled Gaussian kernels was used. Bandwidth selection for the density estimation was explored using five methods: Scott’s Rule \cite{scott2015multivariate}, the Normal Reference Rule, Global Least Squares Cross-Validation, Local Least Squares Cross-Validation, and Local Maximum Likelihood Cross-Validation. Additionally, the bandwidth for the predictor kernel $K_1$ was empirically adjusted as a function of the window size in certain experiments. Scaling constants within neighborhoods, such as those in $\hat{f}(y \mid x)$ and $\hat{f}(x, y)$, were excluded for computational efficiency, as they do not impact the local regression results.
 
 \subsection*{Experimental Design}
-Synthetic datasets were generated with both additive Gaussian and asymmetric noise to simulate various regression scenarios. The following characteristics were varied: noise types, including homoscedastic and heteroscedastic Gaussian noise as well as asymmetric noise distributions (Exponential, Log-normal, Gamma, and Weibull); data density, encompassing both sparse and dense data regimes; and regression complexity, modeling non-linear curves and surfaces. Performance was evaluated using Root Mean Square Error (RMSE) and sensitivity to neighborhood size. For asymmetric noise settings, RMSE trends were analyzed as a function of data density.
+Synthetic datasets were generated with both additive Gaussian noise and asymmetric data distributions to simulate various regression scenarios. The following characteristics were varied: noise types, including homoscedastic and heteroscedastic Gaussian noise as well as asymmetric noise distributions (Exponential, Log-normal, Gamma, and Weibull); data density, encompassing both sparse and dense data regimes; and regression complexity, modeling non-linear curves and surfaces. Performance was evaluated using Root Mean Square Error (RMSE) and sensitivity to neighborhood size. For asymmetric noise settings, RMSE trends were analyzed as a function of data density.
 
 \subsection*{Results and Observations}
-Under Gaussian noise settings, the proposed method performed competitively across a range of synthetic settings. Unlike iterative robust variants, RSKLPR achieved these results with a single iteration. A regression example with heteroscedastic Gaussian noise is shown in Figure~\ref{fig:gaussian_noise}. The proposed method aligns closely with the true regression function while effectively mitigating the influence of noise.
-
-Under asymmetric noise distributions, RSKLPR exhibited robust performance in low- and medium-density settings, outperforming standard LPR and iterative robust variants. In high-density settings, the performance of RSKLPR converged to that of standard LPR. This aligns with theoretical predictions that the robust weighting mechanism becomes less influential as data density increases. Figure~\ref{fig:asymmetric_noise} presents RMSE trends for asymmetric noise distributions, illustrating that RSKLPR achieves comparable or better performance with fewer iterations.
-
-The robustness-bias trade-off in RSKLPR is controlled by the bandwidth $H_2$ of the kernel $K_2$. Small bandwidths enhance robustness by down-weighting outliers but may introduce bias, while larger bandwidths reduce bias but diminish robustness. An intermediate bandwidth provides an optimal balance, as demonstrated in experiments.
-
-\subsection*{Summary}
-Overall, RSKLPR demonstrated significant advantages in heteroscedastic and noisy environments, particularly in sparse data settings. The stability of the method with respect to hyperparameters makes it an attractive option for applications where robust regression is critical. Complete experimental results, including multivariate settings and bootstrap-based confidence intervals, are available at the accompanying \href{https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments/}{repository}. This section highlights the potential of RSKLPR to provide robust and computationally efficient regression solutions across diverse scenarios. Future work will explore its application to real-world datasets and further refine the trade-off between robustness and bias.
+Under Gaussian noise settings, the proposed method performed competitively across a range of synthetic settings. Unlike iterative robust variants, RSKLPR achieved these results with a single iteration. A regression example with heteroscedastic Gaussian noise is shown in Figure~\ref{fig:gaussian_noise}. The proposed method aligns with the true regression function while effectively mitigating the influence of noise and outliers.
 
 \begin{figure}[t]
-\caption{Regression example of synthetically generated 1D data with heteroscedastic Gaussian noise. Additional experimental results and demonstrations including multivariate settings and bootstrap based confidence intervals are available at \url{https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments/} as interactive Jupyter notebooks \cite{jupyter}}
+\caption{Regression example of synthetically generated 1D data with heteroscedastic Gaussian noise.}
 \centering
 \includegraphics[width=1.0\textwidth]{example_regression_1d_1.png}
 \label{fig:gaussian_noise}
 \end{figure}
 
+Under asymmetric data distributions, RSKLPR exhibited robust performance in low density settings, often matching or outperforming standard LPR and the iterative robust variant. In high-density settings, the proposed method diverged, thus confirming the theoretical results, however, it consistently outperformed the iterative robust LPR. Figure~\ref{fig:asymmetric_results} presents RMSE trends for asymmetric noise distributions for the three methods.
 
 \begin{figure}[h!]
     \centering
@@ -490,18 +483,19 @@ Overall, RSKLPR demonstrated significant advantages in heteroscedastic and noisy
     \end{subfigure}
     
     \caption{RMSE as a function of the data desnity for asymmetric data distribtions for LOWESS, Robust LOWESS and the proposed method (RSKLPR).}
-    \label{fig:2x2_grid}
+    \label{fig:asymmetric_results}
 \end{figure}
 
+The robustness-bias trade-off in RSKLPR is controlled by the bandwidth $H_2$ of the kernel $K_2$. Small bandwidths enhance robustness by down-weighting outliers but may introduce bias, while larger bandwidths reduce bias but diminish robustness. An intermediate bandwidth provides an optimal balance, as demonstrated in experiments.
+
+The method was also significantly less sensitive to the neighborhood size making it an an attractive option for applications where robust regression is critical. Complete experimental results, including multivariate settings and bootstrap-based confidence intervals, are available at \href{https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments/}{https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments} as interactive Jupyter notebooks \cite{jupyter}.
 
 \section{Future Work and Research Directions}
 \label{S:Future work and research directions}
 
-This work introduces a new robust variant of Local Polynomial Regression (LPR), opening several avenues for further exploration and refinement. Since the proposed method generalizes the traditional LPR, there are opportunities to replace certain standard components in equation \eqref{beta_loss_d} with more robust alternatives. These could include approaches such as robust methods for bandwidth selection or substituting the conventional quadratic residual function with alternatives better suited for handling outliers.
+This work introduces a new robust variant of Local Polynomial Regression (LPR), opening several avenues for further exploration and refinement. Since the proposed method generalizes the traditional LPR, there are opportunities to replace certain standard components in equation \eqref{loss_rsk} with more robust alternatives. These could include approaches such as robust methods for bandwidth selection or substituting the conventional quadratic residual function with alternatives better suited for handling outliers.
 
 Additionally, further development of this framework may involve exploring different kernel functions \(K_D\) and assessing how robust density estimators influence overall performance. Extending the method within the RKHS framework presents another valuable direction. This could allow for the introduction of a regularization term in the loss function, enhancing control over estimator smoothness and mitigating the risk of overfitting. Through these future directions, the robustness and adaptability of the proposed method could be substantially advanced.
-
-\newpage
 
 \bibliographystyle{abbrv}
 
