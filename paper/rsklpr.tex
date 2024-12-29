@@ -440,7 +440,7 @@ Under Gaussian noise settings, the proposed method performed competitively acros
 \begin{figure}[t]
 \caption{Regression example of synthetically generated 1D data with heteroscedastic Gaussian noise.}
 \centering
-\includegraphics[width=1.0\textwidth]{example_regression_1d_1.png}
+\includegraphics[width=1.0\textwidth]{gaussian_example_regression_1d.png}
 \label{fig:gaussian_noise}
 \end{figure}
 
@@ -482,7 +482,14 @@ Under asymmetric data distributions, RSKLPR exhibited robust performance in low 
         \label{fig:plot4}
     \end{subfigure}
     
-    \caption{RMSE as a function of the data desnity for asymmetric data distribtions for LOWESS, Robust LOWESS and the proposed method (RSKLPR).}
+\begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{graphics/gaussian_increasing_numpoints.png}
+        \caption{Gaussian}
+        \label{fig:plot4}
+    \end{subfigure}    
+    
+    \caption{RMSE as a function of the data desnity when estimating a single noisy curve with increasing data density. The data distributions include various asymmetric and a heteroscedastic Gaussian data distributions comparing LOWESS, Robust iterative LOWESS with 5 iterations and the proposed method (RSKLPR). The experimental results agree with the theory and demonstrate the effectivness of the estimator in Gaussian and low density asymmetric data distributions.}
     \label{fig:asymmetric_results}
 \end{figure}
 
@@ -495,7 +502,10 @@ The method was also significantly less sensitive to the neighborhood size making
 
 This work introduces a new robust variant of Local Polynomial Regression (LPR), opening several avenues for further exploration and refinement. Since the proposed method generalizes the traditional LPR, there are opportunities to replace certain standard components in equation \eqref{loss_rsk} with more robust alternatives. These could include approaches such as robust methods for bandwidth selection or substituting the conventional quadratic residual function with alternatives better suited for handling outliers.
 
+An important research direction is to explore adaptive bandwidth selection strategies that respond dynamically to local data density. In regions where data are sparse, the bandwidth in \(K_2\) could be fine-tuned to maintain robust down-weighting of potential outliers, ensuring sufficient flexibility while avoiding an overly coarse estimate. Conversely, in denser regions, broader bandwidths may be adopted, causing the estimator to behave more like standard LPR and reduce any bias introduced by the robust weighting. Incorporating such adaptive bandwidths could further enhance the method’s overall performance and flexibility, particularly in heterogeneous data scenarios.
+
 Additionally, further development of this framework may involve exploring different kernel functions \(K_D\) and assessing how robust density estimators influence overall performance. Extending the method within the RKHS framework presents another valuable direction. This could allow for the introduction of a regularization term in the loss function, enhancing control over estimator smoothness and mitigating the risk of overfitting. Through these future directions, the robustness and adaptability of the proposed method could be substantially advanced.
+
 
 \bibliographystyle{abbrv}
 
