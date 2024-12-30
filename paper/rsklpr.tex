@@ -48,28 +48,28 @@ Local Polynomial Regression (LPR) is a widely used nonparametric method for mode
 
 \section{Introduction}
 \label{s:Introduction}
-Local polynomial regression (LPR) is a powerful and flexible statistical technique that has gained increasing popularity in recent years due to its ability to model complex relationships between variables. Local polynomial regression generalizes the polynomial regression and moving average methods by fitting a low-degree polynomial to a nearest neighbors subset of the data at the location. The polynomial is fitted using weighted ordinary least squares, giving more weight to nearby points and less weight to points further away. The value of the regression function for the point is then obtained by evaluating the fitted local polynomial using the predictor variable value for that data point. LPR has good accuracy near the boundary and performs better than all other linear smoothers in a minimax sense \citep{Avery2010LiteratureRF}. The biggest advantage of this class of methods is not requiring a prior specification of a function i.e. a parametrized model. Instead only a small number of hyperparameters need to be specified such as the type of kernel, a smoothing parameter and the degree of the local polynomial. The method is therefore suitable for modeling complex processes such as non-linear relationships, or complex dependencies for which no theoretical models exist. These two advantages, combined with the simplicity of the method, makes it one of the most attractive of the modern regression methods for applications that fit the general framework of least squares regression but have a complex deterministic structure. 
+Local polynomial regression (LPR) is a powerful and flexible statistical technique that has gained increasing popularity in recent years due to its ability to model complex relationships between variables. Local polynomial regression generalizes the polynomial regression and moving average methods by fitting a low-degree polynomial to a nearest neighbors subset of the data at the location. The polynomial is fitted using weighted ordinary least-squares, giving more weight to nearby points and less weight to points farther away. The value of the regression function for the point is then obtained by evaluating the fitted local polynomial using the predictor variable value for that data point. LPR has good accuracy near the boundary and performs better than all other linear smoothers in a minimax sense \citep{Avery2010LiteratureRF}. The biggest advantage of this class of methods is not requiring a prior specification of a function i.e. a parameterized model. Instead, only a small number of hyperparameters need to be specified such as the type of kernel, a smoothing parameter and the degree of the local polynomial. The method is therefore suitable for modeling complex processes such as non-linear relationships, or complex dependencies for which no theoretical models exist. These two advantages, combined with the simplicity of the method, makes it one of the most attractive of the modern regression methods for applications that fit the general framework of least-squares regression but have a complex deterministic structure. 
 
-Local polynomial regression incorporates the notion of proximity in two ways. The first is that a smooth function can be reasonably approximated in a local neighborhood by a simple function such as a linear or low order polynomial. The second is the assumption that nearby points carry more importance in the calculation of a simple local approximation or alternatively that closer points are more likely to interact in simpler ways than far away points. This is achieved by a kernel which produces values that diminish as the distance between the explanatory variables increase to model stronger relationship between closer points. 
+Local polynomial regression incorporates the notion of proximity in two ways. The first is that a smooth function can be reasonably approximated in a local neighborhood by a simple function such as a linear or low order polynomial. The second is the assumption that nearby points carry more importance in the calculation of a simple local approximation or alternatively, that closer points are more likely to interact in simpler ways than far away points. This is achieved by a kernel which produces values that diminish as the distance between the explanatory variables increase to model stronger relationship between closer points. 
 
-Methods in the LPR family include the Nadaraya-Watson estimator \citep{Nadaraya1964OnER, Watson1964SmoothRA} and the estimator proposed by Gasser and M{\"u}ller \citep{Gasser1984EstimatingRF} which both perform kernel based local constant fit. These were improved on in terms
-of asymptotic bias by the proposal of the local linear and more general local polynomial estimators \citep{Stone1977ConsistentNR, clevland79, 85a168c3-c6d4-3039-8afe-b1944919c518, clevland_devlin88, fan_1993}. For a review of LPR methods the interested reader is referred to \citep{Avery2010LiteratureRF}.
+Methods in the LPR family include the Nadaraya-Watson estimator \citep{Nadaraya1964OnER, Watson1964SmoothRA} and the estimator proposed by Gasser and M{\"u}ller \citep{Gasser1984EstimatingRF} which both perform kernel-based local constant fit. These were improved on in terms
+of asymptotic bias by the proposal of the local linear and more general local polynomial estimators \citep{Stone1977ConsistentNR, cleveland79, 85a168c3-c6d4-3039-8afe-b1944919c518, cleveland_devlin88, fan_1993}. For a review of LPR methods the interested reader is referred to \citep{Avery2010LiteratureRF}.
 
-LPR is however susceptible to outliers, high leverage points and functions with discontinuities in their derivative which often cause an adverse impact on the regression due to its use of least squares based optimization \citep{10.1002/wics.1492}. The use of unbounded loss functions may result in anomalous observations severely affecting the local estimate. Substantial work has been done to develop algorithms to apply LPR to difficult data. To alleviate the issue \citep{10.1214/aos/1024691246} employs variable bandwidth to exclude observations for which residuals from the resulting estimator are large. In \citep{clevland79} an iterated weighted fitting procedure is proposed that assigns in each consecutive iteration smaller weights to points that are farther then the fitted values at the previous iteration. The process repeats for a number of iterations and the final values are considered the robust parameters and fitted values. An alternative common approach is to replace the squared prediction loss by one that is more robust to the presence of large residuals by increasing more slowly or a loss that has an upper bound such as the Tukey or Huber loss. These methods however require specifying a threshold parameter for the loss to indicate atypical observations or standardizing the errors using robust estimators of scale \citep{Maronna2006RobustST}. For a recent review of robust LPR and other nonparametric methods see \citep{10.1002/wics.1492, SALIBIANBARRERA2023}
+LPR is however susceptible to outliers, high leverage points and functions with discontinuities in their derivative which often cause an adverse impact on the regression due to its use of least-squares based optimization \citep{10.1002/wics.1492}. The use of unbounded loss functions may result in anomalous observations severely affecting the local estimate. Substantial work has been done to develop algorithms to apply LPR to difficult data. To alleviate the issue \citep{10.1214/aos/1024691246} employs variable bandwidth to exclude observations for which residuals from the resulting estimator are large. In \citep{cleveland79} an iterated weighted fitting procedure is proposed that assigns in each consecutive iteration smaller weights to points that are farther then the fitted values at the previous iteration. The process repeats for a number of iterations and the final values are considered the robust parameters and fitted values. An alternative common approach is to replace the squared prediction loss by one that is more robust to the presence of large residuals by increasing more slowly or a loss that has an upper bound such as the Tukey or Huber loss. These methods however require specifying a threshold parameter for the loss to indicate atypical observations or standardizing the errors using robust estimators of scale \citep{Maronna2006RobustST}. For a recent review of robust LPR and other nonparametric methods see \citep{10.1002/wics.1492, SALIBIANBARRERA2023}
 
-The main contribution of this paper is to revisit the kernel used to produce regression weights. The simple yet effective idea is to generalize the kernel such that both the predictor and the response are used to calculate weights. Within this framework, two positive definite kernels are proposed that assign robust weights to mitigate the adverse effect of outliers in the local neighborhood by estimating the density of the response at the local locations. Note the proposed framework does not preclude the use of robust loss functions, robust bandwidth selectors and standardization techniques. In addition the method is implemented in the Python programming language and is made publicly available. Experimental results on synthetic benchmarks demonstrate that the proposed method achieves competitive results and generally performs better than LOESS/LOWESS using only a single training iteration.
+The main contribution of this paper is to revisit the kernel used to produce regression weights. The simple yet effective idea is to generalize the kernel such that both the predictor and the response are used to calculate weights. Within this framework, two positive definite kernels are proposed that assign robust weights to mitigate the adverse effect of outliers in the local neighborhood by estimating the density of the response at the local locations. Note the proposed framework does not preclude the use of robust loss functions, robust bandwidth selectors and standardization techniques. In addition the method is implemented in the Python programming language and is made publicly available. Experimental results on synthetic benchmarks demonstrate that the proposed method achieves competitive results and generally performs better than LOWESS using only a single training iteration.
 
-The remainder of the paper is organized as follows: In Section \ref{S:Local Polynomial Regression}, a brief overview of the mathematical formulation of local polynomial regression is provided. In Section \ref{S:Robust Weights with Similarity kernels}, a framework for robust weights as well as specific robust positive definite kernels are proposed. Section \ref{S:Properties} provides an analysis of the estimator and a discussion of its properties. In Section \ref{S:Experiments and Implementation Notes}, implementation notes and experimental results are provided. Finally, in Section \ref{S:Future work and research directions}, the paper concludes with directions for future research.
+The remainder of the paper is organized as follows: In Section~\ref{S:Local Polynomial Regression}, a brief overview of the mathematical formulation of local polynomial regression is provided. In Section~\ref{S:Robust Weights with Similarity kernels}, a framework for robust weights as well as specific robust positive definite kernels are proposed. Section~\ref{S:Properties} provides an analysis of the estimator and a discussion of its properties. In Section~\ref{S:Experiments and Implementation Notes}, implementation notes and experimental results are provided. Finally, in Section~\ref{S:Future work and research directions}, the paper concludes with directions for future research.
 
 \section{Local Polynomial Regression}
 \label{S:Local Polynomial Regression}
-This section provides a brief overview of local polynomial regression and establishes the notation subsequently used. Let $( X, Y )$ be a random pair and $\mathcal{D}_T = \{(X_i,Y_i)\}_{i=1}^{T} \subseteq \mathcal{D}$ be a training set comprising a sample of $T$ data pairs. Suppose that $(X , Y) \sim f_{XY}$ a continuous density and $X \sim f_X$ the marginal distribution of $X$. Let $Y \in \mathbb{R}$ be a continuous response and assume a model of the form $Y_i=m(X_i) + \epsilon_i, \; i \in 1,... \, ,T$ where $m(\cdot): \mathbb{R}^d \rightarrow \mathbb{R }$ is an unknown function and $\epsilon_i$ are independently distributed error terms having zero mean representing random variability not included in $X_i$ such that $\mathbb{E}[Y \mid X=x] = m(x)$. There are no global assumptions about the function $m(\cdot)$ other than that it is smooth and that locally it can be well approximated by a low degree polynomial as per Taylor’s theorem. Local polynomial regression is a class of nonparametric regression methods that estimate the unknown regression function $m(\cdot)$ by combining the classical least squares method with the versatility of non-linear regression. The local $p$-th order Taylor expansion for $x \in \mathbb{R}$ near a point $X_i$ yields:
+This section provides a brief overview of local polynomial regression and establishes the notation subsequently used. Let $( X, Y )$ be a random pair and $\mathcal{D}_T = \{(X_i,Y_i)\}_{i=1}^{T} \subseteq \mathcal{D}$ be a training set comprising a sample of $T$ data pairs. Suppose that $(X , Y) \sim f_{XY}$ a continuous density and $X \sim f_X$ the marginal distribution of $X$. Let $Y \in \mathbb{R}$ be a continuous response and assume a model of the form $Y_i=m(X_i) + \epsilon_i, \; i \in 1,... \, ,T$ where $m(\cdot): \mathbb{R}^d \rightarrow \mathbb{R }$ is an unknown function and $\epsilon_i$ are independently distributed error terms having zero mean representing random variability not included in $X_i$ such that $\mathbb{E}[Y \mid X=x] = m(x)$. There are no global assumptions about the function $m(\cdot)$ other than that it is smooth and that locally it can be well approximated by a low degree polynomial as per Taylor’s theorem. Local polynomial regression is a class of nonparametric regression methods that estimate the unknown regression function $m(\cdot)$ by combining the classical least-squares method with the versatility of non-linear regression. The local $p$-th order Taylor expansion for $x \in \mathbb{R}$ near a point $X_i$ yields:
 
 \begin{align}
 m(X_i) \approx \sum_{j=0}^p \frac{m^{(j)}(x)}{j!} (x - X_i)^j \coloneqq \sum_{j=0}^p \gamma_j(x)(x - X_i)^j
 \label{taylor_expansion}
 \end{align}
-To find an estimate $\hat{m}(x)$ of $m(x)$ the low-degree polynomial \eqref{taylor_expansion} is fitted to the $N$ nearest neighbors using weighted least squares such to minimize the empirical loss $\mathcal{L}_{lpr}( \cdot \, ; \mathcal{D}_N , h)$ :
+To find an estimate $\hat{m}(x)$ of $m(x)$ the low-degree polynomial \eqref{taylor_expansion} is fitted to the $N$ nearest neighbors using weighted least-squares such to minimize the empirical loss $\mathcal{L}_{lpr}( \cdot \, ; \mathcal{D}_N , h)$ :
 
 \begin{align}
 \mathcal{L}_{lpr}(x; \mathcal{D}_N , h) \coloneqq \sum_{i=1}^N \left(  Y_i - \sum_{j=0}^p \gamma_j (x) (x - X_i)^j \right)^2 K_h(x - X_i)
@@ -82,6 +82,10 @@ To find an estimate $\hat{m}(x)$ of $m(x)$ the low-degree polynomial \eqref{tayl
 \label{beta_hat}
 \end{align}
 Where $\gamma, \hat{\gamma} \in \mathbb{R}^{p+1}$; $K_h(\cdot)$ is a scaled kernel, $h \in \mathbb{R}_{> 0}$ is the bandwidth parameter and $\mathcal{D}_N \subseteq \mathcal{D}_T$ is the subset of $N$ nearest neighbors of $x$ in the training set where the distance is measured on the predictors only. Having computed $\hat{\gamma}(x)$ the estimate of $\hat{m}(x)$ is taken as $\hat{\gamma}(x)_1$. Note the term kernel carries here the meaning typically used in the context of nonparametric regression i.e. a non-negative real-valued weighting function that is typically symmetric, unimodal at zero, integrable with a unit integral and whose value is non-increasing for the increasing distance between the $X_i$ and $x$. Higher degree polynomials and smaller $N$ generally increase the variance and decrease the bias of the estimator and vice versa \citep{Avery2010LiteratureRF}. For derivation of the local constant and local linear estimators for the multidimensional case see \citep{Garcia-Portugues2023}.
+
+\paragraph{Remark on Nearest Neighbors and Bandwidth.}
+In the following, the local neighborhood is defined by taking the \(N\) nearest neighbors to \(x\). Thus, \(\mathcal{D}_N \subseteq \mathcal{D}_T\) contains exactly \(N\) points. Then, a distance-based kernel \(K_h\) (with bandwidth \(h\)) is used to weight those neighbors, such that nearer points receive larger weights. In the experiments, \(h\) is chosen or scaled in accordance with the distribution of the distances within \(\mathcal{D}_N\). This approach combines a fixed-sized local subset (via \(N\)) with a variable kernel scaling (via \(h\)), ensuring stable local fits even in heterogeneous data scenarios.
+
 
 \section{Robust Weights with Similarity Kernels}
 \label{S:Robust Weights with Similarity kernels}
@@ -143,7 +147,7 @@ K_2 \left((x,y),(x', y') ; H_2 \right) = \hat{f}(x,y ; H_2) \hat{f}(x',y'; H_2)
 Where the joint density can be estimated using the same aforementioned approach. \newline
 
 \begin{figure}[t]
-\caption{The plot illustrates the proposed loss function, a number of common robust losses and the standard quadratic residual loss for comparison. It is assumed that that $K_2$ is equivalent to the standard normal density and the $K_1$ distance kernel scaling is excluded. The numbers appended to "rsklpr" indicate how many standard deviations away from the mean the density is calculated. It is evident that the loss is heavily attenuated in regions of low density.}
+\caption{This figure compares the proposed loss function (rsklpr) at various standard deviation levels with common robust losses (e.g., Huber, Cauchy) and the standard quadratic loss. The attenuation of loss in areas with low-density data demonstrates the enhanced robustness of the proposed method. It is assumed that $K_2$ is equivalent to the standard Gaussian density and the $K_1$ distance kernel scaling is excluded. The numbers appended to "rsklpr" indicate the number of standard deviations away from the mean.}
 \centering
 \includegraphics[width=1.0\textwidth]{losses_1d.png}1
 \end{figure} 
@@ -234,7 +238,7 @@ This is the same objective minimized by the standard LPR estimator in the asympt
 \subsection{Asymptotic Convergence of the Expected Loss Function under the Normality Assumption}
 \label{S}
 
-In this section, we establish that under the assumption of conditional normality, the expected loss function minimized by the proposed robust estimator converges asymptotically to that of standard local polynomial regression (LPR). As a consequence, both methods target the same underlying regression function \(m(x)\) in expectation.
+In this section, it is established that under the assumption of conditional normality, the expected loss function minimized by the proposed robust estimator converges asymptotically to that of standard local polynomial regression (LPR). As a consequence, both methods target the same underlying regression function \(m(x)\) in expectation.
 
 To proceed, consider the data-generating process and the associated assumptions. Let \((X_i, Y_i)\), \(i=1,\ldots,N\), be i.i.d. observations drawn from a joint distribution with density \(f(X,Y)\). Suppose that for each fixed \(x\), the conditional density \(f(Y \mid X=x)\) is given by:
 \begin{align}
@@ -243,7 +247,7 @@ f(Y \mid X=x) = \frac{1}{\sqrt{2\pi \sigma^2(x)}} \exp\left(-\frac{(Y - m(x))^2}
 \end{align}
 where \(m(x) = \mathbb{E}[Y \mid X=x]\) and \(\sigma^2(x) = \mathbb{E}[(Y - m(x))^2 \mid X=x]\) are both continuous functions in a neighborhood of the point of interest \(x\). This assumption of normality is often reasonable in many settings or can serve as a benchmark for understanding the behavior of the estimator.
 
-We recall that the proposed robust estimator is defined through the minimization of:
+Recall that the proposed robust estimator is defined through the minimization of:
 \begin{align}
 \mathcal{L}_{rsk}(x) = \sum_{i=1}^N \left(Y_i - \sum_{j=0}^p \beta_j(x)(x - X_i)^j\right)^2 K_{H_1}(x - X_i)\hat{f}(Y_i \mid X_i),
 \label{eq:robust_loss_repeat}
@@ -268,16 +272,16 @@ Under the normality assumption, we now focus on the integrand \((Y - \beta(X;x))
 [f(Y \mid X)]^2 \propto \frac{1}{\sqrt{\pi \sigma^2(x)}} \exp\left(-\frac{(Y - m(x))^2}{\sigma^2(x)}\right).
 \end{align}
 
-Integrating out \(Y\), we consider the expectation:
+Integrating out \(Y\), consider the expectation:
 \begin{align}
 \int (Y - \beta(X;x))^2 [f(Y \mid X)]^2 dY.
 \end{align}
-Since this integral is now taken with respect to a Gaussian density centered at \(m(X)\) but with half the original variance, we obtain:
+Since this integral is now taken with respect to a Gaussian density centered at \(m(X)\) but with half the original variance, it is obtained:
 \begin{align}
 \int (Y - \beta(X;x))^2 [f(Y \mid X)]^2 dY = (m(X) - \beta(X;x))^2 + \frac{\sigma^2(X)}{2}.
 \end{align}
 
-Substituting this result back into the expectation, we have:
+Substituting this result back into the expectation:
 \begin{align}
 \mathbb{E}[\mathcal{L}_{rsk}(x)] \propto N \int f(X) K_{1}\left(\frac{X - x}{h}\right) \left((m(X) - \beta(X;x))^2 + \frac{\sigma^2(X)}{2}\right) dX.
 \end{align}
@@ -339,7 +343,7 @@ This bias arises because the mean under the squared conditional density \( \mu'(
 
 A detailed example illustrating this effect, including specific calculations of \( \mu'(X) \) and \( \sigma'^2(X) \) for a particular asymmetric distribution, is provided in \ref{appendix:asym_bias_example}. This example demonstrates how the asymmetry of \( f(Y \mid X) \) can lead to a shift in the estimator's asymptotic target due to the squared density weighting.
 
-In practice, the presence of asymmetry in the conditional distribution may introduce some bias into the estimator. However, the robust weighting scheme of the proposed method can still provide advantages in terms of reducing the influence of outliers and improving estimation in the presence of heteroscedasticity or heavy-tailed errors. The trade-off between asymptotic bias and robustness to outliers should be considered in practical applications. Experiments on synthetic benchmarks in Section \ref{S:Experiments and Implementation Notes} demonstrate that, if the data is not overly dense, the proposed estimator often achieves comparable or better results in terms of RMSE than the standard LPR and typically substantially outperforms the iterative robust LOESS estimator.
+In practice, the presence of asymmetry in the conditional distribution may introduce some bias into the estimator. However, the robust weighting scheme of the proposed method can still provide advantages in terms of reducing the influence of outliers and improving estimation in the presence of heteroscedasticity or heavy-tailed errors. The trade-off between asymptotic bias and robustness to outliers should be considered in practical applications. Experiments on synthetic benchmarks in Section~\ref{S:Experiments and Implementation Notes} demonstrate that, if the data is not overly dense, the proposed estimator often achieves comparable or better results in terms of RMSE than the standard LPR and typically substantially outperforms the iterative robust LOWESS estimator.
 
 \subsection{Trade-off Between Robustness and Bias via the \( K_2 \) Kernel and Bandwidth Selection}
 
@@ -386,7 +390,7 @@ Since $K_\mathcal{D}$ is a product of positive definite kernels, it is itself a 
 K_{\mathcal{D}} \left( (x, y), (x', y') \right) = \langle \phi(x, y), \phi(x', y') \rangle_{\mathcal{H}}. \label{kernel_feature_map}
 \end{align}
 
-Thus, the weights $K_\mathcal{D}((x,y),(X_i,Y_i))$ can be interpreted as inner products in the feature space $\mathcal{H}$. Consequently, the loss function \eqref{loss_rsk_repeat} can be viewed as a weighted least squares problem where the weights are determined by the similarity between the feature representations of the data points and the point of interest.
+Thus, the weights $K_\mathcal{D}((x,y),(X_i,Y_i))$ can be interpreted as inner products in the feature space $\mathcal{H}$. Consequently, the loss function \eqref{loss_rsk_repeat} can be viewed as a weighted least-squares problem where the weights are determined by the similarity between the feature representations of the data points and the point of interest.
 
 Furthermore, consider the role of the Kernel Density Estimator (KDE) in the proposed method. The KDE at a point $(x,y)$ is given by:
 
@@ -429,7 +433,7 @@ By leveraging positive definite kernels for defining $K_\mathcal{D}$, the method
 This section presents an evaluation of the proposed method (RSKLPR), implemented in Python and published as an open source package \href{https://github.com/yaniv-shulman/rsklpr}{https://github.com/yaniv-shulman/rsklpr}. The experiments focus on comparing the performance of RSKLPR against existing local regression techniques under synthetic settings with different noise characteristics.
 
 \subsection*{Implementation Details}
-The implementation normalizes distances in each neighborhood to the range $[0, 1]$, consistent with the approach in \cite{clevland79}. For the kernel $K_1(x, x')$, a Laplacian kernel $e^{-\|x - x'\|}$ was selected, demonstrating more consistent and efficient performance compared to alternatives like the tricube kernel. For density estimation in $K_2$, a factorized multidimensional Kernel Density Estimator (KDE) with scaled Gaussian kernels was used. Bandwidth selection for the density estimation was explored using five methods: Scott’s Rule \cite{scott2015multivariate}, the Normal Reference Rule, Global Least Squares Cross-Validation, Local Least Squares Cross-Validation, and Local Maximum Likelihood Cross-Validation. Additionally, the bandwidth for the predictor kernel $K_1$ was empirically adjusted as a function of the window size in certain experiments. Scaling constants within neighborhoods, such as those in $\hat{f}(y \mid x)$ and $\hat{f}(x, y)$, were excluded for computational efficiency, as they do not impact the local regression results.
+The implementation normalizes distances in each neighborhood to the range $[0, 1]$, consistent with the approach in \cite{cleveland79}. For the kernel $K_1(x, x')$, a Laplacian kernel $e^{-\|x - x'\|}$ was selected, demonstrating more consistent and efficient performance compared to alternatives like the tricube kernel. For density estimation in $K_2$, a factorized multidimensional Kernel Density Estimator (KDE) with scaled Gaussian kernels was used. Bandwidth selection for density estimation was explored using five methods: Scott’s rule \cite{scott2015multivariate}, the normal reference rule, global least-squares cross-validation, local least-squares cross-validation, and local maximum-likelihood cross-validation. Additionally, the bandwidth for the predictor kernel $K_1$ was empirically adjusted as a function of the window size in certain experiments. Scaling constants within neighborhoods, such as those in $\hat{f}(y \mid x)$ and $\hat{f}(x, y)$, were excluded for computational efficiency, as they do not impact the local regression results. The implementation supports local constant and local linear estimators however the experiments were done only with the local linear estimator i.e. $p=1$ as it is well known to be superior.
 
 \subsection*{Experimental Design}
 Synthetic datasets were generated with both additive Gaussian noise and asymmetric data distributions to simulate various regression scenarios. The following characteristics were varied: noise types, including homoscedastic and heteroscedastic Gaussian noise as well as asymmetric noise distributions (Exponential, Log-normal, Gamma, and Weibull); data density, encompassing both sparse and dense data regimes; and regression complexity, modeling non-linear curves and surfaces. Performance was evaluated using Root Mean Square Error (RMSE) and sensitivity to neighborhood size. For asymmetric noise settings, RMSE trends were analyzed as a function of data density.
@@ -438,7 +442,7 @@ Synthetic datasets were generated with both additive Gaussian noise and asymmetr
 Under Gaussian noise settings, the proposed method performed competitively across a range of synthetic settings. Unlike iterative robust variants, RSKLPR achieved these results with a single iteration. A regression example with heteroscedastic Gaussian noise is shown in Figure~\ref{fig:gaussian_noise}. The proposed method aligns with the true regression function while effectively mitigating the influence of noise and outliers.
 
 \begin{figure}[t]
-\caption{Regression example of synthetically generated 1D data with heteroscedastic Gaussian noise.}
+\caption{Performance of RSKLPR on 1D synthetic data with heteroscedastic Gaussian noise. The proposed method effectively aligns with the true regression function while mitigating the influence of outliers and noise.}
 \centering
 \includegraphics[width=1.0\textwidth]{gaussian_example_regression_1d.png}
 \label{fig:gaussian_noise}
@@ -452,7 +456,7 @@ Under asymmetric data distributions, RSKLPR exhibited robust performance in low 
     \begin{subfigure}[b]{0.48\textwidth}
         \centering
         \includegraphics[width=\textwidth]{graphics/exponential_asymmetrical_increasing_numpoints.png}
-        \caption{Exponential}
+        \caption{Exponential.}
         \label{fig:plot1}
     \end{subfigure}
     \hfill
@@ -460,7 +464,7 @@ Under asymmetric data distributions, RSKLPR exhibited robust performance in low 
     \begin{subfigure}[b]{0.48\textwidth}
         \centering
         \includegraphics[width=\textwidth]{graphics/gamma_asymmetrical_increasing_numpoints.png}
-        \caption{Gamma}
+        \caption{Gamma.}
         \label{fig:plot2}
     \end{subfigure}
     
@@ -470,7 +474,7 @@ Under asymmetric data distributions, RSKLPR exhibited robust performance in low 
     \begin{subfigure}[b]{0.48\textwidth}
         \centering
         \includegraphics[width=\textwidth]{graphics/log_normal_asymmetrical_increasing_numpoints.png}
-        \caption{Log-normal}
+        \caption{Log-normal.}
         \label{fig:plot3}
     \end{subfigure}
     \hfill
@@ -478,18 +482,18 @@ Under asymmetric data distributions, RSKLPR exhibited robust performance in low 
     \begin{subfigure}[b]{0.48\textwidth}
         \centering
         \includegraphics[width=\textwidth]{graphics/weibull_asymmetrical_increasing_numpoints.png}
-        \caption{Weibull}
+        \caption{Weibull.}
         \label{fig:plot4}
     \end{subfigure}
     
 \begin{subfigure}[b]{0.48\textwidth}
         \centering
         \includegraphics[width=\textwidth]{graphics/gaussian_increasing_numpoints.png}
-        \caption{Gaussian}
+        \caption{Gaussian.}
         \label{fig:plot4}
     \end{subfigure}    
     
-    \caption{RMSE as a function of the data desnity when estimating a single noisy curve with increasing data density. The data distributions include various asymmetric and a heteroscedastic Gaussian data distributions comparing LOWESS, Robust iterative LOWESS with 5 iterations and the proposed method (RSKLPR). The experimental results agree with the theory and demonstrate the effectivness of the estimator in Gaussian and low density asymmetric data distributions.}
+    \caption{These subplots compare RMSE as a function of data density for the proposed method (RSKLPR), standard LOWESS, and Robust LOWESS (5 iterations) across various noise distributions: (a) Exponential, (b) Gamma, (c) Log-normal, (d) Weibull, and (e) Gaussian. The results demonstrate the effectiveness of RSKLPR in low-density data and align well with theoretical expectations for denser data.}
     \label{fig:asymmetric_results}
 \end{figure}
 
