@@ -515,4 +515,57 @@ Additionally, further development of this framework may involve exploring differ
 
 \bibliography{refs}
 
+\newpage
+\appendix
+\section{Asymptotic Bias Example with an Exponential Conditional Distribution}
+\label{appendix:asym_bias_example}
+
+This appendix illustrates how asymmetry in the conditional distribution \( f(Y \mid X) \) can introduce asymptotic bias in the proposed estimator. The focus is on a standard exponential distribution, a straightforward yet instructive example of an asymmetric family.
+
+Suppose that for each fixed \(X\), the conditional distribution \( f(Y \mid X)\) follows a standard exponential law with rate parameter \(\lambda(X)\):
+\[
+  f(Y \mid X) \;=\; \lambda(X)\,\exp\!\bigl(-\lambda(X)\,Y\bigr),
+  \quad Y \ge 0,
+\]
+so that the true regression function is
+\[
+  m(X) \;=\; \mathbb{E}[Y \,\mid\, X] \;=\; \frac{1}{\lambda(X)}.
+\]
+This distribution is supported on \(\{Y \ge 0\}\) and is right-skewed, thus providing a simple example of an asymmetric setting.
+
+When this density is squared, we obtain
+\[
+  [f(Y \mid X)]^2 
+  \;=\; [\lambda(X)]^2 
+  \,\exp\!\bigl(-2\,\lambda(X)\,Y\bigr),
+  \quad Y \ge 0,
+\]
+which is proportional to an exponential density with rate \(2\,\lambda(X)\). Normalizing confirms that
+\[
+  g(Y \mid X) 
+  \;=\; 2\,\lambda(X)\,\exp\!\bigl(-2\,\lambda(X)\,Y\bigr),
+  \quad Y \ge 0,
+\]
+so \(g(\cdot \mid X)\) is indeed an exponential distribution with rate \(2\,\lambda(X)\). Under this squared density \(g\), the mean of \(Y\) shifts from the original \(1/\lambda(X)\) to \(1/(2\,\lambda(X))\). Symbolically,
+\[
+  \mu'(X) 
+  \;=\; \mathbb{E}_{g}[Y \,\mid\, X]
+  \;=\; \frac{1}{2\,\lambda(X)},
+  \quad\text{and}\quad
+  \mu'(X) - m(X)
+  \;=\; \frac{1}{2\,\lambda(X)} \;-\; \frac{1}{\lambda(X)}
+  \;=\; -\frac{1}{2\,\lambda(X)}.
+\]
+
+In the main text (Section~\ref{s:AsymptoticBias}), it is shown that the proposed estimator asymptotically converges to \(\mu'(X)\) rather than \(m(X)\), owing to the factor \(\,[f(Y \mid X)]^2\) in the weighted objective. Consequently, at each point \(x\), the asymptotic bias is
+\[
+  \text{Bias}(x)
+  \;=\; \mu'(x) \;-\; m(x)
+  \;=\; \frac{1}{2\,\lambda(x)} \;-\; \frac{1}{\lambda(x)}
+  \;=\; -\frac{1}{2\,\lambda(x)}.
+\]
+When \(\lambda(x)\) is large, the absolute value of this bias becomes small; otherwise, the shift can be more pronounced. This example illustrates how the asymmetry of an exponential distribution can steer the estimator toward \(1/(2\,\lambda(X))\) rather than the true mean \(1/\lambda(X)\). More generally, any asymmetric \(f(Y \mid X)\) may exhibit a similar phenomenon under the squared-density weighting.
+
+Although such a shift introduces asymptotic bias, the robust weighting can still be advantageous in practical situations where outliers or heavy-tailed noise are significant concerns. There is thus a trade-off between reduced sensitivity to outliers and potential bias under non-normality, and users must decide how to balance these factors for their specific applications.
+
 \end{document}
