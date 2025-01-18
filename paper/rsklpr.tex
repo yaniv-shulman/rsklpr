@@ -1,4 +1,4 @@
-\documentclass[preprint,1p,times]{elsarticle}
+\documentclass[final,1p,times]{elsarticle}
 
 \usepackage{booktabs}
 \usepackage{hyperref}
@@ -21,21 +21,14 @@
 \usepackage{enumitem}
 
 
-\linenumbers
-
 \DeclareMathOperator*{\E}{\mathbb{E}}
-\graphicspath{ {./graphics/} }
+\graphicspath{ {./} }
 
 \begin{document}
 
 \begin{frontmatter}
 
-\vspace*{\fill}
-\begin{center}
-This is a draft version of work in progress, content will be revisited in subsequent versions.
-\end{center}
-\vspace*{\fill}
-    
+  
 \title{Robust Local Polynomial Regression with Similarity Kernels}
 \author{Yaniv Shulman}
 \address{yaniv@shulman.info}
@@ -60,6 +53,8 @@ LPR is however susceptible to outliers, high leverage points and functions with 
 The main contribution of this paper is to revisit the kernel used to produce regression weights. The simple yet effective idea is to generalize the kernel such that both the predictor and the response are used to calculate weights. Within this framework, two positive definite kernels are proposed that assign robust weights to mitigate the adverse effect of outliers in the local neighborhood by estimating the density of the response at the local locations. Note the proposed framework does not preclude the use of robust loss functions, robust bandwidth selectors and standardization techniques. In addition the method is implemented in the Python programming language and is made publicly available. Experimental results on synthetic benchmarks demonstrate that the proposed method achieves competitive results and generally performs better than LOWESS using only a single training iteration.
 
 The remainder of the paper is organized as follows: In Section~\ref{S:Local Polynomial Regression}, a brief overview of the mathematical formulation of local polynomial regression is provided. In Section~\ref{S:Robust Weights with Similarity kernels}, a framework for robust weights as well as specific robust positive definite kernels are proposed. Section~\ref{S:Properties} provides an analysis of the estimator and a discussion of its properties. In Section~\ref{S:Experiments and Implementation Notes}, implementation notes and experimental results are provided. Finally, in Section~\ref{S:Future work and research directions}, the paper concludes with directions for future research.
+
+\newpage
 
 \section{Local Polynomial Regression}
 \label{S:Local Polynomial Regression}
@@ -455,7 +450,7 @@ Under asymmetric data distributions, RSKLPR exhibited robust performance in low 
     % Row 1, Column 1
     \begin{subfigure}[b]{0.48\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{graphics/exponential_asymmetrical_increasing_numpoints.png}
+        \includegraphics[width=\textwidth]{exponential_asymmetrical_increasing_numpoints.png}
         \caption{Exponential.}
         \label{fig:plot1}
     \end{subfigure}
@@ -463,7 +458,7 @@ Under asymmetric data distributions, RSKLPR exhibited robust performance in low 
     % Row 1, Column 2
     \begin{subfigure}[b]{0.48\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{graphics/gamma_asymmetrical_increasing_numpoints.png}
+        \includegraphics[width=\textwidth]{gamma_asymmetrical_increasing_numpoints.png}
         \caption{Gamma.}
         \label{fig:plot2}
     \end{subfigure}
@@ -473,7 +468,7 @@ Under asymmetric data distributions, RSKLPR exhibited robust performance in low 
     % Row 2, Column 1
     \begin{subfigure}[b]{0.48\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{graphics/log_normal_asymmetrical_increasing_numpoints.png}
+        \includegraphics[width=\textwidth]{log_normal_asymmetrical_increasing_numpoints.png}
         \caption{Log-normal.}
         \label{fig:plot3}
     \end{subfigure}
@@ -481,14 +476,14 @@ Under asymmetric data distributions, RSKLPR exhibited robust performance in low 
     % Row 2, Column 2
     \begin{subfigure}[b]{0.48\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{graphics/weibull_asymmetrical_increasing_numpoints.png}
+        \includegraphics[width=\textwidth]{weibull_asymmetrical_increasing_numpoints.png}
         \caption{Weibull.}
         \label{fig:plot4}
     \end{subfigure}
     
 \begin{subfigure}[b]{0.48\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{graphics/gaussian_increasing_numpoints.png}
+        \includegraphics[width=\textwidth]{gaussian_increasing_numpoints.png}
         \caption{Gaussian.}
         \label{fig:plot4}
     \end{subfigure}    
@@ -510,6 +505,7 @@ An important research direction is to explore adaptive bandwidth selection strat
 
 Additionally, further development of this framework may involve exploring different kernel functions \(K_D\) and assessing how robust density estimators influence overall performance. Extending the method within the RKHS framework presents another valuable direction. This could allow for the introduction of a regularization term in the loss function, enhancing control over estimator smoothness and mitigating the risk of overfitting. Through these future directions, the robustness and adaptability of the proposed method could be substantially advanced.
 
+\newpage
 
 \bibliographystyle{abbrv}
 
