@@ -6,7 +6,9 @@
 This library is useful to perform robust locally weighted regression (similar to [LOESS](https://en.wikipedia.org/wiki/Local_regression)) in Python when:
 1. There are no particular assumptions on the underlying function except that it is "reasonably smooth". In particular,
 you don't know which parametric model to specify or if an appropriate model exists. 
-1. There are no particular assumptions on the type and intensity of noise present.
+1. There are no particular assumptions on the type and intensity of noise present. Note that the estimator is biased
+if the data has non-Gaussian density around the mean. However, it works very well in practice if the data is not very
+dense. Use LOESS if you have very dense data.
 1. There are no particular assumptions on the presence of outliers and their extent.
 1. You may want to predict in locations not explicitly present in the dataset but also not too far from existing
 observations or far outside the areas where observations exist. 
@@ -32,7 +34,6 @@ pip install rsklpr
 - Version 0.7.0 - Metrics including local R-Squared and more efficient computation of WLS. 
 - Version 0.6.0 - Bootstrap inference and confidence intervals
 
-
 ## Details ##
 Local polynomial regression (LPR) is a powerful and flexible statistical technique that has gained increasing popularity
 in recent years due to its ability to model complex relationships between variables. Local polynomial regression
@@ -41,11 +42,22 @@ neighbors subset of the data at the location. The polynomial is fitted using wei
 more weight to nearby points and less weight to points further away. Local polynomial regression is however susceptible
 to outliers and high leverage points which may cause an adverse impact on the estimation accuracy. This library 
 implements a variant of LPR presented in the 
-[Robust Local Polynomial Regression with Similarity Kernels draft paper](https://github.com/yaniv-shulman/rsklpr/tree/main/paper/rsklpr.pdf) which uses a generalized similarity kernel
-that assign robust weights to mitigate the adverse effect of outliers in the local neighborhood by estimating and
-utilizing the density at the local locations. 
+[Robust Local Polynomial Regression with Similarity Kernels paper](https://arxiv.org/abs/2501.10729) which uses a
+generalized similarity kernel that assigns robust weights to mitigate the adverse effect of outliers in the local
+neighborhood by estimating and utilizing the density at the local locations.
 
-
+**BibTeX formatted citation**:
+```
+@misc{shulman2025robustlocalpolynomialregression,
+      title={Robust Local Polynomial Regression with Similarity Kernels}, 
+      author={Yaniv Shulman},
+      year={2025},
+      eprint={2501.10729},
+      archivePrefix={arXiv},
+      primaryClass={stat.ME},
+      url={https://arxiv.org/abs/2501.10729}, 
+}
+```
 ### Experimental results ###
 The experimental results and demonstration of the library for various experimental settings are available as interactive
 Jupyter notebooks at https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments/
@@ -56,6 +68,5 @@ remove statsmodels as a dependency of this package since statsmodels is quite he
 packages.
 
 ## Contribution and feedback ##
-The paper is work in progress and the library in early stages of development but both are in a useful state.
-Contributions and feedback are most welcome both to the paper and the code. Please see
-[CONTRIBUTING.md](https://github.com/yaniv-shulman/rsklpr/tree/main/CONTRIBUTING.md) for further details.
+Contributions and feedback are most welcome both to the paper and the code. Please see [CONTRIBUTING.md](https://github.com/yaniv-shulman/rsklpr/tree/main/CONTRIBUTING.md) for
+further details.
