@@ -1,14 +1,14 @@
 # Robust Local Polynomial Regression with Similarity Kernels #
 
-This repository is intended to share and facilitate community contribution for completing the research and implementation 
-presented in the [Robust Local Polynomial Regression with Similarity Kernels draft paper](https://github.com/yaniv-shulman/rsklpr/tree/main/paper/rsklpr.pdf). The repository contains
-the source for the paper and a demonstrative implementation of the proposed method including several experimental results.
-Note the paper is a draft and the code is for demonstrative purposes still so both may contain issues.
+This repository is intended to share and facilitate community contribution for extending the research and implementation 
+presented in the [Robust Local Polynomial Regression with Similarity Kernels paper](https://arxiv.org/abs/2501.10729).
+The repository contains the source for the paper and an implementation of the proposed method including several
+experimental results.
 
 ### Contribution and feedback ###
 
 Contributions and feedback are most welcome to the paper and code in any area related to:
-- Further development of the method and completing the paper:
+- Further development of the method and extending the paper:
   - Asymptotic analysis of the estimator
   - Improving related work coverage
   - Improving or adding experiments and the presentation of experiments including comparison to other robust LPR methods
@@ -20,6 +20,7 @@ Contributions and feedback are most welcome to the paper and code in any area re
   - Improving numerical stability
   - Implementing in other languages
   - Speed and multiprocessing
+  - Multivariate regression
 - Productionzing the code:
   - Improving input checks and error handling
   - Tests
