@@ -687,12 +687,12 @@ class Rsklpr:
         i: int
 
         for i in range(bootstrap_iterations):
-            resmaple_idx: np.ndarray = self._rnd_gen.choice(
+            resample_idx: np.ndarray = self._rnd_gen.choice(  # type: ignore[assignment]
                 a=np.arange(stop=self._x.shape[0]), size=self._x.shape[0], replace=True  # type: ignore[call-overload]
             )
 
-            x_resample: np.ndarray = self._x[resmaple_idx, :]
-            y_resample: np.ndarray = self._y[resmaple_idx]
+            x_resample: np.ndarray = self._x[resample_idx, :]
+            y_resample: np.ndarray = self._y[resample_idx]
 
             model: Rsklpr = Rsklpr(
                 size_neighborhood=self._size_neighborhood,
