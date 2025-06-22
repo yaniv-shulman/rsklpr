@@ -13,6 +13,8 @@
 
 \usepackage{graphicx}
 \usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{amsthm}
 \usepackage{commath}
 \usepackage{mathtools}
 \usepackage{subcaption}
@@ -26,6 +28,11 @@
 \DeclareMathOperator*{\E}{\mathbb{E}}
 \graphicspath{ {./graphics/} }
 
+% Theorem-like environments
+\newtheorem{proposition}{Proposition}
+\newtheorem{lemma}{Lemma}
+\newtheorem{corollary}{Corollary}
+
 \begin{document}
 
 \begin{frontmatter}
@@ -35,14 +42,14 @@
 This is a draft version of work in progress, content will be revisited in subsequent versions.
 \end{center}
 \vspace*{\fill}
-    
-\title{Robust Local Polynomial Regression with Similarity Kernels}
+ 
+\title{A General Framework for Robust Local Polynomial Regression with Similarity Kernels}
 \author{Yaniv Shulman}
 \address{yaniv@shulman.info}
 
 
 \begin{abstract}
-Local Polynomial Regression (LPR) is a widely used nonparametric method for modeling complex relationships due to its flexibility and simplicity. It estimates a regression function by fitting low-degree polynomials to localized subsets of the data, weighted by proximity. However, traditional LPR is sensitive to outliers and high-leverage points, which can significantly affect estimation accuracy. This paper revisits the kernel function used to compute regression weights and proposes a novel framework that incorporates both predictor and response variables in the weighting mechanism. By introducing two positive definite kernels, the proposed method robustly estimates weights, mitigating the influence of outliers through localized density estimation. The method is implemented in Python and is publicly available at \url{https://github.com/yaniv-shulman/rsklpr}, demonstrating competitive performance in synthetic benchmark experiments. Compared to standard LPR, the proposed approach consistently improves robustness and accuracy, especially in heteroscedastic and noisy environments, without requiring multiple iterations. This advancement provides a promising extension to traditional LPR, opening new possibilities for robust regression applications.
+Local Polynomial Regression (LPR) is a widely used nonparametric method for modeling complex relationships due to its flexibility and simplicity. It estimates a regression function by fitting low-degree polynomials to localized subsets of the data, weighted by proximity. However, traditional LPR is sensitive to outliers and high-leverage points, which can significantly affect estimation accuracy. This paper revisits the kernel function used to compute regression weights and proposes a novel framework that incorporates both predictor and response variables in the weighting mechanism. The focus of this work is a conditional density kernel that robustly estimates weights by mitigating the influence of outliers through localized density estimation. A related joint density kernel is also discussed in an appendix. The proposed method is implemented in Python and is publicly available at \url{https://github.com/yaniv-shulman/rsklpr}, demonstrating competitive performance in synthetic benchmark experiments. Compared to standard LPR, the proposed approach consistently improves robustness and accuracy, especially in heteroscedastic and noisy environments, without requiring multiple iterations. This advancement provides a promising extension to traditional LPR, opening new possibilities for robust regression applications.
 \end{abstract}
 \end{frontmatter}
 
@@ -53,103 +60,143 @@ Local polynomial regression (LPR) is a powerful and flexible statistical techniq
 Local polynomial regression incorporates the notion of proximity in two ways. The first is that a smooth function can be reasonably approximated in a local neighborhood by a simple function such as a linear or low order polynomial. The second is the assumption that nearby points carry more importance in the calculation of a simple local approximation or alternatively, that closer points are more likely to interact in simpler ways than far away points. This is achieved by a kernel which produces values that diminish as the distance between the explanatory variables increase to model stronger relationship between closer points. 
 
 Methods in the LPR family include the Nadaraya-Watson estimator \citep{Nadaraya1964OnER, Watson1964SmoothRA} and the estimator proposed by Gasser and M{\"u}ller \citep{Gasser1984EstimatingRF} which both perform kernel-based local constant fit. These were improved on in terms
-of asymptotic bias by the proposal of the local linear and more general local polynomial estimators \citep{Stone1977ConsistentNR, cleveland79, 85a168c3-c6d4-3039-8afe-b1944919c518, cleveland_devlin88, fan_1993}. For a review of LPR methods the interested reader is referred to \citep{Avery2010LiteratureRF}.
+of asymptotic bias by the proposal of the local linear and more general local polynomial estimators \citep{Stone1977ConsistentNR, cleveland79, Fan1992, cleveland_devlin88, Fan1993}. For a review of LPR methods the interested reader is referred to \citep{Avery2010LiteratureRF}.
 
 LPR is however susceptible to outliers, high leverage points and functions with discontinuities in their derivative which often cause an adverse impact on the regression due to its use of least-squares based optimization \citep{10.1002/wics.1492}. The use of unbounded loss functions may result in anomalous observations severely affecting the local estimate. Substantial work has been done to develop algorithms to apply LPR to difficult data. To alleviate the issue \citep{10.1214/aos/1024691246} employs variable bandwidth to exclude observations for which residuals from the resulting estimator are large. In \citep{cleveland79} an iterated weighted fitting procedure is proposed that assigns in each consecutive iteration smaller weights to points that are farther then the fitted values at the previous iteration. The process repeats for a number of iterations and the final values are considered the robust parameters and fitted values. An alternative common approach is to replace the squared prediction loss by one that is more robust to the presence of large residuals by increasing more slowly or a loss that has an upper bound such as the Tukey or Huber loss. These methods however require specifying a threshold parameter for the loss to indicate atypical observations or standardizing the errors using robust estimators of scale \citep{Maronna2006RobustST}. For a recent review of robust LPR and other nonparametric methods see \citep{10.1002/wics.1492, SALIBIANBARRERA2023}
 
-The main contribution of this paper is to revisit the kernel used to produce regression weights. The simple yet effective idea is to generalize the kernel such that both the predictor and the response are used to calculate weights. Within this framework, two positive definite kernels are proposed that assign robust weights to mitigate the adverse effect of outliers in the local neighborhood by estimating the density of the response at the local locations. Note the proposed framework does not preclude the use of robust loss functions, robust bandwidth selectors and standardization techniques. In addition the method is implemented in the Python programming language and is made publicly available. Experimental results on synthetic benchmarks demonstrate that the proposed method achieves competitive results and generally performs better than LOWESS using only a single training iteration.
+The main contribution of this paper is to revisit the kernel used to produce regression weights. The simple yet effective idea is to generalize the kernel such that both the predictor and the response are used to calculate weights. Within this framework, a non-negative kernel based on conditional density estimation is proposed that assigns robust weights to mitigate the adverse effect of outliers in the local neighborhood. Note the proposed framework does not preclude the use of robust loss functions, robust bandwidth selectors and standardization techniques. In addition the method is implemented in the Python programming language and is made publicly available. Experimental results on synthetic benchmarks demonstrate that the proposed method achieves competitive results and generally performs better than LOWESS using only a single training iteration.
 
-The remainder of the paper is organized as follows: In Section~\ref{S:Local Polynomial Regression}, a brief overview of the mathematical formulation of local polynomial regression is provided. In Section~\ref{S:Robust Weights with Similarity kernels}, a framework for robust weights as well as specific robust positive definite kernels are proposed. Section~\ref{S:Properties} provides an analysis of the estimator and a discussion of its properties. In Section~\ref{S:Experiments and Implementation Notes}, implementation notes and experimental results are provided. Finally, in Section~\ref{S:Future work and research directions}, the paper concludes with directions for future research.
+The remainder of the paper is organized as follows: In Section~\ref{S:Local Polynomial Regression}, a brief overview of the mathematical formulation of local polynomial regression is provided. In Section~\ref{S:Robust Weights with Similarity kernels}, a framework for robust weights and the specific conditional density kernel are proposed. Section~\ref{S:Properties} provides an analysis of the estimator and a discussion of its properties. In Section~\ref{S:Experiments and Implementation Notes}, implementation notes and experimental results are provided. Finally, in Section~\ref{S:Future work and research directions}, the paper concludes with directions for future research.
 
 \section{Local Polynomial Regression}
 \label{S:Local Polynomial Regression}
-This section provides a brief overview of local polynomial regression and establishes the notation subsequently used. Let $( X, Y )$ be a random pair and $\mathcal{D}_T = \{(X_i,Y_i)\}_{i=1}^{T} \subseteq \mathcal{D}$ be a training set comprising a sample of $T$ data pairs. Suppose that $(X , Y) \sim f_{XY}$ a continuous density and $X \sim f_X$ the marginal distribution of $X$. Let $Y \in \mathbb{R}$ be a continuous response and assume a model of the form $Y_i=m(X_i) + \epsilon_i, \; i \in 1,... \, ,T$ where $m(\cdot): \mathbb{R}^d \rightarrow \mathbb{R }$ is an unknown function and $\epsilon_i$ are independently distributed error terms having zero mean representing random variability not included in $X_i$ such that $\mathbb{E}[Y \mid X=x] = m(x)$. There are no global assumptions about the function $m(\cdot)$ other than that it is smooth and that locally it can be well approximated by a low degree polynomial as per Taylor’s theorem. Local polynomial regression is a class of nonparametric regression methods that estimate the unknown regression function $m(\cdot)$ by combining the classical least-squares method with the versatility of non-linear regression. The local $p$-th order Taylor expansion for $x \in \mathbb{R}$ near a point $X_i$ yields:
+This section provides a brief overview of local polynomial regression and establishes the notation subsequently used. We adopt the following standing assumptions: the training data $\mathcal{D}_T = \{(X_i,Y_i)\}_{i=1}^{T}$ are an i.i.d. sample from a continuous joint density $f_{XY}$; the error terms $\epsilon_i$ satisfy $\mathbb{E}[\epsilon_i | X_i] = 0$ and $\mathbb{E}[\epsilon_i^2 | X_i] = \sigma^2(X_i) < \infty$; the density of the predictors $f_X(x)$ is positive in the region of interest; and any kernel function $K$ is a non-negative, symmetric probability density function with finite second moments.
+
+Let $( X, Y )$ be a random pair and $\mathcal{D}_T = \{(X_i,Y_i)\}_{i=1}^{T} \subseteq \mathcal{D}$ be a training set comprising a sample of $T$ data pairs. Suppose that $(X , Y) \sim f_{XY}$ a continuous density and $X \sim f_X$ the marginal distribution of $X$. Let $Y \in \mathbb{R}$ be a continuous response and assume a model of the form $Y_i=m(X_i) + \epsilon_i, \; i \in 1, \dots \, ,T$ where $m(\cdot): \mathbb{R}^d \rightarrow \mathbb{R }$ is an unknown function and $\epsilon_i$ are independently distributed error terms having zero mean such that $\mathbb{E}[Y \mid X=x] = m(x)$. There are no global assumptions about the function $m(\cdot)$ other than that it is smooth and that locally it can be well approximated by a low degree polynomial as per Taylor’s theorem. The local $p$-th order Taylor expansion for $x \in \mathbb{R}^d$ near a point $X_i$ yields:
 
 \begin{align}
-m(X_i) \approx \sum_{j=0}^p \frac{m^{(j)}(x)}{j!} (x - X_i)^j \coloneqq \sum_{j=0}^p \gamma_j(x)(x - X_i)^j
-\label{taylor_expansion}
+m(X_i) \approx \sum_{j=0}^p \frac{m^{(j)}(x)}{j!} (X_i - x)^j \coloneqq \sum_{j=0}^p \beta_j(x)(X_i - x)^j
 \end{align}
-To find an estimate $\hat{m}(x)$ of $m(x)$ the low-degree polynomial \eqref{taylor_expansion} is fitted to the $N$ nearest neighbors using weighted least-squares such to minimize the empirical loss $\mathcal{L}_{lpr}( \cdot \, ; \mathcal{D}_N , h)$ :
+For notational simplicity, we present the one-dimensional case ($d=1$). The formulation extends to the multivariate case ($d>1$) by replacing powers with multi-indices (see, e.g., \citep{Fan1996Local}, \S3.2). To find an estimate $\hat{m}(x)$ of $m(x)$ the low-degree polynomial is fitted to the $N$ nearest neighbors using weighted least-squares such to minimize the empirical loss $\mathcal{L}_{\text{lpr}}(x; \mathcal{D}_N , h)$ :
 
 \begin{align}
-\mathcal{L}_{lpr}(x; \mathcal{D}_N , h) \coloneqq \sum_{i=1}^N \left(  Y_i - \sum_{j=0}^p \gamma_j (x) (x - X_i)^j \right)^2 K_h(x - X_i)
+\mathcal{L}_{\text{lpr}}(x; \mathcal{D}_N , h) \coloneqq \sum_{i=1}^N \left(  Y_i - \sum_{j=0}^p \beta_j (x) (X_i-x)^j \right)^2 K_h(X_i - x)
 \label{loss_lpr}
 \end{align}
-
-
+where $\beta(x) \in \mathbb{R}^{p+1}$ are the polynomial coefficients to be estimated. The minimizer is
 \begin{align}
-\hat{\gamma}(x) \coloneqq \min_{\gamma(x)} \mathcal{L}_{lpr}(x; \mathcal{D}_N,h)
+\hat{\beta}(x) \coloneqq \arg\min_{\beta(x)} \mathcal{L}_{\text{lpr}}(x; \mathcal{D}_N,h)
 \label{beta_hat}
 \end{align}
-Where $\gamma, \hat{\gamma} \in \mathbb{R}^{p+1}$; $K_h(\cdot)$ is a scaled kernel, $h \in \mathbb{R}_{> 0}$ is the bandwidth parameter and $\mathcal{D}_N \subseteq \mathcal{D}_T$ is the subset of $N$ nearest neighbors of $x$ in the training set where the distance is measured on the predictors only. Having computed $\hat{\gamma}(x)$ the estimate of $\hat{m}(x)$ is taken as $\hat{\gamma}(x)_1$. Note the term kernel carries here the meaning typically used in the context of nonparametric regression i.e. a non-negative real-valued weighting function that is typically symmetric, unimodal at zero, integrable with a unit integral and whose value is non-increasing for the increasing distance between the $X_i$ and $x$. Higher degree polynomials and smaller $N$ generally increase the variance and decrease the bias of the estimator and vice versa \citep{Avery2010LiteratureRF}. For derivation of the local constant and local linear estimators for the multidimensional case see \citep{Garcia-Portugues2023}.
+Where $K_h(\cdot) = h^{-d}K(\cdot/h)$ is a scaled kernel, $h \in \mathbb{R}_{> 0}$ is the bandwidth parameter and $\mathcal{D}_N \subseteq \mathcal{D}_T$ is the subset of $N$ nearest neighbors of $x$ in the training set where the distance is measured on the predictors only. Having computed $\hat{\beta}(x)$ the estimate of $m(x)$ is taken as $\hat{m}(x) = \hat{\beta}_0(x)$. The term kernel carries here the meaning typically used in the context of nonparametric regression i.e. a non-negative real-valued weighting function that is typically symmetric, unimodal at zero, and integrates to one. Higher degree polynomials and smaller $N$ generally increase the variance and decrease the bias of the estimator and vice versa \citep{Avery2010LiteratureRF}. For derivation of the local constant and local linear estimators for the multidimensional case see \citep{Garcia-Portugues2023}.
 
 \paragraph{Remark on Nearest Neighbors and Bandwidth.}
-In the following, the local neighborhood is defined by taking the \(N\) nearest neighbors to \(x\). Thus, \(\mathcal{D}_N \subseteq \mathcal{D}_T\) contains exactly \(N\) points. Then, a distance-based kernel \(K_h\) (with bandwidth \(h\)) is used to weight those neighbors, such that nearer points receive larger weights. In the experiments, \(h\) is chosen or scaled in accordance with the distribution of the distances within \(\mathcal{D}_N\). This approach combines a fixed-sized local subset (via \(N\)) with a variable kernel scaling (via \(h\)), ensuring stable local fits even in heterogeneous data scenarios.
-
+In the following, the local neighborhood is defined by taking the \(N\) nearest neighbors to \(x\). Thus, \(\mathcal{D}_N \subseteq \mathcal{D}_T\) contains exactly \(N\) points. A distance-based kernel \(K_h\) is then used to weight those neighbors. In our implementation, we follow a common practical approach where distances within the neighborhood are first normalized to the interval $[0,1]$, and then a kernel (e.g., Laplacian) is applied. This effectively makes the bandwidth adaptive to the local density of predictors, combining a fixed-size local subset (via \(N\)) with a variable kernel scaling to ensure stable local fits. The asymptotic properties discussed later are conditional on the sequence of nearest-neighbor distances \citep{Fan1992}.
 
 \section{Robust Weights with Similarity Kernels}
 \label{S:Robust Weights with Similarity kernels}
-The main idea presented is to generalize the kernel function used in equation \eqref{loss_lpr} to produce robust weights. This is achieved by using a similarity kernel function defined on the data domain $K_{\mathcal{D}}:\mathcal{D}^2 \rightarrow \mathbb{R}_+$ that enables weighting each point and incorporating information on the data in the local neighborhood in relation to the local regression target. 
+The main idea presented is to generalize the kernel function used in equation \eqref{loss_lpr} to produce robust weights. This is achieved by using a similarity kernel function defined on the data domain $\mathcal{K}_{\mathcal{D}}:\mathcal{D}^2 \rightarrow \mathbb{R}_+$ that enables weighting each point and incorporating information on the data in the local neighborhood in relation to the local regression target $(x,y)$.
 
+The proposed empirical loss function is:
 \begin{align}
-\mathcal{L}_{rsk}(x, y; \mathcal{D}_N , H) \coloneqq \sum_{i=1}^N \left(  Y_i - \sum_{j=0}^p \beta_j (x, y) (x - X_i)^j \right)^2 K_{\mathcal{D}} \left((x,y),(X_i, Y_i); H \right)
+\mathcal{L}_{\text{rsk}}(x, y; \mathcal{D}_N , \mathcal{H}) \coloneqq \sum_{i=1}^N \left(  Y_i - \sum_{j=0}^p \beta_j (x, y) (X_i - x)^j \right)^2 \mathcal{K}_{\mathcal{D}} \left((x,y),(X_i, Y_i); \mathcal{H} \right)
 \label{loss_rsk}
 \end{align}
-
+The estimated coefficients are found by minimizing this loss:
 \begin{align}
-\hat{\beta}(x,y ; \mathcal{D}_N, H ) \coloneqq \min_{\beta(x,y)} \mathcal{L}_{rsk}(x, y; \mathcal{D}_N , H) 
+\hat{\beta}(x,y ; \mathcal{D}_N, \mathcal{H} ) \coloneqq \arg\min_{\beta(x,y)} \mathcal{L}_{\text{rsk}}(x, y; \mathcal{D}_N , \mathcal{H}) 
 \label{beta_loss_d}
 \end{align}
-
-Where $H$ is the set of bandwidth parameters. There are many possible choices for such a similarity kernel to be defined within this general framework. However, used as a local weighting function, such a kernel should have the following attributes:
+Where $\mathcal{H}$ is the set of bandwidth parameters. There are many possible choices for such a similarity kernel to be defined within this general framework. However, used as a local weighting function, such a kernel should have the following attributes:
 \begin{enumerate}
-\item Non-negative, $K_{\mathcal{D}}((x,y) , ( x', y') \geq 0$.
-\item Symmetry in the inputs, $K_{\mathcal{D}}((x,y) , ( x', y')) = K_{\mathcal{D}}((x', y') , (x,y))$.
-\item Tending toward decreasing as the distance in the predictors increases. That is, given  a similarity function on the response $s(\cdot, \cdot): \mathbb{R}^2 \rightarrow \mathbb{R}_+$, if $s(y, y')$ indicates high similarity the weight should decrease as the distance between the predictors grows, $s(y, y') > \alpha \implies       
-K_{\mathcal{D}}((x, y) , ( x + u, y')) \geq K_{\mathcal{D}}((x, y) , (x + v, y')) \; \; \forall \: \norm{u} \leq \: \norm{v}$ and some $\alpha \in \mathbb{R}_+$.
+\item Non-negative, $\mathcal{K}_{\mathcal{D}}((x,y) , ( x', y')) \geq 0$.
+\item Symmetry in the inputs, $\mathcal{K}_{\mathcal{D}}((x,y) , ( x', y')) = \mathcal{K}_{\mathcal{D}}((x', y') , (x,y))$.
+\item Tending toward decreasing as the distance in the predictors increases. That is, given  a similarity function on the response $s(\cdot, \cdot): \mathbb{R}^2 \rightarrow \mathbb{R}_+$, if $s(y, y')$ indicates high similarity the weight should decrease as the distance between the predictors grows, $s(y, y') > \alpha \implies      
+\mathcal{K}_{\mathcal{D}}((x, y) , ( x + u, y')) \geq \mathcal{K}_{\mathcal{D}}((x, y) , (x + v, y')) \; \; \forall \: \norm{u} \leq \: \norm{v}$ and some $\alpha \in \mathbb{R}_+$.
 \end{enumerate}
 
-In this work two such useful positive definite kernels are proposed. Similarly to the usual kernels used in \eqref{loss_lpr}, these tend to diminish as the distance between the explanatory variables increases to model stronger relationship between closer points. In addition, the weights produced by the kernels also model the "importance" of the pair $(x,y)$. This is useful for example to down-weight outliers to mitigate their adverse effect on the ordinary least square based regression. Formally let $K_{\mathcal{D}}$ be defined as:
-
+In this work a useful non-negative kernel is proposed. Similarly to the usual kernels used in \eqref{loss_lpr}, these tend to diminish as the distance between the explanatory variables increases to model stronger relationship between closer points. In addition, the weights produced by the kernels also model the "importance" of the pair $(x,y)$. This is useful for example to down-weight outliers to mitigate their adverse effect on the ordinary least square based regression. Note that for the Reproducing Kernel Hilbert Space (RKHS) interpretation discussed in Section \ref{S:Properties}, the kernel $\mathcal{K}_{\mathcal{D}}$ must also be positive-definite, but this condition is not required for the main results of this paper. Formally let $\mathcal{K}_{\mathcal{D}}$ be defined as:
 \begin{align}
-K_{\mathcal{D}} \left((x,y),(x', y') ; H_1, H_2 \right) &= K_1(x,x' ; H_1) K_2 \left((x,y),(x', y') ; H_2 \right)
+\mathcal{K}_{\mathcal{D}} \left((x,y),(x', y') ; \mathcal{H}_1, \mathcal{H}_2 \right) &= K_1(x,x' ; \mathcal{H}_1) K_2 \left((x,y),(x', y') ; \mathcal{H}_2 \right)
 \label{compound_kernel_def}
 \end{align}
+Where $K_1: \mathbb{R}^d \times \mathbb{R}^d \rightarrow \mathbb{R}_+$ and $K_2: \mathcal{D}^2 \rightarrow \mathbb{R}_+$ are non-negative kernels and $\mathcal{H}_1$, $\mathcal{H}_2$ are the sets of bandwidth parameters. The purpose of $K_1$ is to account for the distance between a neighbor to the local regression target and therefore may be chosen as any of the kernel functions that are typically used in equation \eqref{loss_lpr}. The role of $K_2$ is to perform robust regression by detecting local outliers in an unsupervised manner and assigning them with lower weights.
 
-Where $K_1: \mathbb{R}^d \times \mathbb{R}^d \rightarrow \mathbb{R}_+$ and $K_2: \mathcal{D}^2 \rightarrow \mathbb{R}_+$ are positive definite kernels and $H_1$, $H_2$ are the sets of bandwidth parameters. The purpose of $K_1$ is to account for the distance between a neighbor to the local regression target and therefore may be chosen as any of the kernel functions that are typically used in equation \eqref{loss_lpr}. The role of $K_2$ is described now in more detail as this is the main idea proposed in this work. Using $K_2$, the method performs robust regression by detecting local outliers in an unsupervised manner and assigns them with lower weights. There are many methods that could be employed to estimate the extent to which a data point is a local outlier however in this work it is estimated in one of the following two ways.
+The material below gives a kernel-agnostic lemma that shows when the optimisation for the empirical estimator $\hat\beta(x)$ is invariant to the (unknown) response value $y$ at the regression location $x$. A corollary then specialises this result to the conditional-density kernel, which is the focus of this paper.
 
-\begin{figure}[h]
-\caption{Loss function, assuming a standard quadratic function of the residual, a standard normal density for $K_2$ and excluding the $K_1$ distance kernel scaling.}
+\begin{lemma}[Invariance under separable similarity kernels]
+\label{lemma:invariance}
+Let the similarity kernel be
+\[
+\mathcal{K}_{\mathcal{D}}\!\bigl((x,y),(x',y');\mathcal{H}\bigr)
+= K_1\!\bigl(x,x';\mathcal{H}_1\bigr)\,
+K_2\!\bigl((x,y),(x',y');\mathcal{H}_2\bigr),
+\]
+with $K_1$ being any non-negative kernel function on $\mathbb{R}^d \times \mathbb{R}^d$, and let $K_2$ be separable:
+\[
+K_2\!\bigl((x,y),(x',y');\mathcal{H}_2\bigr)
+= c(x,y)\,w(x',y'),
+\qquad \text{where } c(x,y)>0 \text{ and } w(x',y')\ge 0.
+\]
+Then the empirical loss \eqref{loss_rsk} becomes
+\[
+\mathcal{L}_{\text{rsk}}(x,y;\mathcal{D}_N,\mathcal{H})
+= c(x,y)\!\sum_{i=1}^{N}
+\Bigl(Y_i-\textstyle\sum_{j=0}^{p}\beta_j(x)(X_i - x)^j\Bigr)^2
+K_1(x,X_i;\mathcal{H}_1)\,w(X_i,Y_i),
+\]
+so the minimiser $\hat\beta(x,y)$ with respect to $\beta_j$ is independent of $y$ and will be denoted $\hat\beta(x) = (\hat\beta_0(x), \dots, \hat\beta_p(x))^T$. For $\mathcal{K}_{\mathcal{D}}$ to be symmetric (a requirement for a Mercer kernel), we must have $c(x,y) = w(x,y)$. However, symmetry is not required for the minimization problem itself.
+\end{lemma}
+\begin{proof}
+The term \( c(x,y) \), which is positive and constant with respect to the summation index \(i\), is a scalar factor multiplying the entire sum. Since scaling an objective by a positive constant does not affect its minimizer, the vector minimizer \(\hat\beta(x,y)\) is independent of \(y\) and thus can be simply denoted as \(\hat\beta(x)\).
+\end{proof}
+
+\subsection*{Conditional Density Kernel}
+The primary method proposed for $K_2$ is proportional to the estimated localized conditional marginal distribution of the response variable at the location.
+This corresponds to choosing the components of a separable $K_2$ as follows:
+\[
+K_2\!\bigl((x,y),(x',y');\mathcal{H}_2\bigr)
+=\hat f_{Y\mid X}(y\mid x; \mathcal{H}_2)\,
+\hat f_{Y\mid X}(y'\mid x'; \mathcal{H}_2),
+\]
+where $\hat f_{Y\mid X}(\cdot\mid\cdot; \mathcal{H}_2)$ is a kernel conditional-density estimator with bandwidth(s) $\mathcal{H}_2$.
+The nonparametric conditional density estimation is performed using the Parzen–Rosenblatt window (kernel density estimator):
+\begin{align}
+\hat{f}(y \mid x; \mathcal{H}_2) &= \hat{f} (x, y ; \mathcal{H}_2) / \hat{f} (x; \mathcal{H}_2) \\
+&= \frac{|\mathbf{H}_v|^{-1/2} \sum_{i=1}^N K_v \left( \mathbf{H}_v^{-1/2} (v - V_i) \right)} {|\mathbf{H}_x|^{-1/2} \sum_{i=1}^N K_x \left( \mathbf{H}_x^{-1/2} (x - X_i) \right)}
+\label{conditional_prob_est}
+\end{align}
+Where $v=[x,y] \in \mathbb{R}^{d+1}$ is the concatenated vector of the predictors and the response; and $\mathbf{H}_v, \mathbf{H}_x$ are bandwidth matrices.
+
+\begin{corollary}[Conditional–density kernel objective]
+\label{cor:cond_density_obj}
+Choose $K_1(x,x';\mathcal{H}_1)$ to be a standard kernel for local polynomial regression, such as $K_{h_1}(x-x')$, and let $K_2$ be the conditional density kernel defined above.
+Then, we can identify
+\[
+c(x,y)=\hat f_{Y\mid X}(y\mid x; \mathcal{H}_2),
+\qquad \text{and} \qquad
+w(X_i,Y_i)=\hat f_{Y\mid X}(Y_i\mid X_i; \mathcal{H}_2).
+\]
+Assuming $\hat f_{Y\mid X}(y\mid x; \mathcal{H}_2) > 0$, Lemma~\ref{lemma:invariance} yields the simplified weighted least-squares objective for $\hat\beta(x)$:
+\[
+\tilde{\mathcal{L}}(x)
+=\sum_{i=1}^{N}
+\Bigl(Y_i-\sum_{j=0}^{p}\beta_j(x)(X_i - x)^j\Bigr)^2
+K_{h_1}(x-X_i)\,\hat f_{Y\mid X}(Y_i\mid X_i; \mathcal{H}_2),
+\]
+which is the empirical objective function whose properties are analysed in the next section.
+\end{corollary}
+
+\begin{figure}[H]
+\caption{Loss function surface, shown as a function of the residual (horizontal axis) and the response variable's value (depth axis). The plot assumes a standard quadratic loss in the residual, a standard normal density for the response (as a proxy for $K_2$), and excludes the $K_1$ distance kernel scaling. The vertical axis represents a value proportional to loss $\times$ density.}
 \centering
 \includegraphics[width=0.5\textwidth]{loss_2d.png}
 \end{figure}
 
-\subsection*{Conditional Density} 
-The first proposed method for $K_2$ is proportional to the estimated localized conditional marginal distribution of the response variable at the location:
-\begin{align}
-K_2 \left((x,y),(x', y') ; H_2 \right) = \hat{f}(y \mid x ; H_2) \hat{f}(y' \mid x'; H_2)
-\label{cond_kernel_def}
-\end{align}
-The nonparametric conditional density estimation is performed using the Parzen–Rosenblatt window (kernel density estimator):
-\begin{align}
-\hat{f}(y \mid x; H_2) &= \hat{f} (x, y ; H_2) / \hat{f} (x; H_2) \\
-&= \hat{f} (v ; \mathbf{H}_v) / \hat{f} (x; \mathbf{H}_x) \\
-&= \frac{|\mathbf{H}_x|^{1/2} \sum_{i=1}^N K_v \left( \mathbf{H}_v^{-1/2} (v - V_i) \right)} {|\mathbf{H}_v|^{1/2} \sum_{i=1}^N K_x \left( \mathbf{H}_x^{-1/2} (x - X_i) \right)}
-\label{conditional_prob_est}
-\end{align}
-Where $v=[x,y] \in \mathbb{R}^{d+1}$ is the concatenated vector of the predictors and the response; and $\mathbf{H}_v, \mathbf{H}_x$ are bandwidth matrices.
-\subsection*{Joint Density}
-The second proposed kernel is proportional to the joint distribution of the random pair, this could be useful for example to also down-weight high leverage points:
-\begin{align}
-K_2 \left((x,y),(x', y') ; H_2 \right) = \hat{f}(x,y ; H_2) \hat{f}(x',y'; H_2)
-\label{joint_kernel_def}
-\end{align}
-Where the joint density can be estimated using the same aforementioned approach. \newline
-
-\begin{figure}[t]
-\caption{This figure compares the proposed loss function (rsklpr) at various standard deviation levels with common robust losses (e.g., Huber, Cauchy) and the standard quadratic loss. The attenuation of loss in areas with low-density data demonstrates the enhanced robustness of the proposed method. It is assumed that $K_2$ is equivalent to the standard Gaussian density and the $K_1$ distance kernel scaling is excluded. The numbers appended to "rsklpr" indicate the number of standard deviations away from the mean.}
+\begin{figure}[H]
+\caption{This figure compares the proposed loss function (rsklpr) at various standard deviation levels with common robust losses (e.g., Huber, Cauchy) and the standard quadratic loss. The attenuation of loss in areas with low-density data demonstrates the enhanced robustness of the proposed method. It is assumed that $K_2$ is equivalent to the standard Gaussian density and the $K_1$ distance kernel scaling is excluded. The numbers appended to "rsklpr" indicate the number of standard deviations away from the mean. The vertical axis represents a value proportional to loss $\times$ density, while the horizontal axis represents the residual value.}
 \centering
-\includegraphics[width=1.0\textwidth]{losses_1d.png}1
+\includegraphics[width=1.0\textwidth]{losses_1d.png}
 \end{figure} 
 
 Regardless of the choice of kernel, the hyperparameters of this model are similar in essence to the standard local polynomial regression and comprise the span of included points, the kernels and their associated bandwidths. Note that this estimator can be replaced with other robust density estimators and better results are anticipated by doing so however exploring this option is left for future work. 
@@ -157,289 +204,172 @@ Regardless of the choice of kernel, the hyperparameters of this model are simila
 \section{Properties}
 \label{S:Properties}
 
-This section discusses some properties of the estimator. Note the notation in this section is simplified by excluding explicit mentions of $D_N$ and $H$, however the analysis is conditional on the nearest neighbors in the sample, $D_N$.
+This section discusses the properties of the proposed estimator, beginning with its interpretation on a finite sample and then moving to its asymptotic behaviour. Note the notation in this section is simplified by excluding explicit mentions of $\mathcal{D}_N$ and $\mathcal{H}$, however the analysis is conditional on the nearest neighbors in the sample, $\mathcal{D}_N$.
 
-\subsection{Invariance to \( y \) at the Regression Location and Simplification of the Objective}
-\label{SS: Invariance to at the Regression Location and Simplification of the Objective}
+\subsection{Finite-Sample Interpretation as a Re-weighted LPR}
+At the sample level, the proposed estimator can be understood as a direct re-weighting of the terms in the standard LPR loss function. The weights are determined by the local conditional density of the response.
 
-The objective \eqref{beta_loss_d} is invariant to the value of \( y \) at the location \( (x, y) \) for the proposed similarity kernels.
-
-\textit{Proof}: The optimization is invariant to the scale of the objective function. Therefore:
-
-\begin{align}
-\hat{\beta}(x,y) &\coloneqq \min_{\beta(x,y)} \sum_{i=1}^N \left(  Y_i - \sum_{j=0}^p \beta_j (x, y) (x - X_i)^j \right)^2 K_{H_{1}} (x - X_i) \hat{f}(x,y) \hat{f}(X_i, Y_i) \\
-&= \sum_{i=1}^N \left(  Y_i - \sum_{j=0}^p \beta_j (x, y) (x - X_i)^j \right)^2 K_{H_{1}} (x - X_i) \hat{f}(X_i, Y_i)
-\label{invariant_to_y}
-\end{align}
-
-The equality holds because \( \hat{f}(x,y) \) is a constant scalar that uniformly scales the weights. Since the objective is now independent of \( y \), it follows that:
-
-\begin{align}
-\hat{\beta}(x,y) &\coloneqq \min_{\beta(x)} \sum_{i=1}^N \left(  Y_i - \sum_{j=0}^p \beta_j (x) (x - X_i)^j \right)^2 K_{H_{1}} (x - X_i) \hat{f}(X_i, Y_i) \\
-&\coloneqq \; \hat{\beta}(x) \quad \forall y
-\label{independence_of_y}
-\end{align}
-
-This simplification enables more efficient calculations of the estimator because the dependence on \( y \) is removed from the objective function. Note that \( \hat{f}(X_i,Y_i) \) can also be replaced with \( \hat{f}(Y_i \mid X_i) \) with similar results.
-
-\subsection{Weighted Arithmetic Mean of the Standard LPR}
-
-The proposed estimator is equivalent to the weighted arithmetic mean of the terms in the standard LPR loss \eqref{loss_lpr}, with weights \( w_i = \hat{f}(X_i, Y_i) \).
-
-\textit{Proof}: Since the optimization is invariant to scaling:
-
-\begin{align}
-\hat{\beta}(x) &\coloneqq \min_{\beta(x)} \sum_{i=1}^N \left( Y_i - \sum_{j=0}^p \beta_j (x) (x - X_i)^j \right)^2 K_{H_{1}} (x - X_i) \hat{f}(X_i, Y_i) \\
-&= \min_{\beta(x)} \left( \sum_{i=1}^N \hat{f}(X_i, Y_i) \right)^{-1} \sum_{i=1}^N \left( Y_i - \sum_{j=0}^p \beta_j (x) (x - X_i)^j \right)^2 K_{H_{1}} (x - X_i) \hat{f}(X_i, Y_i) \\
-&= \min_{\beta(x)} \left( \sum_{i=1}^N w_i \right)^{-1} \sum_{i=1}^N \left( Y_i - \sum_{j=0}^p \beta_j (x) (x - X_i)^j \right)^2 K_{H_{1}} (x - X_i) w_i
-\label{alt_skr_opt_obj}
-\end{align}
-
-The normalization by \( \sum_{i=1}^N w_i \) shows the equivalence to the weighted arithmetic mean, with the weights \( w_i = \hat{f}(X_i, Y_i) \). Note the weights can be equivalently replaced with \( w_i = \hat{f}(Y_i \mid X_i) \).
-
-\subsection{Asymptotic degeneration of the estimator to the standard LPR}
-
-Asymptotically, the proposed estimator degenerates to the standard LPR when the weights \( w_i \) are uncorrelated with the standard LPR terms. Formally, as \( N \to \infty \), \( \hat{\beta}(x) \to \hat{\gamma}(x) \), where \( \hat{\gamma}(x) \) is the standard LPR estimator, and the condition that \(\left( Y - \sum_{j=0}^p \beta_j(x) (x - X)^j \right)^2 K_{H_1}(x - X)\) and \( \hat{f}(X, Y) \) are uncorrelated holds. It is assumed that \( (X_i, Y_i) \) are independent and identically distributed (i.i.d.) random variables and that \( \hat{f}(X, Y) > 0 \) almost everywhere.
-
-\textit{Proof}: Define
+\begin{proposition}[Equivalence to a Re-weighted LPR Objective]
+\label{prop:reweighting}
+Minimizing the proposed empirical loss from Corollary \ref{cor:cond_density_obj},
 \[
-g(X, Y) \coloneqq \left( Y - \sum_{j=0}^p \beta_j(x)(x - X)^j \right)^2 K_{H_1}(x - X),
+\tilde{\mathcal{L}}(x)
+=\sum_{i=1}^{N}
+\Bigl(Y_i-\sum_{j=0}^{p}\beta_j(x)(X_i - x)^j\Bigr)^2
+K_{h_1}(x-X_i)\,\hat f_{Y\mid X}(Y_i\mid X_i),
 \]
-it follows that:
+is equivalent to minimizing a weighted average of the standard LPR loss terms, where each term's contribution is scaled by its estimated conditional density $\hat f_{Y\mid X}(Y_i\mid X_i)$.
+\end{proposition}
+\begin{proof}
+Let $w_i = \hat f_{Y\mid X}(Y_i\mid X_i)$. Assuming that not all weights are zero (i.e., $\sum_{i=1}^N w_i > 0$, which holds if the conditional density estimate is non-zero for at least one neighbor), we can divide the objective by this sum without changing the resulting $\hat{\beta}(x)$:
 \begin{align}
-\hat{\beta}(x) &\coloneqq \min_{\beta(x)} \left( \sum_{i=1}^N \hat{f}(X_i, Y_i) \right)^{-1} \sum_{i=1}^N g(X_i, Y_i) \hat{f}(X_i, Y_i) \\
-&= \min_{\beta(x)} \left( \frac{1}{N} \sum_{i=1}^N \hat{f}(X_i, Y_i) \right)^{-1} \left( \frac{1}{N} \sum_{i=1}^N g(X_i, Y_i) \hat{f}(X_i, Y_i) \right)
+\hat{\beta}(x) &= \arg\min_{\beta(x)} \frac{1}{\sum_{k=1}^N w_k} \sum_{i=1}^N w_i \left[ \left(Y_i-\sum_{j=0}^{p}\beta_j(x)(X_i - x)^j\right)^2 K_{h_1}(x-X_i) \right].
 \end{align}
+The term in the square brackets is the $i$-th term of the standard LPR loss function from Equation \eqref{loss_lpr}. The expression is therefore a weighted arithmetic mean of these standard LPR terms. This interpretation makes it clear that points with a low estimated conditional density (i.e., response outliers) are down-weighted in a single, non-iterative step. Note that if a kernel with bounded support (e.g., Epanechnikov) is used for density estimation, it is theoretically possible for all weights $w_i$ in a neighborhood to be zero, although this is not an issue with unbounded kernels like the Gaussian.
+\end{proof}
 
-As \( N \to \infty \), by the law of large numbers:
-\begin{align}
-\left( \frac{1}{N} \sum_{i=1}^N \hat{f}(X_i, Y_i) \right)^{-1} &\xrightarrow{a.s.} \frac{1}{\mathbb{E} \left[ \hat{f}(X, Y) \right]} \\
-\frac{1}{N} \sum_{i=1}^N g(X_i, Y_i) \hat{f}(X_i, Y_i) &\xrightarrow{a.s.} \mathbb{E} \left[ g(X, Y) \hat{f}(X, Y) \right]
-\end{align}
+\subsection{Asymptotic Properties}
+We now analyze the behavior of the estimator as the sample size $N \to \infty$.
 
-Assuming \( \mathbb{E}[\hat{f}(X, Y)] \neq 0 \), it follows that:
-\begin{align}
-\hat{\beta}(x) &\xrightarrow{a.s.} \min_{\beta(x)} \frac{\mathbb{E} \left[ g(X, Y) \hat{f}(X, Y) \right]}{\mathbb{E} \left[ \hat{f}(X, Y) \right]}
-\end{align}
+\begin{proposition}[Population Objective and the Intercept Term]
+\label{prop:population_objective}
+Let $f_{X,Y}(u,v)$ denote the joint density of $(X,Y)$ where $X \in \mathbb{R}^d, Y \in \mathbb{R}$. For a chosen regression point $x \in \mathbb{R}^d$, define the population objective function as
+\[
+\mathcal J(x;\beta)
+=\iint_{\mathbb R^{d}\!\times\!\mathbb R}
+\bigl(v-g_x(u;\beta)\bigr)^{2}
+K_{h_1}(x-u)\,
+w(u,v)\,
+f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u,
+\]
+where $g_x(u;\beta)=\sum_{j=0}^{p}\beta_j(x)(u-x)^j$, $K_{h_1}$ is a kernel function (assumed to be radial and symmetric, hence $K_{h_1}(x-u) = K_{h_1}(\|x-u\|)$), and $w(u,v)$ is a population-level non-negative weight function. Let $\beta^{\star}(x)=\arg\!\min_{\beta}\,\mathcal J(x;\beta)$. The first component, $\beta^{\star}_0(x)$, represents the local intercept of the polynomial fit at $x$.
 
-If \( g(X, Y) \) and \( \hat{f}(X, Y) \) are uncorrelated, then:
-\begin{align}
-\mathbb{E} \left[ g(X, Y) \hat{f}(X, Y) \right] &= \mathbb{E} \left[ g(X, Y) \right] \mathbb{E} \left[ \hat{f}(X, Y) \right] \\
-\hat{\beta}(x) &\xrightarrow{a.s.} \min_{\beta(x)} \mathbb{E} \left[ g(X, Y) \right]
-\end{align}
+For local constant regression ($p=0$), or for local polynomial regression ($p \ge 1$) under Assumption A1, $\beta^{\star}_0(x)$ is given by:
+\begin{equation}
+\beta^{\star}_0(x)=
+\frac{
+ \displaystyle
+ \iint v\,
+ K_{h_1}(x-u)\,
+ w(u,v)\,
+ f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u}
+{\displaystyle
+ \iint
+ K_{h_1}(x-u)\,
+ w(u,v)\,
+ f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u}. \label{eq:pop_intercept}
+\end{equation}
+\end{proposition}
 
-Therefore, as \( N \to \infty \):
-\begin{align}
-\hat{\beta}(x) &\xrightarrow{a.s.} \min_{\beta(x)} \mathbb{E} \left[ \left( Y - \sum_{j=0}^p \beta_j(x) (x - X)^j \right)^2 K_{H_1}(x - X) \right]
-\end{align}
+\begin{proof}
+Define the kernel-tilted measure aggregate weight at $(u,v)$ as
+\[
+\omega_x(u,v)=K_{h_1}(x-u)\,w(u,v)\,f_{X,Y}(u,v).
+\]
+Let $\mathcal{N}(x)$ denote the denominator of \eqref{eq:pop_intercept}, and write the monomials centered at $x$ as $q_j(u;x)=(u-x)^j$.
+Using the shorthand $\langle H(u,v) \rangle := \iint H(u,v)\,\omega_x(u,v)\,\mathrm d v\,\mathrm d u$, the objective function is:
+\[
+\mathcal J(x;\beta)
+=\bigl\langle v^{2}\bigr\rangle
+-2\sum_{j=0}^{p}\beta_j(x)\bigl\langle v\,q_j(u;x)\bigr\rangle
++\sum_{j,k=0}^{p}\beta_j(x)\beta_k(x)\bigl\langle q_j(u;x)\,q_k(u;x)\bigr\rangle.
+\]
+Differentiating with respect to each $\beta_\ell(x)$ and setting the gradient to zero gives the system of $p+1$ normal equations:
+\begin{equation}
+\sum_{k=0}^{p}\beta_k^{\star}(x)\,\bigl\langle q_k(u;x)\,q_\ell(u;x)\bigr\rangle = \bigl\langle v\,q_\ell(u;x)\bigr\rangle,
+\qquad \ell=0,\dots ,p. \label{eq:normal_equations}
+\end{equation}
+The first equation (for $\ell=0$), noting $q_0(u;x) \equiv 1$, is:
+\begin{equation}
+\beta_0^{\star}(x)\mathcal{N}(x) + \sum_{k=1}^{p}\beta_k^{\star}(x)\bigl\langle q_k(u;x)\bigr\rangle = \bigl\langle v \bigr\rangle. \label{eq:first_normal_equation}
+\end{equation}
 
-This is the same objective minimized by the standard LPR estimator in the asymptotic sense. Thus, the proposed estimator degenerates to the standard LPR as \( N \to \infty \), provided that \( g(X, Y) \) and \( \hat{f}(X, Y) \) are uncorrelated. Note that one such special case is when \( \hat{f}(Y \mid X) \) follows a uniform distribution.
+\paragraph{Assumption A1 (Symmetry in weighted moments)} For $p \ge 1$, we assume that the weighted moments of odd order are zero, i.e.,
+\begin{equation}
+\bigl\langle q_j(u;x)\bigr\rangle=\iint (u-x)^j\,K_{h_1}(x-u)\,w(u,v)\,f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u =0,
+\qquad \text{for odd } j \in \{1,\dots,p\}. \label{eq:assumption_A1}
+\end{equation}
+This condition is standard in LPR analysis \citep[see, e.g.,][Sec. 3.2]{Fan1993} and holds if the kernel $K_{h_1}$ is symmetric and the effective weight function $W_0(u) = \int_v w(u,v)f_{Y|X}(v|u)f_X(u)dv$ is locally even in a neighborhood of $x$. For local linear regression ($p=1$), this simplifies to requiring $\langle q_1(u;x) \rangle = 0$.
 
-\subsection{Asymptotic Convergence of the Expected Loss Function under the Normality Assumption}
-\label{S}
+Under Assumption A1, the terms for odd $k$ in Equation \eqref{eq:first_normal_equation} vanish. For local linear regression ($p=1$), this is sufficient to isolate $\beta_0^\star(x)$. For $p \ge 2$, standard LPR results show that this leads to a block-diagonal system, from which the formula for $\beta_0^\star(x)$ holds. For local constant regression ($p=0$), the sum in \eqref{eq:first_normal_equation} is empty, so the result holds without needing Assumption A1.
+\end{proof}
 
-In this section, it is established that under the assumption of conditional normality, the expected loss function minimized by the proposed robust estimator converges asymptotically to that of standard local polynomial regression (LPR). As a consequence, both methods target the same underlying regression function \(m(x)\) in expectation.
+\begin{corollary}[Population Target with Conditional Density Weights]
+\label{cor:population_target}
+Consider the specific case where the weight function is the true conditional density, $w(u,v) = f_{Y\mid X}(v\mid u)$, and assume $f_{Y \mid X}(v \mid u) > 0$. Under the same conditions as Proposition \ref{prop:population_objective}, the population intercept $\beta_0^\star(x)$ from \eqref{eq:pop_intercept} takes the explicit form:
+\[
+\beta_0^\star(x) = \frac{\iint v\,K_{h_1}(x-u)\,[f_{Y\mid X}(v\mid u)]^2\,f_X(u)\,\mathrm d v\,\mathrm d u}{\iint K_{h_1}(x-u)\,[f_{Y\mid X}(v\mid u)]^2\,f_X(u)\,\mathrm d v\,\mathrm d u}.
+\]
+This expression can be rewritten as a locally weighted average of $\mu'(u)$:
+\[
+\beta_0^\star(x) = \frac{\int K_{h_1}(x-u)\,\mu'(u)\,C(u)\,f_X(u)\,\mathrm d u}{\int K_{h_1}(x-u)\,C(u)\,f_X(u)\,\mathrm d u},
+\]
+where $\mu'(u) = \frac{\int v [f_{Y\mid X}(v\mid u)]^2 dv}{\int [f_{Y\mid X}(v\mid u)]^2 dv}$ and $C(u) = \int [f_{Y\mid X}(v\mid u)]^2 dv$.
+This shows that as the bandwidth $h_1 \to 0$ (under standard rate conditions, e.g., $Nh_1^d \to \infty$, and with $h_2$ either fixed or not shrinking faster than $h_1$), $\beta_0^\star(x)$ converges to $\mu'(x)$. This target is generally different from the true conditional mean $m(x) = \mathbb{E}[Y|X=x]$. This result provides the formal basis for the asymptotic bias discussion.
+\end{corollary}
 
-To proceed, consider the data-generating process and the associated assumptions. Let \((X_i, Y_i)\), \(i=1,\ldots,N\), be i.i.d. observations drawn from a joint distribution with density \(f(X,Y)\). Suppose that for each fixed \(x\), the conditional density \(f(Y \mid X=x)\) is given by:
-\begin{align}
-f(Y \mid X=x) = \frac{1}{\sqrt{2\pi \sigma^2(x)}} \exp\left(-\frac{(Y - m(x))^2}{2\sigma^2(x)}\right),
-\label{eq:normal_assumption}
-\end{align}
-where \(m(x) = \mathbb{E}[Y \mid X=x]\) and \(\sigma^2(x) = \mathbb{E}[(Y - m(x))^2 \mid X=x]\) are both continuous functions in a neighborhood of the point of interest \(x\). This assumption of normality is often reasonable in many settings or can serve as a benchmark for understanding the behavior of the estimator.
+\subsection{Asymptotic Target and Conditions for Unbiasedness}
+Corollary~\ref{cor:population_target} establishes that the proposed estimator asymptotically targets $\mu'(x)$. A crucial question is under what conditions this target coincides with the true regression function, $m(x) = \mathbb{E}[Y|X=x]$. The two targets are equivalent, $\mu'(x) = m(x)$, if and only if the conditional distribution $f(Y|X)$ is symmetric about its mean $m(x)$.
 
-Recall that the proposed robust estimator is defined through the minimization of:
-\begin{align}
-\mathcal{L}_{rsk}(x) = \sum_{i=1}^N \left(Y_i - \sum_{j=0}^p \beta_j(x)(x - X_i)^j\right)^2 K_{H_1}(x - X_i)\hat{f}(Y_i \mid X_i),
-\label{eq:robust_loss_repeat}
-\end{align}
-where \(\hat{f}(Y_i \mid X_i)\) is a nonparametric estimate of \(f(Y_i \mid X_i)\) with bandwidth $H_2$, and \(K_{H_1}\) is a kernel function applied to the predictors with bandwidth \(H_1\). For simplicity, if \(X\) is univariate, set \(H_1 = h\). The analysis is then conducted subject to the usual nonparametric conditions as \(N \to \infty\), with \(h \to 0\) and \(N h \to \infty\).
+The most important instance of such a symmetric distribution is the normal distribution. However, the property holds for any symmetric conditional density (e.g., Laplace, Student's t). If we assume that for each fixed $x$, the conditional density $f(Y|X=x)$ is symmetric around $m(x)$, then $[f(Y|X)]^2$ is also symmetric around $m(x)$. The expectation with respect to this squared density remains $m(x)$, and therefore $\mu'(x) = m(x)$. Minimizing the expected loss of the proposed method becomes equivalent to minimizing the expected loss of standard LPR. This demonstrates that under the ideal condition of conditional symmetry, the proposed estimator is asymptotically unbiased.
 
-
-Taking expectations of both sides:
-\begin{align}
-\mathbb{E}[\mathcal{L}_{rsk}(x)] = \mathbb{E}\left[\sum_{i=1}^N \left(Y_i - \sum_{j=0}^p \beta_j(x)(x - X_i)^j\right)^2 K_{h}(x - X_i) f(Y_i \mid X_i) \right],
-\label{eq:expected_loss_rsk}
-\end{align}
-where \(\hat{f}(Y_i \mid X_i)\) is replaced with its limiting form \(f(Y_i \mid X_i)\) as \(N \to \infty\). This step is justified by standard results in nonparametric density estimation, which ensure that a consistent estimator \(\hat{f}(Y_i \mid X_i) \xrightarrow{a.s.} f(Y_i \mid X_i)\) under asymptotic behavior.
-
-Recall that the expected loss function is expressed as an integral over the joint density \(f(X,Y)\):
-\begin{align}
-\mathbb{E}[\mathcal{L}_{rsk}(x)] = N \iint \left( (Y - \beta(X;x))^2 K_{h}(x - X) [f(Y \mid X)]^2 \right) f(X) \, dY \, dX.
-\end{align}
-
-Under the normality assumption, we now focus on the integrand \((Y - \beta(X;x))^2 [f(Y \mid X)]^2\). Since \(f(Y \mid X)\) is Gaussian, \([f(Y \mid X)]^2\) is also proportional to a Gaussian density, but with the same mean \(m(X)\) and halved variance \(\sigma^2(X)/2\). More precisely, for each fixed \(X=x\),
-\begin{align}
-[f(Y \mid X)]^2 \propto \frac{1}{\sqrt{\pi \sigma^2(x)}} \exp\left(-\frac{(Y - m(x))^2}{\sigma^2(x)}\right).
-\end{align}
-
-Integrating out \(Y\), consider the expectation:
-\begin{align}
-\int (Y - \beta(X;x))^2 [f(Y \mid X)]^2 dY.
-\end{align}
-Since this integral is now taken with respect to a Gaussian density centered at \(m(X)\) but with half the original variance, it is obtained:
-\begin{align}
-\int (Y - \beta(X;x))^2 [f(Y \mid X)]^2 dY = (m(X) - \beta(X;x))^2 + \frac{\sigma^2(X)}{2}.
-\end{align}
-
-Substituting this result back into the expectation:
-\begin{align}
-\mathbb{E}[\mathcal{L}_{rsk}(x)] \propto N \int f(X) K_{1}\left(\frac{X - x}{h}\right) \left((m(X) - \beta(X;x))^2 + \frac{\sigma^2(X)}{2}\right) dX.
-\end{align}
-Because \(\frac{\sigma^2(X)}{2}\) does not depend on \(\beta(X;x)\), it does not influence the minimization. Thus, minimizing \(\mathbb{E}[\mathcal{L}_{rsk}(x)]\) with respect to \(\beta_j(x)\) is equivalent to minimizing:
-\begin{align}
-\int f(X) K_{1}\left(\frac{X - x}{h}\right) (m(X) - \beta(X;x))^2 dX.
-\end{align}
-This matches precisely the objective that standard LPR minimizes in expectation. Hence, under the normality assumption and as \(N \to \infty\), the proposed robust estimator and the standard LPR estimator identify the same target function \(m(x)\).
-
-In summary, when the conditional distribution is normal, the weighting mechanism introduced by \(\hat{f}(Y_i \mid X_i)\) does not alter the asymptotic solution in expectation. While the proposed approach may achieve increased robustness to outliers and noise in finite samples, it retains the desirable asymptotic correctness of standard LPR. This result provides a theoretical anchor: under idealized (normal) conditions, the robust method and standard LPR coincide asymptotically in expectation, ensuring no asymptotic penalty is incurred for adopting the robust weighting scheme.
+Conversely, when the conditional distribution $f(Y \mid X)$ is asymmetric, the mean under the squared density $\mu'(X)$ will differ from the true mean $m(X)$, introducing an asymptotic bias of $\text{Bias}(x) = \mu'(x) - m(x)$. An example quantifying this bias for the asymmetric exponential distribution is provided in \ref{appendix:asym_bias_example}.
 
 
+\subsection{Comparison with Standard and Iterative Robust LPR}
+While the proposed robust method builds on the LPR framework, its weighting mechanism introduces key differences.
 
-\subsection{Asymptotic Bias under Non-Normal Conditional Distributions} \label{s:AsymptoticBias}
+\subsubsection{The Core Difference vs. Standard LPR: The Weighting Function}
+The fundamental difference lies in what determines the "importance" of a neighboring data point $(u,v)$ when estimating the regression function at a point $x$. For the standard LPR The population objective aims to minimize:
+    \[\mathcal{J}_{\text{std}}(x;\beta) = \iint \bigl(v-g_x(u;\beta)\bigr)^{2} K_{h_1}(x-u) f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u\]
+    The weight is determined by the kernel $K_{h_1}(x-u)$ and the data-generating process, but it is linear in the conditional density term $f_{Y|X}(v|u)$. \newline \newline
+For the proposed method (with $w(u,v) = f_{Y|X}(v|u)$), the population objective is:
+    \[\mathcal{J}_{\text{rsk}}(x;\beta) = \iint \bigl(v-g_x(u;\beta)\bigr)^{2} K_{h_1}(x-u) [f_{Y|X}(v|u)]^2 f_X(u)\,\mathrm d v\,\mathrm d u\]
+    The proposed method's key innovation is the squaring of the conditional density term, $[f_{Y|X}(v|u)]^2$. This change amplifies the weighting effect, more strongly down-weighting observations $(u,v)$ where the response $v$ is unlikely given the predictor $u$.
 
-While the proposed robust estimator aligns asymptotically with standard local polynomial regression (LPR) under the assumption of conditional normality, real-world data often deviate from this idealized condition. When the conditional distribution \( f(Y \mid X) \) is not normal, particularly if it exhibits asymmetry, the asymptotic behavior of the estimator can be affected, potentially introducing bias.
 
-To explore the implications of non-normal conditional distributions on the asymptotic properties of the proposed estimator, consider the expected loss function:
+\subsubsection{The True Counterpart: Iterative Robust Methods}
+The direct practical counterpart to the proposed method is iterative robust LPR, such as the procedure used in LOWESS. These methods use an \emph{iterative approach} by repeatedly fitting the data and adjusting weights. After each fit, residuals are calculated, and new "robustness weights" are assigned to each point, typically by down-weighting points with large residuals. In contrast, the proposed method is a single-step procedure where the weights are derived from an explicit estimate of the data-generating distribution itself. 
 
-\begin{align}
-\mathbb{E}\left[ \mathcal{L}_{\text{rsk}}(x) \right] \propto N \iint \left( Y - \beta(X; x) \right)^2 K_1\left( \frac{X - x}{h} \right) \left[ f(Y \mid X) \right]^2 f(X) \, dY \, dX. \label{eq:simplified_loss_asym}
-\end{align}
+It is understood that many robust estimators can introduce some bias as a price for their resilience to outliers. While iterative robust LPR is also subject to such biases, this aspect often receives insufficient attention in the literature, largely due to the analytical challenges involved. In contrast, the proposed method, by virtue of its non-iterative nature and direct link to the data distribution, makes this trade-off explicit. The bias towards $\mu'(x)$ is clearly defined and can be analyzed, offering a degree of theoretical transparency that is not readily available for its iterative counterparts.
 
-When \( f(Y \mid X) \) is asymmetric, the squared conditional density \( [f(Y \mid X)]^2 \) alters the weighting in the loss function in a way that can shift the effective mean and variance. Specifically, the expected value of \( Y \) under the squared density \( [f(Y \mid X)]^2 \) is generally not equal to the mean \( m(X) \) of the original conditional distribution.
-
-This shift implies that the minimization of the expected loss function may lead the estimator to converge to a value different from the true regression function \( m(X) \), introducing an asymptotic bias. The magnitude and direction of this bias depend on the nature of the asymmetry in \( f(Y \mid X) \).
-
-To quantify the asymptotic bias in a general sense, consider that the mean of the squared conditional density \( [f(Y \mid X)]^2 \) is given by:
-
-\begin{align}
-\mu'(X) = \frac{\int Y [f(Y \mid X)]^2 \, dY}{\int [f(Y \mid X)]^2 \, dY}.
-\end{align}
-
-Similarly, the variance under the squared density is:
-
-\begin{align}
-\sigma'^2(X) = \frac{\int (Y - \mu'(X))^2 [f(Y \mid X)]^2 \, dY}{\int [f(Y \mid X)]^2 \, dY}.
-\end{align}
-
-The expected loss function then becomes:
-
-\begin{align}
-\mathbb{E}\left[ \mathcal{L}_{\text{rsk}}(x) \right] \propto N \int K_1\left( \frac{X - x}{h} \right) f(X) \left( \left( \mu'(X) - \beta(X; x) \right)^2 + \sigma'^2(X) \right) \, dX.
-\end{align}
-
-Since \( \sigma'^2(X) \) does not depend on \( \beta(X; x) \), minimizing \( \mathbb{E}\left[ \mathcal{L}_{\text{rsk}}(x) \right] \) with respect to \( \beta(X; x) \) is equivalent to minimizing:
-
-\begin{align}
-J(\beta(X; x)) = \int K_1\left( \frac{X - x}{h} \right) f(X) \left( \mu'(X) - \beta(X; x) \right)^2 \, dX.
-\end{align}
-
-Therefore, the estimator \( \beta(X; x) \) converges to \( \mu'(X) \) rather than \( m(X) \). The asymptotic bias at point \( x \) can thus be quantified as:
-
-\begin{align}
-\text{Bias}(x) = \mu'(x) - m(x).
-\end{align}
-
-This bias arises because the mean under the squared conditional density \( \mu'(X) \) differs from the mean \( m(X) \) of the original conditional distribution \( f(Y \mid X) \). The amount of bias depends on the degree and nature of asymmetry in \( f(Y \mid X) \).
-
-A detailed example illustrating this effect, including specific calculations of \( \mu'(X) \) and \( \sigma'^2(X) \) for a particular asymmetric distribution, is provided in \ref{appendix:asym_bias_example}. This example demonstrates how the asymmetry of \( f(Y \mid X) \) can lead to a shift in the estimator's asymptotic target due to the squared density weighting.
-
-In practice, the presence of asymmetry in the conditional distribution may introduce some bias into the estimator. However, the robust weighting scheme of the proposed method can still provide advantages in terms of reducing the influence of outliers and improving estimation in the presence of heteroscedasticity or heavy-tailed errors. The trade-off between asymptotic bias and robustness to outliers should be considered in practical applications. Experiments on synthetic benchmarks in Section~\ref{S:Experiments and Implementation Notes} demonstrate that, if the data is not overly dense, the proposed estimator often achieves comparable or better results in terms of RMSE than the standard LPR and typically substantially outperforms the iterative robust LOWESS estimator.
 
 \subsection{Trade-off Between Robustness and Bias via the \( K_2 \) Kernel and Bandwidth Selection}
+The proposed estimator utilizes the \( K_2 \) kernel to adjust data point weights based on both predictors and responses, controlling the trade-off between robustness and bias. The bandwidth \( \mathcal{H}_2 \) of the \( K_2 \) kernel plays a crucial role in this mechanism.
 
-The proposed estimator utilizes the \( K_2 \) kernel to adjust data point weights based on both predictors and responses, controlling the trade-off between robustness and bias through the negative correlation between weights and residuals. The bandwidth \( H_2 \) of the \( K_2 \) kernel plays a crucial role in this mechanism.
+In the loss function, each data point is weighted by $w_i = K_{h_1}(x - X_i) \hat{f}(Y_i \mid X_i; \mathcal{H}_2)$. The \( K_2 \) component assigns lower weights to less probable responses, effectively down-weighting outliers.
 
-In the loss function \eqref{loss_rsk}, each data point is weighted by:
-
-\[
-w_i = K_{H_1}(x - X_i) \hat{f}(Y_i \mid X_i; H_2),
-\]
-
-where \( K_{H_1} \) is a kernel based on the predictors, and \(K_2 \coloneqq \hat{f}(Y_i \mid X_i; H_2) \) is the estimated conditional density of the response at \( Y_i \) given \( X_i \). The \( K_2 \) kernel assigns lower weights to less probable responses, effectively down-weighting outliers and inducing a negative correlation between the weights \( w_i \) and residuals \( r_i = Y_i - \hat{m}(X_i) \).
-
-The bandwidth \( H_2 \) controls the sensitivity of \( K_2 \) to variations in the response by adjusting the degree of negative correlation between weights and residuals. For very small \( H_2 \) values the density estimator \( \hat{f}(Y_i \mid X_i; H_2) \) becomes sharply peaked at each \( Y_i \), resembling delta functions. Since this occurs for all data points, the weights \( w_i \) become nearly uniform after normalization, diminishing the influence of residuals on the weights. Conversely, for very large \( H_2 \) the density estimator \( \hat{f}(Y_i \mid X_i; H_2) \) becomes nearly constant across different \( Y_i \), resulting in weights primarily determined by \( K_{H_1}(x - X_i) \). In both extremes, the negative correlation between weights and residuals diminishes due to the weights becoming more uniform across data points.
-
-An intermediate bandwidth \( H_2 \) achieves a balance between robustness and bias. It allows \( K_2 \) to assign weights that vary appropriately with the residuals, effectively down-weighting outliers while giving sufficient weight to informative points. The optimal \( H_2 \) depends on the data distribution and can be selected using methods like cross-validation or adaptive techniques based on local data characteristics.
-
-By adjusting the bandwidth parameters, the estimator can realize a continuum of behaviors, ranging from the standard LPR approach to a more robust estimation regime. At one extreme, a larger bandwidth for \( K_2 \) effectively reduces the influence of response variability and approaches standard LPR. At the other extreme, a more restrictive bandwidth amplifies the role of local density and similarity, enhancing robustness but potentially introducing bias. This trade-off allows for nuanced tuning to suit specific applications and data characteristics. In settings with dense data, for example, reducing the bandwidth can dynamically control potential bias in high-density regions, yielding a locally tailored balance between robustness and accuracy. This adaptive capability opens the door for more sophisticated, context-dependent bandwidth selection strategies but is left for future work.
-
-In summary, the \( K_2 \) kernel enables control over the robustness-bias trade-off by adjusting the negative correlation between weights and residuals through bandwidth selection. Proper choice of \( H_2 \) allows the estimator to mitigate the influence of outliers while maintaining low bias, effectively combining the strengths of robust and standard local polynomial regression.
-
+The bandwidth \( \mathcal{H}_2 \) controls the sensitivity of \( K_2 \) to variations in the response. For very small \( \mathcal{H}_2 \) values the density estimator \( \hat{f}(Y_i \mid X_i; \mathcal{H}_2) \) becomes sharply peaked at each \( Y_i \), and the weights become nearly uniform after normalization, diminishing robustness. Conversely, for very large \( \mathcal{H}_2 \) the density estimator becomes nearly constant across different \( Y_i \), and the estimator approaches standard LPR. An intermediate bandwidth \( \mathcal{H}_2 \) achieves a balance. The optimal \( \mathcal{H}_2 \) can be selected using methods like cross-validation. This adaptive capability opens the door for more sophisticated, context-dependent bandwidth selection strategies but is left for future work.
 
 \subsection{Relationship to Kernel Methods and RKHS}
-
-In this subsection, the relationship of the proposed method to kernel methods and Reproducing Kernel Hilbert Spaces (RKHS) is explored. The use of positive definite kernels in defining the weights $K_\mathcal{D}$ allows the proposed estimator to be interpreted within the RKHS framework, providing deeper insights into its properties and connections to existing kernel-based methods.
-
-Recall that in the proposed method, the weights in the loss function \eqref{loss_rsk} are defined using a compound positive definite kernel $K_\mathcal{D}$ on the data domain $\mathcal{D}$:
-
+The use of positive definite kernels in defining the weights $\mathcal{K}_\mathcal{D}$ allows the proposed estimator to be interpreted within the Reproducing Kernel Hilbert Spaces (RKHS) framework. If $\mathcal{K}_\mathcal{D}$ is chosen to be a positive definite kernel (e.g., by ensuring both $K_1$ and $K_2$ are positive definite), it induces a feature map $\phi: \mathcal{D} \to \mathcal{H}$, where $\mathcal{H}$ is a Hilbert space, such that:
 \begin{align}
-\mathcal{L}_{\text{rsk}}(x, y; \mathcal{D}_N, H) \coloneqq \sum_{i=1}^N \left( Y_i - \sum_{j=0}^p \beta_j(x, y) (x - X_i)^j \right)^2 K_{\mathcal{D}} \left( (x, y), (X_i, Y_i); H \right). \label{loss_rsk_repeat}
+\mathcal{K}_{\mathcal{D}} \left( (x, y), (x', y') \right) = \langle \phi(x, y), \phi(x', y') \rangle_{\mathcal{H}}.
 \end{align}
+The weights $\mathcal{K}_\mathcal{D}((x,y),(X_i,Y_i))$ can be interpreted as inner products in the feature space $\mathcal{H}$. Consequently, the loss function can be viewed as a weighted least-squares problem where the weights are determined by the similarity between the feature representations of the data points and the point of interest.
 
-As per equation \eqref{compound_kernel_def}, the kernel $K_\mathcal{D}$ is defined as a product of two positive definite kernels:
-
+Furthermore, consider the role of the Kernel Density Estimator (KDE) in the proposed method. The KDE at a point $(x,y)$ using a positive definite kernel $K_2$ is given by:
 \begin{align}
-K_{\mathcal{D}} \left( (x, y), (x', y'); H_1, H_2 \right) = K_1(x, x'; H_1) \cdot K_2 \left( (x, y), (x', y'); H_2 \right), \label{compound_kernel_def_repeat}
+\hat{f}(x, y) = \frac{1}{N} \sum_{i=1}^N K_2 \left( (x, y), (X_i, Y_i); \mathcal{H}_2 \right).
 \end{align}
-
-where $K_1$ is a kernel function depending only on the predictors $x$ and $x'$, typically chosen as the traditional distance-based kernel used in local polynomial regression, and $K_2$ is a kernel function that incorporates both predictors and responses.
-
-Since $K_\mathcal{D}$ is a product of positive definite kernels, it is itself a positive definite kernel. Therefore, there exists a feature mapping $\phi: \mathcal{D} \to \mathcal{H}$, where $\mathcal{H}$ is a Hilbert space, such that:
-
+Letting $K_2$ be positive definite, there exists a feature mapping $\psi: \mathcal{D} \to \mathcal{G}$ such that the KDE at $(x,y)$ can be expressed as:
 \begin{align}
-K_{\mathcal{D}} \left( (x, y), (x', y') \right) = \langle \phi(x, y), \phi(x', y') \rangle_{\mathcal{H}}. \label{kernel_feature_map}
+\hat{f}(x, y) = \left\langle \psi(x, y), \frac{1}{N} \sum_{i=1}^N \psi(X_i, Y_i) \right\rangle_{\mathcal{G}}.
 \end{align}
-
-Thus, the weights $K_\mathcal{D}((x,y),(X_i,Y_i))$ can be interpreted as inner products in the feature space $\mathcal{H}$. Consequently, the loss function \eqref{loss_rsk_repeat} can be viewed as a weighted least-squares problem where the weights are determined by the similarity between the feature representations of the data points and the point of interest.
-
-Furthermore, consider the role of the Kernel Density Estimator (KDE) in the proposed method. The KDE at a point $(x,y)$ is given by:
-
-\begin{align}
-\hat{f}(x, y) = \frac{1}{N} \sum_{i=1}^N K_2 \left( (x, y), (X_i, Y_i); H_2 \right). \label{kde_kernel_correct}
-\end{align}
-
-Since $K_2$ is a positive definite kernel, there exists a feature mapping $\psi: \mathcal{D} \to \mathcal{G}$, where $\mathcal{G}$ is another Hilbert space, such that:
-
-\begin{align}
-K_2 \left( (x, y), (x', y') \right) = \langle \psi(x, y), \psi(x', y') \rangle_{\mathcal{G}}. \label{kernel_feature_map_k2}
-\end{align}
-
-Therefore, the KDE at $(x,y)$ can be expressed in terms of inner products in the feature space $\mathcal{G}$:
-
-\begin{align}
-\hat{f}(x, y) = \frac{1}{N} \sum_{i=1}^N \langle \psi(x, y), \psi(X_i, Y_i) \rangle_{\mathcal{G}}. \label{kde_inner_product_k2}
-\end{align}
-
-This expression shows that the KDE at $(x,y)$ is proportional to the inner product between the feature mapping $\psi(x,y)$ and the mean of the feature mappings of the data:
-
-\begin{align}
-\hat{\nu}_{\psi} = \frac{1}{N} \sum_{i=1}^N \psi(X_i, Y_i), \label{mean_feature_k2}
-\end{align}
-
-so that:
-
-\begin{align}
-\hat{f}(x, y) = \langle \psi(x, y), \hat{\nu}_{\psi} \rangle_{\mathcal{G}}. \label{kde_mean_inner_product_k2}
-\end{align}
-
-This interpretation shows that the KDE measures how closely the feature representation $\psi(x, y)$ of a point $(x, y)$ aligns with the average feature representation $\hat{\nu}_{\psi}$ of the data in the space induced by $K_2$. In the proposed method, this alignment influences the weights in the regression, as the density estimates $\hat{f}(x, y)$ or $\hat{f}(Y_i \mid X_i)$ derived from $K_2$ directly affect the overall weights $K_\mathcal{D}((x, y), (X_i, Y_i))$. This interplay underpins the robustness and adaptability of the proposed method.
-
-By leveraging positive definite kernels for defining $K_\mathcal{D}$, the method inherently operates within the RKHS framework, where weights represent similarities in feature space. This perspective highlights the connection between the kernel-based weighting and the feature mappings, offering insights into the estimator's flexibility and robustness.
-
+This expression shows that the KDE measures how closely the feature representation $\psi(x, y)$ aligns with the average feature representation of the data in the space induced by $K_2$. In the proposed method, this alignment influences the weights in the regression, as the density estimates derived from $K_2$ directly affect the overall weights. By leveraging positive definite kernels, the method inherently operates within the RKHS framework, where weights represent similarities in feature space. This perspective highlights the connection between the kernel-based weighting and the feature mappings, offering insights into the estimator's flexibility and robustness.
 
 \section{Experiments and Implementation Notes}
 \label{S:Experiments and Implementation Notes}
-
 This section presents an evaluation of the proposed method (RSKLPR), implemented in Python and published as an open source package \href{https://github.com/yaniv-shulman/rsklpr}{https://github.com/yaniv-shulman/rsklpr}. The experiments focus on comparing the performance of RSKLPR against existing local regression techniques under synthetic settings with different noise characteristics.
 
 \subsection*{Implementation Details}
-The implementation normalizes distances in each neighborhood to the range $[0, 1]$, consistent with the approach in \cite{cleveland79}. For the kernel $K_1(x, x')$, a Laplacian kernel $e^{-\|x - x'\|}$ was selected, demonstrating more consistent and efficient performance compared to alternatives like the tricube kernel. For density estimation in $K_2$, a factorized multidimensional Kernel Density Estimator (KDE) with scaled Gaussian kernels was used. Bandwidth selection for density estimation was explored using five methods: Scott’s rule \cite{scott2015multivariate}, the normal reference rule, global least-squares cross-validation, local least-squares cross-validation, and local maximum-likelihood cross-validation. Additionally, the bandwidth for the predictor kernel $K_1$ was empirically adjusted as a function of the window size in certain experiments. Scaling constants within neighborhoods, such as those in $\hat{f}(y \mid x)$ and $\hat{f}(x, y)$, were excluded for computational efficiency, as they do not impact the local regression results. The implementation supports local constant and local linear estimators however the experiments were done only with the local linear estimator i.e. $p=1$ as it is well known to be superior.
+The implementation normalizes distances in each neighborhood to the range $[0, 1]$, consistent with the approach in \cite{cleveland79}, effectively making the bandwidth for $K_1$ adaptive. For the kernel $K_1(x, x')$, a Laplacian kernel $e^{-\|x - x'\|}$ was selected. Note that this is an un-normalized kernel; since weights within a neighborhood are scaled, the normalization constant does not affect the final estimate. For density estimation in $K_2$, a factorized multidimensional Kernel Density Estimator (KDE) with scaled Gaussian kernels was used. This factorization is a simplification that ignores potential covariance between predictors and response but is computationally efficient. This approximation may under-down-weight observations where the predictors and response are strongly correlated; a full joint bandwidth matrix could be used to address this without changing the underlying theory. Bandwidth selection for density estimation was explored using several standard methods. Scaling constants within neighborhoods, such as those in $\hat{f}(y \mid x)$ and $\hat{f}(x, y)$, were excluded for computational efficiency, as they do not impact the local regression results. The experiments were done only with the local linear estimator i.e. $p=1$ as it is well known to be superior.
 
 \subsection*{Experimental Design}
-Synthetic datasets were generated with both additive Gaussian noise and asymmetric data distributions to simulate various regression scenarios. The following characteristics were varied: noise types, including homoscedastic and heteroscedastic Gaussian noise as well as asymmetric noise distributions (Exponential, Log-normal, Gamma, and Weibull); data density, encompassing both sparse and dense data regimes; and regression complexity, modeling non-linear curves and surfaces. Performance was evaluated using Root Mean Square Error (RMSE) and sensitivity to neighborhood size. For asymmetric noise settings, RMSE trends were analyzed as a function of data density.
+Synthetic datasets were generated with both additive Gaussian noise and asymmetric data distributions to simulate various regression scenarios. The following characteristics were varied: noise types, including homoscedastic and heteroscedastic Gaussian noise as well as asymmetric noise distributions (Exponential, Log-normal, Gamma, and Weibull); data density, encompassing both sparse and dense data regimes; and regression complexity, modeling non-linear curves and surfaces. Performance was evaluated using Root Mean Square Error (RMSE) and sensitivity to neighborhood size.
 
 \subsection*{Results and Observations}
-Under Gaussian noise settings, the proposed method performed competitively across a range of synthetic settings. Unlike iterative robust variants, RSKLPR achieved these results with a single iteration. A regression example with heteroscedastic Gaussian noise is shown in Figure~\ref{fig:gaussian_noise}. The proposed method aligns with the true regression function while effectively mitigating the influence of noise and outliers.
+Under Gaussian noise settings, the proposed method performed competitively. Unlike iterative robust variants, RSKLPR achieved these results with a single iteration. A regression example with heteroscedastic Gaussian noise is shown in Figure~\ref{fig:gaussian_noise}. The proposed method aligns with the true regression function while effectively mitigating the influence of noise and outliers.
 
 \begin{figure}[t]
 \caption{Performance of RSKLPR on 1D synthetic data with heteroscedastic Gaussian noise. The proposed method effectively aligns with the true regression function while mitigating the influence of outliers and noise.}
@@ -448,56 +378,51 @@ Under Gaussian noise settings, the proposed method performed competitively acros
 \label{fig:gaussian_noise}
 \end{figure}
 
-Under asymmetric data distributions, RSKLPR exhibited robust performance in low density settings, often matching or outperforming standard LPR and the iterative robust variant. In high-density settings, the proposed method diverged, thus confirming the theoretical results, however, it consistently outperformed the iterative robust LPR. Figure~\ref{fig:asymmetric_results} presents RMSE trends for asymmetric noise distributions for the three methods.
 
 \begin{figure}[h!]
     \centering
-    % Row 1, Column 1
     \begin{subfigure}[b]{0.48\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{graphics/exponential_asymmetrical_increasing_numpoints.png}
+        \includegraphics[width=\textwidth]{exponential_asymmetrical_increasing_numpoints.png}
         \caption{Exponential.}
         \label{fig:plot1}
     \end{subfigure}
     \hfill
-    % Row 1, Column 2
     \begin{subfigure}[b]{0.48\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{graphics/gamma_asymmetrical_increasing_numpoints.png}
+        \includegraphics[width=\textwidth]{gamma_asymmetrical_increasing_numpoints.png}
         \caption{Gamma.}
         \label{fig:plot2}
     \end{subfigure}
     
     \vspace{1em} % Vertical space between rows
     
-    % Row 2, Column 1
     \begin{subfigure}[b]{0.48\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{graphics/log_normal_asymmetrical_increasing_numpoints.png}
+        \includegraphics[width=\textwidth]{log_normal_asymmetrical_increasing_numpoints.png}
         \caption{Log-normal.}
         \label{fig:plot3}
     \end{subfigure}
     \hfill
-    % Row 2, Column 2
     \begin{subfigure}[b]{0.48\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{graphics/weibull_asymmetrical_increasing_numpoints.png}
+        \includegraphics[width=\textwidth]{weibull_asymmetrical_increasing_numpoints.png}
         \caption{Weibull.}
         \label{fig:plot4}
     \end{subfigure}
     
-\begin{subfigure}[b]{0.48\textwidth}
+    \begin{subfigure}[b]{0.48\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{graphics/gaussian_increasing_numpoints.png}
+        \includegraphics[width=\textwidth]{gaussian_increasing_numpoints.png}
         \caption{Gaussian.}
-        \label{fig:plot4}
+        \label{fig:plot5}
     \end{subfigure}    
     
     \caption{These subplots compare RMSE as a function of data density for the proposed method (RSKLPR), standard LOWESS, and Robust LOWESS (5 iterations) across various noise distributions: (a) Exponential, (b) Gamma, (c) Log-normal, (d) Weibull, and (e) Gaussian. The results demonstrate the effectiveness of RSKLPR in low-density data and align well with theoretical expectations for denser data.}
     \label{fig:asymmetric_results}
 \end{figure}
 
-The robustness-bias trade-off in RSKLPR is controlled by the bandwidth $H_2$ of the kernel $K_2$. Small bandwidths enhance robustness by down-weighting outliers but may introduce bias, while larger bandwidths reduce bias but diminish robustness. An intermediate bandwidth provides an optimal balance, as demonstrated in experiments.
+Under asymmetric data distributions, RSKLPR exhibited robust performance in low density settings, often matching or outperforming standard LPR and the iterative robust variant. In high-density settings, the proposed method diverged from the true mean, confirming the theoretical results on asymptotic bias. However, it consistently outperformed the iterative robust LPR. Figure~\ref{fig:asymmetric_results} presents RMSE trends for asymmetric noise distributions for the three methods.
 
 The method was also significantly less sensitive to the neighborhood size making it an an attractive option for applications where robust regression is critical. Complete experimental results, including multivariate settings and bootstrap-based confidence intervals, are available at \href{https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments/}{https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments} as interactive Jupyter notebooks \cite{jupyter}.
 
@@ -506,66 +431,72 @@ The method was also significantly less sensitive to the neighborhood size making
 
 This work introduces a new robust variant of Local Polynomial Regression (LPR), opening several avenues for further exploration and refinement. Since the proposed method generalizes the traditional LPR, there are opportunities to replace certain standard components in equation \eqref{loss_rsk} with more robust alternatives. These could include approaches such as robust methods for bandwidth selection or substituting the conventional quadratic residual function with alternatives better suited for handling outliers.
 
-An important research direction is to explore adaptive bandwidth selection strategies that respond dynamically to local data density. In regions where data are sparse, the bandwidth in \(K_2\) could be fine-tuned to maintain robust down-weighting of potential outliers, ensuring sufficient flexibility while avoiding an overly coarse estimate. Conversely, in denser regions, broader bandwidths may be adopted, causing the estimator to behave more like standard LPR and reduce any bias introduced by the robust weighting. Incorporating such adaptive bandwidths could further enhance the method’s overall performance and flexibility, particularly in heterogeneous data scenarios.
+An important research direction is to explore adaptive bandwidth selection strategies that respond dynamically to local data density. In regions where data are sparse, the bandwidth in \(K_2\) could be fine-tuned to maintain robust down-weighting of potential outliers. Conversely, in denser regions, broader bandwidths may be adopted, causing the estimator to behave more like standard LPR and reduce any bias introduced by the robust weighting. Incorporating such adaptive bandwidths could further enhance the method’s overall performance and flexibility.
 
-Additionally, further development of this framework may involve exploring different kernel functions \(K_D\) and assessing how robust density estimators influence overall performance. Extending the method within the RKHS framework presents another valuable direction. This could allow for the introduction of a regularization term in the loss function, enhancing control over estimator smoothness and mitigating the risk of overfitting. Through these future directions, the robustness and adaptability of the proposed method could be substantially advanced.
+Additionally, further development of this framework may involve exploring different kernel functions and assessing how robust density estimators influence overall performance. Extending the method within the RKHS framework presents another valuable direction. This could allow for the introduction of a regularization term in the loss function, enhancing control over estimator smoothness and mitigating the risk of overfitting. Through these future directions, the robustness and adaptability of the proposed method could be substantially advanced.
 
 
 \bibliographystyle{abbrv}
-
 \bibliography{refs}
 
 \newpage
 \appendix
+\section{Joint Density Kernel}
+\label{appendix:joint_density_kernel}
+An alternative kernel for $K_2$ can be defined that is proportional to the joint distribution of the random pair. This could be useful, for example, to also down-weight high-leverage points in the predictor space.
+\begin{align}
+K_2 \left((x,y),(x', y') ; \mathcal{H}_2 \right) = \hat{f}(x,y ; \mathcal{H}_2) \hat{f}(x',y'; \mathcal{H}_2)
+\end{align}
+Where the joint density can be estimated using the Parzen-Rosenblatt window estimator. This choice also satisfies the conditions of Lemma \ref{lemma:invariance}, with $c(x,y)=\hat{f}(x,y; \mathcal{H}_2)$ and $w(X_i, Y_i) = \hat{f}(X_i, Y_i; \mathcal{H}_2)$. The simplified empirical objective function for a point $(X_i, Y_i)$ in the neighborhood becomes:
+\[
+\tilde{\mathcal{L}}(x)
+=\sum_{i=1}^{N}
+\Bigl(Y_i-\sum_{j=0}^{p}\beta_j(x)(X_i - x)^j\Bigr)^2
+K_{h_1}(x-X_i)\,\hat{f}(X_i, Y_i; \mathcal{H}_2).
+\]
+This formulation weights each point $(X_i, Y_i)$ by its estimated joint density, in addition to the standard distance-based weight $K_{h_1}(x-X_i)$.
+
+The mechanism by which this kernel provides robustness becomes clearer when we consider its population-level objective. The objective function involves an integral term weighted by $[f(X,Y)]^2$. We can decompose this squared joint density:
+\[
+[f(X,Y)]^2 = [f(Y|X) \cdot f(X)]^2 = [f(Y|X)]^2 \cdot [f(X)]^2.
+\]
+This decomposition reveals a dual weighting mechanism. The \textbf{$[f(Y|X)]^2$} term provides robustness to outliers in the response variable, operating identically to the conditional density kernel discussed in the main paper. Simultaneously, the \textbf{$[f(X)]^2$} term directly addresses high-leverage points. Observations $X$ that lie in low-density regions of the predictor space will have a small $f(X)$ value, and this effect is amplified by the squaring.
+
+Therefore, the joint density kernel explicitly down-weights points that are unusual in either the response space (outliers) or the predictor space (high-leverage points). This provides a clear theoretical underpinning for its use in settings where both types of robust treatment are desired. A full investigation of its properties is left for future work.
+
 \section{Asymptotic Bias Example with an Exponential Conditional Distribution}
 \label{appendix:asym_bias_example}
 
-This appendix illustrates how asymmetry in the conditional distribution \( f(Y \mid X) \) can introduce asymptotic bias in the proposed estimator. The focus is on a standard exponential distribution, a straightforward yet instructive example of an asymmetric family.
+This appendix illustrates how asymmetry in the conditional distribution \( f(Y \mid X) \) can introduce asymptotic bias in the proposed estimator. The focus is on a standard exponential distribution.
 
 Suppose that for each fixed \(X\), the conditional distribution \( f(Y \mid X)\) follows a standard exponential law with rate parameter \(\lambda(X)\):
 \[
-  f(Y \mid X) \;=\; \lambda(X)\,\exp\!\bigl(-\lambda(X)\,Y\bigr),
-  \quad Y \ge 0,
+ f(Y \mid X) \;=\; \lambda(X)\,\exp\!\bigl(-\lambda(X)\,Y\bigr),
+ \quad Y \ge 0,
 \]
 so that the true regression function is
 \[
-  m(X) \;=\; \mathbb{E}[Y \,\mid\, X] \;=\; \frac{1}{\lambda(X)}.
+ m(X) \;=\; \mathbb{E}[Y \,\mid\, X] \;=\; \frac{1}{\lambda(X)}.
 \]
-This distribution is supported on \(\{Y \ge 0\}\) and is right-skewed, thus providing a simple example of an asymmetric setting.
-
 When this density is squared, we obtain
 \[
-  [f(Y \mid X)]^2 
-  \;=\; [\lambda(X)]^2 
-  \,\exp\!\bigl(-2\,\lambda(X)\,Y\bigr),
-  \quad Y \ge 0,
+ [f(Y \mid X)]^2 
+ \;=\; [\lambda(X)]^2 
+ \,\exp\!\bigl(-2\,\lambda(X)\,Y\bigr),
+ \quad Y \ge 0,
 \]
-which is proportional to an exponential density with rate \(2\,\lambda(X)\). Normalizing confirms that
+which is proportional to an exponential density with rate \(2\,\lambda(X)\). The mean of \(Y\) under this squared density is
 \[
-  g(Y \mid X) 
-  \;=\; 2\,\lambda(X)\,\exp\!\bigl(-2\,\lambda(X)\,Y\bigr),
-  \quad Y \ge 0,
+ \mu'(X) 
+ \;=\; \frac{1}{2\,\lambda(X)}.
 \]
-so \(g(\cdot \mid X)\) is indeed an exponential distribution with rate \(2\,\lambda(X)\). Under this squared density \(g\), the mean of \(Y\) shifts from the original \(1/\lambda(X)\) to \(1/(2\,\lambda(X))\). Symbolically,
+As established in the main text, the proposed estimator asymptotically converges to \(\mu'(X)\) rather than \(m(X)\). Consequently, at each point \(x\), the asymptotic bias is
 \[
-  \mu'(X) 
-  \;=\; \mathbb{E}_{g}[Y \,\mid\, X]
-  \;=\; \frac{1}{2\,\lambda(X)},
-  \quad\text{and}\quad
-  \mu'(X) - m(X)
-  \;=\; \frac{1}{2\,\lambda(X)} \;-\; \frac{1}{\lambda(X)}
-  \;=\; -\frac{1}{2\,\lambda(X)}.
+ \text{Bias}(x)
+ \;=\; \mu'(x) \;-\; m(x)
+ \;=\; \frac{1}{2\,\lambda(x)} \;-\; \frac{1}{\lambda(x)}
+ \;=\; -\frac{1}{2\,\lambda(x)}.
 \]
-
-In the main text (Section~\ref{s:AsymptoticBias}), it is shown that the proposed estimator asymptotically converges to \(\mu'(X)\) rather than \(m(X)\), owing to the factor \(\,[f(Y \mid X)]^2\) in the weighted objective. Consequently, at each point \(x\), the asymptotic bias is
-\[
-  \text{Bias}(x)
-  \;=\; \mu'(x) \;-\; m(x)
-  \;=\; \frac{1}{2\,\lambda(x)} \;-\; \frac{1}{\lambda(x)}
-  \;=\; -\frac{1}{2\,\lambda(x)}.
-\]
-When \(\lambda(x)\) is large, the absolute value of this bias becomes small; otherwise, the shift can be more pronounced. This example illustrates how the asymmetry of an exponential distribution can steer the estimator toward \(1/(2\,\lambda(X))\) rather than the true mean \(1/\lambda(X)\). More generally, any asymmetric \(f(Y \mid X)\) may exhibit a similar phenomenon under the squared-density weighting.
-
-Although such a shift introduces asymptotic bias, the robust weighting can still be advantageous in practical situations where outliers or heavy-tailed noise are significant concerns. There is thus a trade-off between reduced sensitivity to outliers and potential bias under non-normality, and users must decide how to balance these factors for their specific applications.
+This example illustrates how the asymmetry of an exponential distribution can steer the estimator toward \(1/(2\,\lambda(X))\) rather than the true mean \(1/\lambda(X)\). Although such a shift introduces asymptotic bias, the robust weighting can still be advantageous in practical situations where outliers or heavy-tailed noise are significant concerns.
 
 \end{document}
