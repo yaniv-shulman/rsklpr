@@ -20,10 +20,10 @@ def generate_linear_1d(start: Optional[int] = None, stop: Optional[int] = None, 
         The created linearly spaced 1D array.
     """
     if start is None:
-        start = rng.integers(low=-10, high=10)
+        start = int(rng.integers(low=-10, high=10))
 
     if stop is None:
-        stop = rng.integers(low=-10, high=10)
+        stop = int(rng.integers(low=-10, high=10))
 
     x: np.ndarray = np.linspace(start=start, stop=stop, num=num) + rng.uniform(low=-0.001, high=0.001, size=num)
     return x
