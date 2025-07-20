@@ -1,4 +1,4 @@
-\documentclass[preprint,1p,times]{elsarticle}
+\documentclass[final,1p,times]{elsarticle}
 
 \usepackage{booktabs}
 \usepackage{hyperref}
@@ -22,9 +22,6 @@
 \usepackage{lineno}
 \usepackage{enumitem}
 
-
-\linenumbers
-
 \DeclareMathOperator*{\E}{\mathbb{E}}
 \graphicspath{ {./graphics/} }
 
@@ -37,12 +34,6 @@
 
 \begin{frontmatter}
 
-\vspace*{\fill}
-\begin{center}
-This is a draft version of work in progress, content will be revisited in subsequent versions.
-\end{center}
-\vspace*{\fill}
- 
 \title{Robust Local Polynomial Regression with Similarity Kernels}
 \author{Yaniv Shulman}
 \address{yaniv@shulman.info}
@@ -193,7 +184,7 @@ which is the empirical objective function whose properties are analysed in the n
 \includegraphics[width=0.5\textwidth]{loss_2d.png}
 \end{figure}
 
-\begin{figure}[H]
+\begin{figure}[h]
 \caption{This figure compares the proposed loss function (rsklpr) at various standard deviation levels with common robust losses (e.g., Huber, Cauchy) and the standard quadratic loss. The attenuation of loss in areas with low-density data demonstrates the enhanced robustness of the proposed method. It is assumed that $K_2$ is equivalent to the standard Gaussian density and the $K_1$ distance kernel scaling is excluded. The numbers appended to "rsklpr" indicate the number of standard deviations away from the mean. The vertical axis represents a value proportional to loss $\times$ density, while the horizontal axis represents the residual value.}
 \centering
 \includegraphics[width=1.0\textwidth]{losses_1d.png}
@@ -227,6 +218,8 @@ Let $w_i = \hat f_{Y\mid X}(Y_i\mid X_i)$. Assuming that not all weights are zer
 \end{align}
 The term in the square brackets is the $i$-th term of the standard LPR loss function from Equation \eqref{loss_lpr}. The expression is therefore a weighted arithmetic mean of these standard LPR terms. This interpretation makes it clear that points with a low estimated conditional density (i.e., response outliers) are down-weighted in a single, non-iterative step. Note that if a kernel with bounded support (e.g., Epanechnikov) is used for density estimation, it is theoretically possible for all weights $w_i$ in a neighborhood to be zero, although this is not an issue with unbounded kernels like the Gaussian.
 \end{proof}
+
+\newpage
 
 \subsection{Asymptotic Properties}
 We now analyze the behavior of the estimator as the sample size $N \to \infty$.
@@ -371,6 +364,19 @@ Synthetic datasets were generated with both additive Gaussian noise and asymmetr
 \subsection*{Results and Observations}
 Under Gaussian noise settings, the proposed method performed competitively. Unlike iterative robust variants, RSKLPR achieved these results with a single iteration. A regression example with heteroscedastic Gaussian noise is shown in Figure~\ref{fig:gaussian_noise}. The proposed method aligns with the true regression function while effectively mitigating the influence of noise and outliers.
 
+Under asymmetric data distributions, RSKLPR exhibited robust performance in low density settings, often matching or outperforming standard LPR and the iterative robust variant. In high-density settings, the proposed method diverged from the true mean, confirming the theoretical results on asymptotic bias. However, it consistently outperformed the iterative robust LPR. Figure~\ref{fig:asymmetric_results} presents RMSE trends for asymmetric noise distributions for the three methods.
+
+The method was also significantly less sensitive to the neighborhood size making it an an attractive option for applications where robust regression is critical. Complete experimental results, including multivariate settings and bootstrap-based confidence intervals, are available at \href{https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments/}{https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments} as interactive Jupyter notebooks \cite{jupyter}.
+
+\section{Future Work and Research Directions}
+\label{S:Future work and research directions}
+
+This work introduces a new robust variant of Local Polynomial Regression (LPR), opening several avenues for further exploration and refinement. Since the proposed method generalizes the traditional LPR, there are opportunities to replace certain standard components in equation \eqref{loss_rsk} with more robust alternatives. These could include approaches such as robust methods for bandwidth selection or substituting the conventional quadratic residual function with alternatives better suited for handling outliers.
+
+An important research direction is to explore adaptive bandwidth selection strategies that respond dynamically to local data density. In regions where data are sparse, the bandwidth in \(K_2\) could be fine-tuned to maintain robust down-weighting of potential outliers. Conversely, in denser regions, broader bandwidths may be adopted, causing the estimator to behave more like standard LPR and reduce any bias introduced by the robust weighting. Incorporating such adaptive bandwidths could further enhance the method’s overall performance and flexibility.
+
+Additionally, further development of this framework may involve exploring different kernel functions and assessing how robust density estimators influence overall performance. Extending the method within the RKHS framework presents another valuable direction. This could allow for the introduction of a regularization term in the loss function, enhancing control over estimator smoothness and mitigating the risk of overfitting. Through these future directions, the robustness and adaptability of the proposed method could be substantially advanced.
+
 \begin{figure}[t]
 \caption{Performance of RSKLPR on 1D synthetic data with heteroscedastic Gaussian noise. The proposed method effectively aligns with the true regression function while mitigating the influence of outliers and noise.}
 \centering
@@ -422,24 +428,13 @@ Under Gaussian noise settings, the proposed method performed competitively. Unli
     \label{fig:asymmetric_results}
 \end{figure}
 
-Under asymmetric data distributions, RSKLPR exhibited robust performance in low density settings, often matching or outperforming standard LPR and the iterative robust variant. In high-density settings, the proposed method diverged from the true mean, confirming the theoretical results on asymptotic bias. However, it consistently outperformed the iterative robust LPR. Figure~\ref{fig:asymmetric_results} presents RMSE trends for asymmetric noise distributions for the three methods.
-
-The method was also significantly less sensitive to the neighborhood size making it an an attractive option for applications where robust regression is critical. Complete experimental results, including multivariate settings and bootstrap-based confidence intervals, are available at \href{https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments/}{https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments} as interactive Jupyter notebooks \cite{jupyter}.
-
-\section{Future Work and Research Directions}
-\label{S:Future work and research directions}
-
-This work introduces a new robust variant of Local Polynomial Regression (LPR), opening several avenues for further exploration and refinement. Since the proposed method generalizes the traditional LPR, there are opportunities to replace certain standard components in equation \eqref{loss_rsk} with more robust alternatives. These could include approaches such as robust methods for bandwidth selection or substituting the conventional quadratic residual function with alternatives better suited for handling outliers.
-
-An important research direction is to explore adaptive bandwidth selection strategies that respond dynamically to local data density. In regions where data are sparse, the bandwidth in \(K_2\) could be fine-tuned to maintain robust down-weighting of potential outliers. Conversely, in denser regions, broader bandwidths may be adopted, causing the estimator to behave more like standard LPR and reduce any bias introduced by the robust weighting. Incorporating such adaptive bandwidths could further enhance the method’s overall performance and flexibility.
-
-Additionally, further development of this framework may involve exploring different kernel functions and assessing how robust density estimators influence overall performance. Extending the method within the RKHS framework presents another valuable direction. This could allow for the introduction of a regularization term in the loss function, enhancing control over estimator smoothness and mitigating the risk of overfitting. Through these future directions, the robustness and adaptability of the proposed method could be substantially advanced.
-
+\vspace*{2in}
 
 \bibliographystyle{abbrv}
 \bibliography{refs}
 
-\newpage
+
+
 \appendix
 \section{Joint Density Kernel}
 \label{appendix:joint_density_kernel}
