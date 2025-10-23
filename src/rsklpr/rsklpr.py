@@ -9,6 +9,7 @@ from sklearn.neighbors import NearestNeighbors
 
 from rsklpr.kde_statsmodels_impl.bandwidths import select_bandwidth
 from rsklpr.kde_statsmodels_impl.kernel_density import KDEMultivariate
+from rsklpr.kernels import laplacian_normalized
 
 all_metrics: List[str] = [
     "residuals",
@@ -168,38 +169,6 @@ def _dim_data(data: np.ndarray) -> int:
     return data.shape[1] if data.ndim > 1 else 1
 
 
-def _laplacian_normalized(u: np.ndarray) -> np.ndarray:
-    """
-    Implementation of the Laplacian kernel. The inputs are first scaled to the range [0,1] before applying the kernel.
-
-    Args:
-        u: The kernel input.
-
-    Returns:
-        The kernel output.
-    """
-    return np.exp(-u / np.max(np.atleast_2d(u), axis=1, keepdims=True).astype(float))  # type: ignore [no-any-return]
-
-
-def _tricube_normalized(u: np.ndarray) -> np.ndarray:
-    """
-    Implementation of the normalized Tricube kernel. The implementation assumes all inputs are non-negative with a 0
-    value present. The inputs are scaled to the range [0,1] before applying the kernel.
-
-    Args:
-        u: The kernel input, note it is assumed all inputs are non-negative.
-
-    Returns:
-        The kernel output.
-    """
-    assert u.min() >= 0  # negative values are not expected to happen during normal execution.
-    return np.clip(  # type: ignore [no-any-return, call-overload]
-        a=np.power((1 - np.power(u / np.max(np.atleast_2d(u), axis=1, keepdims=True).astype(float), 3)), 3),
-        a_min=0.0,
-        a_max=None,
-    )
-
-
 class Rsklpr:
     """
     Implementation of the Robust Similarity Kernel Local Polynomial Regression for proposed in the paper
@@ -210,9 +179,11 @@ class Rsklpr:
         self,
         size_neighborhood: int,
         degree: int = 1,
-        metric_x: str | Callable[[np.ndarray, np.ndarray], float]= "mahalanobis",
+        metric_x: str | Callable[[np.ndarray, np.ndarray], float] = "mahalanobis",
         metric_x_params: Optional[Dict[str, Any]] = None,
-        kp: Callable[[np.ndarray], float] | List[Callable[[np.ndarray], float]] = _laplacian_normalized,
+        kp: (
+            Callable[[np.ndarray, np.ndarray], np.ndarray] | List[Callable[[np.ndarray, np.ndarray], np.ndarray]]
+        ) = laplacian_normalized,
         kr: str = "joint",
         bw1: Union[str, float, Sequence[float], Callable[[Any], Sequence[float]]] = "normal_reference",  # type: ignore [misc]
         bw2: Union[str, float, Sequence[float], Callable[[Any], Sequence[float]]] = "normal_reference",  # type: ignore [misc]
@@ -266,6 +237,7 @@ class Rsklpr:
             raise ValueError("degree must be one of 0 or 1")
 
         kr = kr.lower()
+
         if kr not in ("conden", "joint"):
             raise ValueError(f"k2 {kr} is unsupported and must be one of 'conden' or 'joint'")
 
@@ -300,9 +272,18 @@ class Rsklpr:
 
         self._size_neighborhood: int = int(size_neighborhood)
         self._degree: int = int(degree)
-        self._metric_x: str = metric_x.lower()
+
+        self._metric_x: str | Callable[[np.ndarray, np.ndarray], float] = metric_x
+
+        if isinstance(metric_x, str):
+            self._metric_x = metric_x.lower()
+
         self._metric_x_params: Optional[Dict[str, Any]] = metric_x_params
-        self._kp: str = kp
+
+        self._kp: (
+            Callable[[np.ndarray, np.ndarray], np.ndarray] | List[Callable[[np.ndarray, np.ndarray], np.ndarray]]
+        ) = kp
+
         self._kr: str = kr
         self._bw1: Union[str, Sequence[float], Callable[[Any], Sequence[float]]] = bw1  # type: ignore [misc]
         self._bw2: Union[str, Sequence[float], Callable[[Any], Sequence[float]]] = bw2  # type: ignore [misc]
@@ -312,7 +293,7 @@ class Rsklpr:
         )
 
         self._seed: int = seed
-        self._kp_func: List[Callable[[np.ndarray], float]] = [kp] if isinstance(kp, Callable) else kp
+        self._kp_func: List[Callable[[np.ndarray, np.ndarray], np.ndarray]] = [kp] if callable(kp) else kp
         self._rnd_gen: np.random.Generator = np_default_rng(seed=seed)
         self._x: np.ndarray = np.asarray([])
         self._y: np.ndarray = np.asarray([])
@@ -604,8 +585,12 @@ class Rsklpr:
         dist_x_neighbors: np.ndarray
         indices: np.ndarray
         dist_x_neighbors, indices = self._nearest_neighbors.kneighbors(X=x_0.reshape(1, -1))
-        weights: np.ndarray = self._kp_func(dist_x_neighbors)
         x_neighbors: np.ndarray = self._x[indices].squeeze(axis=0)
+        weights_list: List[np.ndarray] = [
+            self._kp_func[i](x_neighbors, dist_x_neighbors) for i in range(len(self._kp_func))
+        ]
+        weights = np.prod(weights_list, axis=0)
+
         if self._kr == "conden":
             weights *= self._k2_conden(
                 x_neighbors=x_neighbors,

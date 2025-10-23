@@ -1,4 +1,4 @@
-from typing import List, Optional, Union, Dict, Any, Type
+from typing import List, Optional, Union, Dict, Any, Type, Callable
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -8,10 +8,9 @@ from pytest_mock import MockerFixture
 from statsmodels.regression.linear_model import RegressionResults
 
 import rsklpr
+from rsklpr.kernels import laplacian_normalized, tricube_normalized
 from rsklpr.rsklpr import (
     Rsklpr,
-    _laplacian_normalized,
-    _tricube_normalized,
     _dim_data,
     _weighted_local_regression,
     _r_squared,
@@ -31,8 +30,8 @@ from tests.rsklpr_tests.utils import generate_linear_1d, generate_linear_nd, rng
 @pytest.mark.parametrize(
     argnames="k1",
     argvalues=[
-        "tricube",
-        "laplacian",
+        tricube_normalized,
+        laplacian_normalized,
     ],
 )
 @pytest.mark.parametrize(
@@ -44,7 +43,7 @@ from tests.rsklpr_tests.utils import generate_linear_1d, generate_linear_nd, rng
 )
 @pytest.mark.slow
 def test_rsklpr_smoke_test_1d_regression_increasing_windows_expected_output(
-    x: np.ndarray, y: np.ndarray, k1: str, k2: str
+    x: np.ndarray, y: np.ndarray, k1: Callable[[np.ndarray, np.ndarray], np.ndarray], k2: str
 ) -> None:
     """
     Smoke test that reasonable values are returned for linear 1D input with various window sizes.
@@ -72,10 +71,7 @@ def test_rsklpr_smoke_test_1d_regression_increasing_windows_expected_output(
 )
 @pytest.mark.parametrize(
     argnames="k1",
-    argvalues=[
-        "tricube",
-        "laplacian",
-    ],
+    argvalues=[tricube_normalized, laplacian_normalized],
 )
 @pytest.mark.parametrize(
     argnames="k2",
@@ -86,7 +82,7 @@ def test_rsklpr_smoke_test_1d_regression_increasing_windows_expected_output(
 )
 @pytest.mark.slow
 def test_rsklpr_smoke_test_2d_regression_increasing_windows_expected_output(
-    x: np.ndarray, y: np.ndarray, k1: str, k2: str
+    x: np.ndarray, y: np.ndarray, k1: Callable[[np.ndarray, np.ndarray], np.ndarray], k2: str
 ) -> None:
     """
     Smoke test that reasonable values are returned for linear 1D input with various window sizes.
@@ -114,10 +110,7 @@ def test_rsklpr_smoke_test_2d_regression_increasing_windows_expected_output(
 )
 @pytest.mark.parametrize(
     argnames="k1",
-    argvalues=[
-        "tricube",
-        "laplacian",
-    ],
+    argvalues=[tricube_normalized, laplacian_normalized],
 )
 @pytest.mark.parametrize(
     argnames="k2",
@@ -128,7 +121,7 @@ def test_rsklpr_smoke_test_2d_regression_increasing_windows_expected_output(
 )
 @pytest.mark.slow
 def test_rsklpr_smoke_test_5d_regression_increasing_windows_expected_output(
-    x: np.ndarray, y: np.ndarray, k1: str, k2: str
+    x: np.ndarray, y: np.ndarray, k1: Callable[[np.ndarray, np.ndarray], np.ndarray], k2: str
 ) -> None:
     """
     Smoke test that reasonable values are returned for linear 1D input with various window sizes.
@@ -156,10 +149,7 @@ def test_rsklpr_smoke_test_5d_regression_increasing_windows_expected_output(
 )
 @pytest.mark.parametrize(
     argnames="k1",
-    argvalues=[
-        "tricube",
-        "laplacian",
-    ],
+    argvalues=[laplacian_normalized, tricube_normalized],
 )
 @pytest.mark.parametrize(
     argnames="k2",
@@ -170,7 +160,7 @@ def test_rsklpr_smoke_test_5d_regression_increasing_windows_expected_output(
 )
 @pytest.mark.slow
 def test_rsklpr_smoke_test_1d_estimate_bootstrap_expected_output(
-    x: np.ndarray, y: np.ndarray, k1: str, k2: str
+    x: np.ndarray, y: np.ndarray, k1: Callable[[np.ndarray, np.ndarray], np.ndarray], k2: str
 ) -> None:
     """
     Smoke test that reasonable values are returned for a linear 1D input using the joint kernel.
@@ -196,14 +186,14 @@ def test_rsklpr_init_expected_values(mocker: MockerFixture) -> None:
     assert target._degree == 1
     assert target._metric_x == "mahalanobis"
     assert target._metric_x_params is None
-    assert target._kp == "laplacian"
+    assert target._kp == laplacian_normalized
     assert target._kr == "joint"
     assert target._bw1 == "normal_reference"
     assert target._bw2 == "normal_reference"
     assert target._bw_global_subsample_size is None
     assert target._seed == 888
     rsklpr.rsklpr.np_default_rng.assert_called_once_with(seed=888)  # type: ignore [attr-defined]
-    assert target._kp_func == _laplacian_normalized
+    assert target._kp_func == [laplacian_normalized]
     assert target._x.shape == (0,)
     assert target._y.shape == (0,)
     assert target._residuals.shape == (0,)
@@ -222,7 +212,7 @@ def test_rsklpr_init_expected_values(mocker: MockerFixture) -> None:
         degree=0,
         metric_x="Minkowski",
         metric_x_params={"p": 3},
-        kp="Tricube",
+        kp=tricube_normalized,
         kr="CondeN",
         bw1="cv_ls_glObal",
         bw2="Scott",
@@ -234,14 +224,14 @@ def test_rsklpr_init_expected_values(mocker: MockerFixture) -> None:
     assert target._degree == 0
     assert target._metric_x == "minkowski"
     assert target._metric_x_params == {"p": 3}
-    assert target._kp == "tricube"
+    assert target._kp == tricube_normalized
     assert target._kr == "conden"
     assert target._bw1 == "cv_ls_global"
     assert target._bw2 == "scott"
     assert target._bw_global_subsample_size == 50
     assert target._seed == 45
     rsklpr.rsklpr.np_default_rng.assert_called_once_with(seed=45)  # type: ignore [attr-defined]
-    assert target._kp_func == _tricube_normalized
+    assert target._kp_func == [tricube_normalized]
     assert target._x.shape == (0,)
     assert target._y.shape == (0,)
     assert target._residuals.shape == (0,)
@@ -300,11 +290,6 @@ def test_rsklpr_init_raises_for_incorrect_inputs() -> None:
         Rsklpr(size_neighborhood=3, degree=2)
 
     with pytest.raises(
-        expected_exception=ValueError, match="k1 bla is unsupported and must be one of 'laplacian' or 'tricube'"
-    ):
-        Rsklpr(size_neighborhood=3, kp="bla")
-
-    with pytest.raises(
         expected_exception=ValueError, match="k2 alb is unsupported and must be one of 'conden' or 'joint'"
     ):
         Rsklpr(size_neighborhood=3, kr="alb")
@@ -332,71 +317,6 @@ def test_dim_data_expected_output() -> None:
     assert _dim_data(data=np.array([[0], [1], [2]])) == 1
     assert _dim_data(data=np.array([[0, 4], [1, 5], [2, 6]])) == 2
     assert _dim_data(data=np.ones((100, 5))) == 5
-
-
-def test_laplacian_normalized_expected_output() -> None:
-    """
-    Tests the expected outputs are returned.
-    """
-    u: np.ndarray = np.linspace(start=0, stop=5)
-    actual: np.ndarray = _laplacian_normalized(u=u)
-    u /= 5.0
-    np.testing.assert_allclose(actual=actual, desired=np.exp(-u).reshape((1, 50)))
-
-    u = np.linspace(start=3, stop=4)
-    actual = _laplacian_normalized(u=u)
-    u /= 4.0
-    np.testing.assert_allclose(actual=actual, desired=np.exp(-u).reshape((1, 50)))
-
-    u = np.linspace(start=-2, stop=8)
-    actual = _laplacian_normalized(u=u)
-    u /= 8.0
-    np.testing.assert_allclose(actual=actual, desired=np.exp(-u).reshape((1, 50)))
-
-    u = np.linspace(start=0, stop=5).reshape(1, 50)
-    actual = _laplacian_normalized(u=u)
-    u /= 5.0
-    np.testing.assert_allclose(actual=actual, desired=np.exp(-u).reshape((1, 50)))
-
-    u = np.linspace(start=3, stop=4).reshape(1, 50)
-    actual = _laplacian_normalized(u=u)
-    u /= 4.0
-    np.testing.assert_allclose(actual=actual, desired=np.exp(-u).reshape((1, 50)))
-
-    u = np.linspace(start=-2, stop=8).reshape(1, 50)
-    actual = _laplacian_normalized(u=u)
-    u /= 8.0
-    np.testing.assert_allclose(actual=actual, desired=np.exp(-u).reshape((1, 50)))
-
-
-def test_tricube_normalized_expected_output() -> None:
-    """
-    Tests the expected outputs are returned.
-    """
-    u: np.ndarray = np.linspace(start=0, stop=5)
-    actual: np.ndarray = _tricube_normalized(u=u)
-    assert actual.min() == 0.0
-    assert actual.max() == 1.0
-    u /= 5.0
-    desired: np.ndarray = (1.0 - u**3) ** 3
-    np.testing.assert_allclose(actual=actual, desired=np.atleast_2d(desired))
-
-    u = np.linspace(start=0, stop=3).reshape(1, -1)
-    actual = _tricube_normalized(u=u)
-    assert actual.min() == 0.0
-    assert actual.max() == 1.0
-    u /= 3.0
-    desired = (1.0 - u**3) ** 3
-    np.testing.assert_allclose(actual=actual, desired=np.atleast_2d(desired))
-
-
-def test_tricube_normalized_raises_when_inputs_negative() -> None:
-    """
-    Tests an assertion error is raised if the inputs have negative values.
-    """
-    u: np.ndarray = np.linspace(start=-0.1, stop=5)
-    with pytest.raises(AssertionError):
-        _tricube_normalized(u=u)
 
 
 @pytest.mark.parametrize(
