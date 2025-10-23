@@ -8,7 +8,7 @@ from pytest_mock import MockerFixture
 from statsmodels.regression.linear_model import RegressionResults
 
 import rsklpr
-from rsklpr.kernels import laplacian_normalized, tricube_normalized
+from rsklpr.kernels import laplacian_normalized_metric, tricube_normalized_metric
 from rsklpr.rsklpr import (
     Rsklpr,
     _dim_data,
@@ -30,8 +30,8 @@ from tests.rsklpr_tests.utils import generate_linear_1d, generate_linear_nd, rng
 @pytest.mark.parametrize(
     argnames="k1",
     argvalues=[
-        tricube_normalized,
-        laplacian_normalized,
+        tricube_normalized_metric,
+        laplacian_normalized_metric,
     ],
 )
 @pytest.mark.parametrize(
@@ -71,7 +71,7 @@ def test_rsklpr_smoke_test_1d_regression_increasing_windows_expected_output(
 )
 @pytest.mark.parametrize(
     argnames="k1",
-    argvalues=[tricube_normalized, laplacian_normalized],
+    argvalues=[tricube_normalized_metric, laplacian_normalized_metric],
 )
 @pytest.mark.parametrize(
     argnames="k2",
@@ -110,7 +110,7 @@ def test_rsklpr_smoke_test_2d_regression_increasing_windows_expected_output(
 )
 @pytest.mark.parametrize(
     argnames="k1",
-    argvalues=[tricube_normalized, laplacian_normalized],
+    argvalues=[tricube_normalized_metric, laplacian_normalized_metric],
 )
 @pytest.mark.parametrize(
     argnames="k2",
@@ -149,7 +149,7 @@ def test_rsklpr_smoke_test_5d_regression_increasing_windows_expected_output(
 )
 @pytest.mark.parametrize(
     argnames="k1",
-    argvalues=[laplacian_normalized, tricube_normalized],
+    argvalues=[laplacian_normalized_metric, tricube_normalized_metric],
 )
 @pytest.mark.parametrize(
     argnames="k2",
@@ -186,14 +186,13 @@ def test_rsklpr_init_expected_values(mocker: MockerFixture) -> None:
     assert target._degree == 1
     assert target._metric_x == "mahalanobis"
     assert target._metric_x_params is None
-    assert target._kp == laplacian_normalized
     assert target._kr == "joint"
     assert target._bw1 == "normal_reference"
     assert target._bw2 == "normal_reference"
     assert target._bw_global_subsample_size is None
     assert target._seed == 888
     rsklpr.rsklpr.np_default_rng.assert_called_once_with(seed=888)  # type: ignore [attr-defined]
-    assert target._kp_func == [laplacian_normalized]
+    assert target._kp == [laplacian_normalized_metric]
     assert target._x.shape == (0,)
     assert target._y.shape == (0,)
     assert target._residuals.shape == (0,)
@@ -212,7 +211,7 @@ def test_rsklpr_init_expected_values(mocker: MockerFixture) -> None:
         degree=0,
         metric_x="Minkowski",
         metric_x_params={"p": 3},
-        kp=tricube_normalized,
+        kp=tricube_normalized_metric,
         kr="CondeN",
         bw1="cv_ls_glObal",
         bw2="Scott",
@@ -224,14 +223,13 @@ def test_rsklpr_init_expected_values(mocker: MockerFixture) -> None:
     assert target._degree == 0
     assert target._metric_x == "minkowski"
     assert target._metric_x_params == {"p": 3}
-    assert target._kp == tricube_normalized
     assert target._kr == "conden"
     assert target._bw1 == "cv_ls_global"
     assert target._bw2 == "scott"
     assert target._bw_global_subsample_size == 50
     assert target._seed == 45
     rsklpr.rsklpr.np_default_rng.assert_called_once_with(seed=45)  # type: ignore [attr-defined]
-    assert target._kp_func == [tricube_normalized]
+    assert target._kp == [tricube_normalized_metric]
     assert target._x.shape == (0,)
     assert target._y.shape == (0,)
     assert target._residuals.shape == (0,)

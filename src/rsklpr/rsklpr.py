@@ -9,7 +9,7 @@ from sklearn.neighbors import NearestNeighbors
 
 from rsklpr.kde_statsmodels_impl.bandwidths import select_bandwidth
 from rsklpr.kde_statsmodels_impl.kernel_density import KDEMultivariate
-from rsklpr.kernels import laplacian_normalized
+from rsklpr.kernels import laplacian_normalized_metric
 
 all_metrics: List[str] = [
     "residuals",
@@ -131,6 +131,10 @@ def _weighted_local_regression(
 
     y = y.reshape((x.shape[0]), 1)
     weights = weights.reshape(y.shape)
+
+    if np.sum(weights) <= np.finfo(weights.dtype).eps:
+        return np.nan, np.nan
+
     bias: np.ndarray = np.ones(shape=(x.shape[0], 1))
 
     x_mat: np.ndarray = (
@@ -146,7 +150,15 @@ def _weighted_local_regression(
     y_w: np.ndarray = w_sqrt * y
     x_mat_w: np.ndarray = w_sqrt * x_mat
     del x_mat, bias
-    beta: np.ndarray = np.linalg.inv(x_mat_w.T @ x_mat_w) @ x_mat_w.T @ y_w
+
+    beta: np.ndarray
+
+    try:
+        beta, _, _, _ = np.linalg.lstsq(x_mat_w, y_w, rcond=None)
+    except np.linalg.LinAlgError:
+        # This can still fail in extreme cases, though unlikely
+        return np.nan, np.nan
+
     r_squared: Optional[float] = None
 
     if calculate_r_squared:
@@ -182,8 +194,9 @@ class Rsklpr:
         metric_x: str | Callable[[np.ndarray, np.ndarray], float] = "mahalanobis",
         metric_x_params: Optional[Dict[str, Any]] = None,
         kp: (
-            Callable[[np.ndarray, np.ndarray], np.ndarray] | List[Callable[[np.ndarray, np.ndarray], np.ndarray]]
-        ) = laplacian_normalized,
+            Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray]
+            | List[Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray]]
+        ) = laplacian_normalized_metric,
         kr: str = "joint",
         bw1: Union[str, float, Sequence[float], Callable[[Any], Sequence[float]]] = "normal_reference",  # type: ignore [misc]
         bw2: Union[str, float, Sequence[float], Callable[[Any], Sequence[float]]] = "normal_reference",  # type: ignore [misc]
@@ -205,10 +218,10 @@ class Rsklpr:
             kp: The kernel that models the effect of distance on weight between the local target regression to its
                 neighbours. This is similar to the kernel used in standard polynomial regression. Available options are
                 'laplacian' (default) and 'tricube', of which the latter is traditionally used in LOESS.
-            kr: The kernel that models the 'importance' of the response at the location. Available options are 'joint'
-                (joint density) and 'conden' (conditional density). The 'joint' kernel implements a weighted KDE of the
-                marginal density of the response where the weights are based on the distance of the predictor from the
-                location. The 'conden' kernel calculates the KDE of (Y|X).
+            kr: The kernel that models the 'importance' of the response at the location. Available options are 'none,
+                'joint' (joint density) and 'conden' (conditional density). The 'none' option results in standard
+                kernel local polynomial regression without robust weighting. Defaults to 'joint' since it is less
+                computationally intensive than 'conden' however 'conden' is a more natural choice for regression tasks.
             bw1: The method used to estimate the bandwidth for the marginal predictor's kernel used by both methods
                 implemented for k2. Supported options are 'normal_reference' and 'scott' which correspond to the local
                 normal reference rule of thumb (default) and local Scott's rule, both implemented in statsmodels. See
@@ -238,8 +251,8 @@ class Rsklpr:
 
         kr = kr.lower()
 
-        if kr not in ("conden", "joint"):
-            raise ValueError(f"k2 {kr} is unsupported and must be one of 'conden' or 'joint'")
+        if kr not in ("none", "conden", "joint"):
+            raise ValueError(f"k2 {kr} is unsupported and must be one of 'none', 'conden' or 'joint'")
 
         bw_error_str: str = (
             "When bandwidth is a string it must be one of 'normal_reference', 'cv_ml', 'cv_ls', "
@@ -280,10 +293,6 @@ class Rsklpr:
 
         self._metric_x_params: Optional[Dict[str, Any]] = metric_x_params
 
-        self._kp: (
-            Callable[[np.ndarray, np.ndarray], np.ndarray] | List[Callable[[np.ndarray, np.ndarray], np.ndarray]]
-        ) = kp
-
         self._kr: str = kr
         self._bw1: Union[str, Sequence[float], Callable[[Any], Sequence[float]]] = bw1  # type: ignore [misc]
         self._bw2: Union[str, Sequence[float], Callable[[Any], Sequence[float]]] = bw2  # type: ignore [misc]
@@ -293,7 +302,7 @@ class Rsklpr:
         )
 
         self._seed: int = seed
-        self._kp_func: List[Callable[[np.ndarray, np.ndarray], np.ndarray]] = [kp] if callable(kp) else kp
+        self._kp: List[Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray]] = [kp] if callable(kp) else kp
         self._rnd_gen: np.random.Generator = np_default_rng(seed=seed)
         self._x: np.ndarray = np.asarray([])
         self._y: np.ndarray = np.asarray([])
@@ -326,7 +335,26 @@ class Rsklpr:
         if callable(bandwidth):  # type: ignore [arg-type]
             return bandwidth(data)  # type: ignore [operator]
         elif bandwidth in ("scott", "normal_reference"):
-            return select_bandwidth(x=data, bw=bandwidth, kernel=None).tolist()  # type: ignore [no-any-return]
+            try:
+                # Attempt to calculate bandwidth normally
+                bw: np.ndarray = select_bandwidth(x=data, bw=bandwidth, kernel=None)
+                return bw.tolist()  # type: ignore [no-any-return]
+
+            except RuntimeError as e:
+                # This happens if statsmodels calculates a bandwidth of 0
+                # (e.g., all data points in the neighborhood are identical).
+                if "bandwidth is 0" in str(e):
+                    num_dims: int = _dim_data(data=data)
+                    warnings.warn(
+                        f"KDE bandwidth was 0 (neighborhood has 0 variance). "
+                        f"Using a small default ({1e-6}) to proceed.",
+                        RuntimeWarning,
+                    )
+                    # Return a small, non-zero bandwidth for each dimension
+                    return [1e-6] * num_dims
+                else:
+                    # Re-raise if it's a different runtime error
+                    raise e
         elif bandwidth.startswith("cv_"):
             subsample: np.ndarray = data
 
@@ -341,11 +369,22 @@ class Rsklpr:
                 )
                 subsample = data[sample_idx, :]
 
-            return KDEMultivariate(  # type: ignore [no-any-return]
-                data=subsample,
-                var_type="c" * _dim_data(data=subsample),
-                bw="cv_ls",
-            ).bw
+            # We should also wrap this, as it might fail for similar reasons
+            try:
+                return KDEMultivariate(  # type: ignore [no-any-return]
+                    data=subsample,
+                    var_type="c" * _dim_data(data=subsample),
+                    bw="cv_ls",
+                ).bw
+            except (RuntimeError, np.linalg.LinAlgError) as e:
+                # Handle cases where cross-validation fails due to constant data
+                num_dims: int = _dim_data(data=data)
+                warnings.warn(
+                    f"KDE bandwidth estimation '{bandwidth}' failed (e.g., 0 variance). "
+                    f"Using a small default ({1e-6}) to proceed. Error: {e}",
+                    RuntimeWarning,
+                )
+                return [1e-6] * num_dims
         else:
             raise ValueError(f"Unknown bandwidth {bandwidth}")
 
@@ -586,10 +625,13 @@ class Rsklpr:
         indices: np.ndarray
         dist_x_neighbors, indices = self._nearest_neighbors.kneighbors(X=x_0.reshape(1, -1))
         x_neighbors: np.ndarray = self._x[indices].squeeze(axis=0)
+
         weights_list: List[np.ndarray] = [
-            self._kp_func[i](x_neighbors, dist_x_neighbors) for i in range(len(self._kp_func))
+            np.atleast_2d(self._kp[i](x_0, x_neighbors, dist_x_neighbors)) for i in range(len(self._kp))
         ]
-        weights = np.prod(weights_list, axis=0)
+
+        weights: np.ndarray = np.concatenate(weights_list, axis=0)
+        weights = np.prod(weights, axis=0)
 
         if self._kr == "conden":
             weights *= self._k2_conden(
@@ -783,7 +825,7 @@ class Rsklpr:
             warnings.warn("There are less observations than the number of dimensions, is this intended?")
 
         if x.shape[0] < self._size_neighborhood:
-            ValueError(
+            raise ValueError(
                 f"Provided inputs have {x.shape[0]} observations which is less than specified "
                 f"neighborhood size {self._size_neighborhood}"
             )
