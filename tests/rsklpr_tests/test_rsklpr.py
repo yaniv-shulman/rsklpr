@@ -52,7 +52,7 @@ def test_rsklpr_smoke_test_1d_regression_increasing_windows_expected_output(
     size_neighborhood: int
 
     for size_neighborhood in np.linspace(start=3, stop=50, num=20, endpoint=True).astype(int):
-        target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood, k1=k1, k2=k2)
+        target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood, kp=k1, kr=k2)
 
         actual: np.ndarray = target(
             x=x,
@@ -94,7 +94,7 @@ def test_rsklpr_smoke_test_2d_regression_increasing_windows_expected_output(
     size_neighborhood: int
 
     for size_neighborhood in np.linspace(start=4, stop=50, num=20, endpoint=True).astype(int):
-        target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood, k1=k1, k2=k2)
+        target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood, kp=k1, kr=k2)
 
         actual: np.ndarray = target(
             x=x,
@@ -136,7 +136,7 @@ def test_rsklpr_smoke_test_5d_regression_increasing_windows_expected_output(
     size_neighborhood: int
 
     for size_neighborhood in np.linspace(start=7, stop=50, num=20, endpoint=True).astype(int):
-        target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood, k1=k1, k2=k2)
+        target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood, kp=k1, kr=k2)
 
         actual: np.ndarray = target(
             x=x,
@@ -175,7 +175,7 @@ def test_rsklpr_smoke_test_1d_estimate_bootstrap_expected_output(
     """
     Smoke test that reasonable values are returned for a linear 1D input using the joint kernel.
     """
-    target: Rsklpr = Rsklpr(size_neighborhood=20, k1=k1, k2=k2)
+    target: Rsklpr = Rsklpr(size_neighborhood=20, kp=k1, kr=k2)
     target.fit(x=x, y=y)
     actual: np.ndarray
     conf_low_actual: np.ndarray
@@ -196,14 +196,14 @@ def test_rsklpr_init_expected_values(mocker: MockerFixture) -> None:
     assert target._degree == 1
     assert target._metric_x == "mahalanobis"
     assert target._metric_x_params is None
-    assert target._k1 == "laplacian"
-    assert target._k2 == "joint"
+    assert target._kp == "laplacian"
+    assert target._kr == "joint"
     assert target._bw1 == "normal_reference"
     assert target._bw2 == "normal_reference"
     assert target._bw_global_subsample_size is None
     assert target._seed == 888
     rsklpr.rsklpr.np_default_rng.assert_called_once_with(seed=888)  # type: ignore [attr-defined]
-    assert target._k1_func == _laplacian_normalized
+    assert target._kp_func == _laplacian_normalized
     assert target._x.shape == (0,)
     assert target._y.shape == (0,)
     assert target._residuals.shape == (0,)
@@ -222,8 +222,8 @@ def test_rsklpr_init_expected_values(mocker: MockerFixture) -> None:
         degree=0,
         metric_x="Minkowski",
         metric_x_params={"p": 3},
-        k1="Tricube",
-        k2="CondeN",
+        kp="Tricube",
+        kr="CondeN",
         bw1="cv_ls_glObal",
         bw2="Scott",
         bw_global_subsample_size=50,
@@ -234,14 +234,14 @@ def test_rsklpr_init_expected_values(mocker: MockerFixture) -> None:
     assert target._degree == 0
     assert target._metric_x == "minkowski"
     assert target._metric_x_params == {"p": 3}
-    assert target._k1 == "tricube"
-    assert target._k2 == "conden"
+    assert target._kp == "tricube"
+    assert target._kr == "conden"
     assert target._bw1 == "cv_ls_global"
     assert target._bw2 == "scott"
     assert target._bw_global_subsample_size == 50
     assert target._seed == 45
     rsklpr.rsklpr.np_default_rng.assert_called_once_with(seed=45)  # type: ignore [attr-defined]
-    assert target._k1_func == _tricube_normalized
+    assert target._kp_func == _tricube_normalized
     assert target._x.shape == (0,)
     assert target._y.shape == (0,)
     assert target._residuals.shape == (0,)
@@ -302,12 +302,12 @@ def test_rsklpr_init_raises_for_incorrect_inputs() -> None:
     with pytest.raises(
         expected_exception=ValueError, match="k1 bla is unsupported and must be one of 'laplacian' or 'tricube'"
     ):
-        Rsklpr(size_neighborhood=3, k1="bla")
+        Rsklpr(size_neighborhood=3, kp="bla")
 
     with pytest.raises(
         expected_exception=ValueError, match="k2 alb is unsupported and must be one of 'conden' or 'joint'"
     ):
-        Rsklpr(size_neighborhood=3, k2="alb")
+        Rsklpr(size_neighborhood=3, kr="alb")
 
     with pytest.raises(
         expected_exception=ValueError,

@@ -210,10 +210,10 @@ class Rsklpr:
         self,
         size_neighborhood: int,
         degree: int = 1,
-        metric_x: str = "mahalanobis",
+        metric_x: str | Callable[[np.ndarray, np.ndarray], float]= "mahalanobis",
         metric_x_params: Optional[Dict[str, Any]] = None,
-        k1: str = "laplacian",
-        k2: str = "joint",
+        kp: Callable[[np.ndarray], float] | List[Callable[[np.ndarray], float]] = _laplacian_normalized,
+        kr: str = "joint",
         bw1: Union[str, float, Sequence[float], Callable[[Any], Sequence[float]]] = "normal_reference",  # type: ignore [misc]
         bw2: Union[str, float, Sequence[float], Callable[[Any], Sequence[float]]] = "normal_reference",  # type: ignore [misc]
         bw_global_subsample_size: Optional[int] = None,
@@ -231,10 +231,10 @@ class Rsklpr:
                 Minkowski metric 'p' can be specified here however defaults to 2 if left unspecified. See
                 https://docs.scipy.org/doc/scipy/reference/spatial.distance.html#module-scipy.spatial.distance for more
                 details on the various metrics and their parameters.
-            k1: The kernel that models the effect of distance on weight between the local target regression to its
+            kp: The kernel that models the effect of distance on weight between the local target regression to its
                 neighbours. This is similar to the kernel used in standard polynomial regression. Available options are
                 'laplacian' (default) and 'tricube', of which the latter is traditionally used in LOESS.
-            k2: The kernel that models the 'importance' of the response at the location. Available options are 'joint'
+            kr: The kernel that models the 'importance' of the response at the location. Available options are 'joint'
                 (joint density) and 'conden' (conditional density). The 'joint' kernel implements a weighted KDE of the
                 marginal density of the response where the weights are based on the distance of the predictor from the
                 location. The 'conden' kernel calculates the KDE of (Y|X).
@@ -265,13 +265,9 @@ class Rsklpr:
         if degree not in (0, 1):
             raise ValueError("degree must be one of 0 or 1")
 
-        k1 = k1.lower()
-        if k1 not in ("laplacian", "tricube"):
-            raise ValueError(f"k1 {k1} is unsupported and must be one of 'laplacian' or 'tricube'")
-
-        k2 = k2.lower()
-        if k2 not in ("conden", "joint"):
-            raise ValueError(f"k2 {k2} is unsupported and must be one of 'conden' or 'joint'")
+        kr = kr.lower()
+        if kr not in ("conden", "joint"):
+            raise ValueError(f"k2 {kr} is unsupported and must be one of 'conden' or 'joint'")
 
         bw_error_str: str = (
             "When bandwidth is a string it must be one of 'normal_reference', 'cv_ml', 'cv_ls', "
@@ -306,8 +302,8 @@ class Rsklpr:
         self._degree: int = int(degree)
         self._metric_x: str = metric_x.lower()
         self._metric_x_params: Optional[Dict[str, Any]] = metric_x_params
-        self._k1: str = k1
-        self._k2: str = k2
+        self._kp: str = kp
+        self._kr: str = kr
         self._bw1: Union[str, Sequence[float], Callable[[Any], Sequence[float]]] = bw1  # type: ignore [misc]
         self._bw2: Union[str, Sequence[float], Callable[[Any], Sequence[float]]] = bw2  # type: ignore [misc]
 
@@ -316,11 +312,7 @@ class Rsklpr:
         )
 
         self._seed: int = seed
-
-        self._k1_func: Callable[[np.ndarray], np.ndarray] = (
-            _laplacian_normalized if k1 == "laplacian" else _tricube_normalized
-        )
-
+        self._kp_func: List[Callable[[np.ndarray], float]] = [kp] if isinstance(kp, Callable) else kp
         self._rnd_gen: np.random.Generator = np_default_rng(seed=seed)
         self._x: np.ndarray = np.asarray([])
         self._y: np.ndarray = np.asarray([])
@@ -511,7 +503,7 @@ class Rsklpr:
         y_hat: np.ndarray = np.empty((n))
         bw1_global: Optional[Sequence[float]]
         bw2_global: Optional[Sequence[float]]
-        bw1_global, bw2_global = self._get_bandwidth_global(k2=self._k2)
+        bw1_global, bw2_global = self._get_bandwidth_global(k2=self._kr)
         calculate_r_squared: bool = False
         mean_r_squared_total: float = 0.0
 
@@ -612,16 +604,16 @@ class Rsklpr:
         dist_x_neighbors: np.ndarray
         indices: np.ndarray
         dist_x_neighbors, indices = self._nearest_neighbors.kneighbors(X=x_0.reshape(1, -1))
-        weights: np.ndarray = self._k1_func(dist_x_neighbors)
+        weights: np.ndarray = self._kp_func(dist_x_neighbors)
         x_neighbors: np.ndarray = self._x[indices].squeeze(axis=0)
-        if self._k2 == "conden":
+        if self._kr == "conden":
             weights *= self._k2_conden(
                 x_neighbors=x_neighbors,
                 y_neighbors=self._y[indices].T,
                 bw1_global=bw1_global,
                 bw2_global=bw2_global,
             )
-        elif self._k2 == "joint":
+        elif self._kr == "joint":
             weights *= self._k2_joint(
                 x_neighbors=x_neighbors,
                 y_neighbors=self._y[indices].T,
@@ -699,8 +691,8 @@ class Rsklpr:
                 degree=self._degree,
                 metric_x=self._metric_x,
                 metric_x_params=self._metric_x_params,
-                k1=self._k1,
-                k2=self._k2,
+                kp=self._kp,
+                kr=self._kr,
                 bw1=self._bw1,
                 bw2=self._bw2,
                 bw_global_subsample_size=self._bw_global_subsample_size,

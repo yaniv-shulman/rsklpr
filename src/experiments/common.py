@@ -82,7 +82,7 @@ def benchmark_data(
         rsklpr: Rsklpr = Rsklpr(
             size_neighborhood=use_neighbors,
             degree=1,
-            k2=k2,
+            kr=k2,
             bw1=bw1,
             bw2=bw2,
         )
