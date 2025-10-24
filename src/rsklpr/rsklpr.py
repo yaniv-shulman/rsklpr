@@ -209,12 +209,12 @@ class Rsklpr:
         self,
         size_neighborhood: int,
         degree: int = 1,
-        metric_x: str | Callable[[np.ndarray, np.ndarray], float] = "mahalanobis",
+        metric_x: Union[str, Callable[[np.ndarray, np.ndarray], float]] = "mahalanobis",
         metric_x_params: Optional[Dict[str, Any]] = None,
-        kp: (
-            Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray]
-            | List[Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray]]
-        ) = laplacian_normalized_metric,
+        kp: Union[
+            Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray],
+            List[Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray]],
+        ] = laplacian_normalized_metric,
         kr: str = "joint",
         bw1: Union[str, float, Sequence[float], Callable[[Any], Sequence[float]]] = "normal_reference",  # type: ignore [misc]
         bw2: Union[str, float, Sequence[float], Callable[[Any], Sequence[float]]] = "normal_reference",  # type: ignore [misc]
@@ -304,7 +304,7 @@ class Rsklpr:
         self._size_neighborhood: int = int(size_neighborhood)
         self._degree: int = int(degree)
 
-        self._metric_x: str | Callable[[np.ndarray, np.ndarray], float] = metric_x
+        self._metric_x: Union[str, Callable[[np.ndarray, np.ndarray], float]] = metric_x
 
         if isinstance(metric_x, str):
             self._metric_x = metric_x.lower()
