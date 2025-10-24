@@ -356,7 +356,7 @@ def test_weighted_local_regression_1d_expected_values(
     r_squared: Optional[float]
 
     actual, r_squared = _weighted_local_regression(
-        x_0=x_0.reshape(1, -1), x=x, y=y, weights=weights, degree=1, calculate_r_squared=True  # <--- FIX HERE
+        x_0=x_0.reshape(1, -1), x=x, y=y, weights=weights, degree=1, calculate_r_squared=True
     )
 
     x_sm: np.ndarray = sm.add_constant(x)
@@ -399,7 +399,7 @@ def test_weighted_local_regression_2d_expected_values(
     r_squared: Optional[float]
 
     actual, r_squared = _weighted_local_regression(
-        x_0=x_0.reshape(1, -1), x=x, y=y, weights=weights, degree=1, calculate_r_squared=True  # <--- FIX HERE
+        x_0=x_0.reshape(1, -1), x=x, y=y, weights=weights, degree=1, calculate_r_squared=True
     )
 
     x_sm: np.ndarray = sm.add_constant(x)
@@ -462,9 +462,11 @@ def test_predict_error_metrics_expected_values(x: np.ndarray, y: np.ndarray, met
         weights: np.ndarray
         n_x_neighbors: np.ndarray
         indices: np.ndarray
+
         weights, indices, n_x_neighbors = target._calculate_weights(
             x_0=x[i].reshape(-1, 1), bw1_global=None, bw2_global=None
         )
+
         x_sm: np.ndarray = np.squeeze(x[indices])
         x_sm = sm.add_constant(x_sm)
         model_sm = sm.WLS(endog=np.squeeze(y[indices]), exog=x_sm, weights=np.squeeze(weights))
