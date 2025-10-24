@@ -356,11 +356,11 @@ def test_weighted_local_regression_1d_expected_values(
     r_squared: Optional[float]
 
     actual, r_squared = _weighted_local_regression(
-        x_0=x_0, x=x, y=y, weights=weights, degree=1, calculate_r_squared=True
+        x_0=x_0.reshape(1, -1), x=x, y=y, weights=weights, degree=1, calculate_r_squared=True  # <--- FIX HERE
     )
 
     x_sm: np.ndarray = sm.add_constant(x)
-    model_sm = sm.WLS(endog=y, exog=x_sm, weights=weights)
+    model_sm: sm.WLS = sm.WLS(endog=y, exog=x_sm, weights=weights)
     results_sm: RegressionResults = model_sm.fit()
     assert float(actual) == pytest.approx(float((results_sm.params[0] + x_0 * results_sm.params[1]).item()))
     assert r_squared == pytest.approx(float(results_sm.rsquared))
@@ -399,15 +399,17 @@ def test_weighted_local_regression_2d_expected_values(
     r_squared: Optional[float]
 
     actual, r_squared = _weighted_local_regression(
-        x_0=x_0, x=x, y=y, weights=weights, degree=1, calculate_r_squared=True
+        x_0=x_0.reshape(1, -1), x=x, y=y, weights=weights, degree=1, calculate_r_squared=True  # <--- FIX HERE
     )
 
     x_sm: np.ndarray = sm.add_constant(x)
-    model_sm = sm.WLS(endog=y, exog=x_sm, weights=weights)
+    model_sm: sm.WLS = sm.WLS(endog=y, exog=x_sm, weights=weights)
     results_sm: RegressionResults = model_sm.fit()
+
     assert float(actual) == pytest.approx(
         float(results_sm.params[0] + x_0[0] * results_sm.params[1] + x_0[1] * results_sm.params[2]), rel=1e-4
     )
+
     assert r_squared == pytest.approx(float(results_sm.rsquared), rel=1e-5)
 
 
@@ -460,7 +462,9 @@ def test_predict_error_metrics_expected_values(x: np.ndarray, y: np.ndarray, met
         weights: np.ndarray
         n_x_neighbors: np.ndarray
         indices: np.ndarray
-        weights, indices, n_x_neighbors = target._calculate_weights(x[i], bw1_global=None, bw2_global=None)
+        weights, indices, n_x_neighbors = target._calculate_weights(
+            x_0=x[i].reshape(-1, 1), bw1_global=None, bw2_global=None
+        )
         x_sm: np.ndarray = np.squeeze(x[indices])
         x_sm = sm.add_constant(x_sm)
         model_sm = sm.WLS(endog=np.squeeze(y[indices]), exog=x_sm, weights=np.squeeze(weights))

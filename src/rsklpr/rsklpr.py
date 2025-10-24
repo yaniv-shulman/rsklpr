@@ -141,7 +141,7 @@ def _weighted_local_regression(
     Calculates the closed form matrix equations weighted constant or linear local regression centered at a point.
 
     Args:
-        x_0: The target regression point.
+        x_0: The target regression point, a scaler or 2D array.
         x: The predictors in all observations, of shape [N, K] where N is the observations and K is the dimension.
         y: The N scalar response values corresponding to the provided predictors.
         weights: The N scalar weights associated with each observation.
@@ -567,15 +567,16 @@ class Rsklpr:
             weights: np.ndarray
             x_neighbors: np.ndarray
             indices: np.ndarray
+            x_0: np.ndarray = x_arr[i].reshape(1, -1)
 
             weights, indices, x_neighbors = self._calculate_weights(
-                x_0=x_arr[i], bw1_global=bw1_global, bw2_global=bw2_global
+                x_0=x_0, bw1_global=bw1_global, bw2_global=bw2_global
             )
 
             r_squared: Optional[float]
 
             y_hat[i], r_squared = _weighted_local_regression(
-                x_0=x_arr[i].reshape(1, -1),
+                x_0=x_0,
                 x=x_neighbors,
                 y=self._y[indices].T,
                 weights=weights,
@@ -636,7 +637,7 @@ class Rsklpr:
         Calculates the regression weights.
 
         Args:
-            x_0: The local regression location.
+            x_0: The local regression location, a 2D array.
             bw1_global: The bw1 calculated from the global data, if None a local bandwidth estimation will be used.
             bw2_global: The bw2 calculated from the global data, if None a local bandwidth estimation will be used.
 
@@ -645,7 +646,7 @@ class Rsklpr:
         """
         dist_x_neighbors: np.ndarray
         indices: np.ndarray
-        dist_x_neighbors, indices = self._nearest_neighbors.kneighbors(X=x_0.reshape(1, -1))
+        dist_x_neighbors, indices = self._nearest_neighbors.kneighbors(X=x_0)
         x_neighbors: np.ndarray = self._x[indices].squeeze(axis=0)
 
         weights_list: List[np.ndarray] = [
