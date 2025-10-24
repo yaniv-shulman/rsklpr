@@ -7,7 +7,7 @@ import pandas as pd
 import plotly
 import plotly.graph_objects as go
 from IPython.core.display_functions import clear_output
-from localreg import localreg, rbf, RBFnet
+from localreg import RBFnet
 from statsmodels.nonparametric.kernel_regression import KernelReg
 from statsmodels.nonparametric.smoothers_lowess import lowess
 
@@ -96,6 +96,29 @@ def benchmark_data(
         stats.loc["rsklpr", "rmse"] = rmse(s=result["rsklpr"])
         stats.loc["rsklpr", "time"] = compute_time
 
+    if "rsklpr_quad" in methods:
+        if isinstance(size_neighborhood, Dict):
+            use_neighbors = size_neighborhood["rsklpr"]
+
+        rsklpr_quad: Rsklpr = Rsklpr(
+            size_neighborhood=use_neighbors,
+            degree=2,
+            kr=k2,
+            bw1=bw1,
+            bw2=bw2,
+        )
+
+        start = time.time()
+
+        result["rsklpr_quad"] = rsklpr_quad(
+            x=x,
+            y=y,
+        )
+
+        compute_time = time.time() - start
+        stats.loc["rsklpr_quad", "rmse"] = rmse(s=result["rsklpr_quad"])
+        stats.loc["rsklpr_quad", "time"] = compute_time
+
     if "lowess" in methods:
         if isinstance(size_neighborhood, Dict):
             use_neighbors = size_neighborhood["lowess"]
@@ -142,9 +165,18 @@ def benchmark_data(
         if isinstance(size_neighborhood, Dict):
             use_neighbors = size_neighborhood["local_quad"]
 
+        local_quad: Rsklpr = Rsklpr(
+            size_neighborhood=use_neighbors,
+            degree=2,
+            kr="none",
+        )
+
         start = time.time()
 
-        result["local_quad"] = localreg(x, y, degree=2, kernel=rbf.epanechnikov, frac=use_neighbors / x.shape[0])
+        result["local_quad"] = local_quad(
+            x=x,
+            y=y,
+        )
 
         compute_time = time.time() - start
         stats.loc["local_quad", "rmse"] = rmse(s=result["local_quad"])
