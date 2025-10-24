@@ -223,7 +223,7 @@ class Rsklpr:
                 kernel local polynomial regression without robust weighting. Defaults to 'joint' since it is less
                 computationally intensive than 'conden' however 'conden' is a more natural choice for regression tasks.
             bw1: The method used to estimate the bandwidth for the marginal predictor's kernel used by both methods
-                implemented for k2. Supported options are 'normal_reference' and 'scott' which correspond to the local
+                implemented for kr. Supported options are 'normal_reference' and 'scott' which correspond to the local
                 normal reference rule of thumb (default) and local Scott's rule, both implemented in statsmodels. See
                 https://www.statsmodels.org/stable/_modules/statsmodels/nonparametric/bandwidths.html. An additional
                 provided option is 'cv_ls_global' which correspond to global least squares cross validation based
@@ -234,8 +234,8 @@ class Rsklpr:
                 sm.nonparametric.KDEMultivariate. Finally, it is also possible to pass in a sequence of floats, one per
                 dimension of the data, or a callable that takes the data as input and returns the same, i.e a sequence
                 of floats have one scalar value per dimension.
-            bw2: The method used to estimate the second bandwidth used by k2. The semantics depend on the kernel used
-                for k2. For the 'conden' kernel, bw2 represents the bandwidth estimation method for the joint KDE of
+            bw2: The method used to estimate the second bandwidth used by kr. The semantics depend on the kernel used
+                for kr. For the 'conden' kernel, bw2 represents the bandwidth estimation method for the joint KDE of
                 (X,Y). For the 'joint' kernel this is the bandwidth estimation method for marginal KDE of Y. The
                 supported options are the same as bw1.
             bw_global_subsample_size: The size of subsample taken from the data for global cross validation bandwidth
@@ -252,7 +252,7 @@ class Rsklpr:
         kr = kr.lower()
 
         if kr not in ("none", "conden", "joint"):
-            raise ValueError(f"k2 {kr} is unsupported and must be one of 'none', 'conden' or 'joint'")
+            raise ValueError(f"kr {kr} is unsupported and must be one of 'none', 'conden' or 'joint'")
 
         bw_error_str: str = (
             "When bandwidth is a string it must be one of 'normal_reference', 'cv_ml', 'cv_ls', "
@@ -332,6 +332,8 @@ class Rsklpr:
         Returns:
             The estimated bandwidth for the data.
         """
+        num_dims: int
+
         if callable(bandwidth):  # type: ignore [arg-type]
             return bandwidth(data)  # type: ignore [operator]
         elif bandwidth in ("scott", "normal_reference"):
@@ -344,7 +346,7 @@ class Rsklpr:
                 # This happens if statsmodels calculates a bandwidth of 0
                 # (e.g., all data points in the neighborhood are identical).
                 if "bandwidth is 0" in str(e):
-                    num_dims: int = _dim_data(data=data)
+                    num_dims = _dim_data(data=data)
                     warnings.warn(
                         f"KDE bandwidth was 0 (neighborhood has 0 variance). "
                         f"Using a small default ({1e-6}) to proceed.",
@@ -378,7 +380,7 @@ class Rsklpr:
                 ).bw
             except (RuntimeError, np.linalg.LinAlgError) as e:
                 # Handle cases where cross-validation fails due to constant data
-                num_dims: int = _dim_data(data=data)
+                num_dims = _dim_data(data=data)
                 warnings.warn(
                     f"KDE bandwidth estimation '{bandwidth}' failed (e.g., 0 variance). "
                     f"Using a small default ({1e-6}) to proceed. Error: {e}",
@@ -388,7 +390,7 @@ class Rsklpr:
         else:
             raise ValueError(f"Unknown bandwidth {bandwidth}")
 
-    def _k2_conden(
+    def _kr_conden(
         self,
         x_neighbors: np.ndarray,
         y_neighbors: np.ndarray,
@@ -449,7 +451,7 @@ class Rsklpr:
             data_predict=x_neighbors
         )
 
-    def _k2_joint(
+    def _kr_joint(
         self,
         x_neighbors: np.ndarray,
         y_neighbors: np.ndarray,
@@ -523,7 +525,9 @@ class Rsklpr:
         y_hat: np.ndarray = np.empty((n))
         bw1_global: Optional[Sequence[float]]
         bw2_global: Optional[Sequence[float]]
-        bw1_global, bw2_global = self._get_bandwidth_global(k2=self._kr)
+
+        bw1_global, bw2_global = self._get_bandwidth_global(kr=self._kr)
+
         calculate_r_squared: bool = False
         mean_r_squared_total: float = 0.0
 
@@ -547,7 +551,7 @@ class Rsklpr:
             indices: np.ndarray
 
             weights, indices, x_neighbors = self._calculate_weights(
-                x_0=x_arr[i], bw1_global=bw1_global, bw2_global=bw1_global
+                x_0=x_arr[i], bw1_global=bw1_global, bw2_global=bw2_global
             )
 
             r_squared: Optional[float]
@@ -634,14 +638,14 @@ class Rsklpr:
         weights = np.prod(weights, axis=0)
 
         if self._kr == "conden":
-            weights *= self._k2_conden(
+            weights *= self._kr_conden(
                 x_neighbors=x_neighbors,
                 y_neighbors=self._y[indices].T,
                 bw1_global=bw1_global,
                 bw2_global=bw2_global,
             )
         elif self._kr == "joint":
-            weights *= self._k2_joint(
+            weights *= self._kr_joint(
                 x_neighbors=x_neighbors,
                 y_neighbors=self._y[indices].T,
                 dist_x_neighbors=dist_x_neighbors,
@@ -731,17 +735,23 @@ class Rsklpr:
 
         return y_hat
 
-    def _get_bandwidth_global(self, k2: str) -> Tuple[Optional[Sequence[float]], Optional[Sequence[float]]]:
+    def _get_bandwidth_global(self, kr: str) -> Tuple[Optional[Sequence[float]], Optional[Sequence[float]]]:
         """
         Calculates bandwidth estimates from the global data if configured to do so.
 
         Args:
-            k2: The k2 used.
+            kr: The kr used.
 
         Returns:
             A tuple representing the global bw1 and bw2 estimates if applicable or None if the estimator is configured
             to use local bandwidth estimates.
         """
+        if kr not in ("none", "conden", "joint"):
+            raise ValueError(f"kr {kr} is unsupported and must be one of 'none', 'conden' or 'joint'")
+
+        if kr == "none":
+            return None, None
+
         bw1_global: Optional[Sequence[float]] = None
 
         if self._bw1 == "cv_ls_global":
@@ -753,12 +763,12 @@ class Rsklpr:
         bw2_global: Optional[Sequence[float]] = None
 
         if self._bw2 == "cv_ls_global":
-            if k2 == "conden":
+            if kr == "conden":
                 bw2_global = self._calculate_bandwidth(
                     bandwidth=self._bw2,  # type: ignore [arg-type]
                     data=np.concatenate([self._x, np.expand_dims(a=self._y, axis=-1)], axis=1),
                 )
-            elif k2 == "joint":
+            elif kr == "joint":
                 bw2_global = self._calculate_bandwidth(
                     bandwidth=self._bw2,  # type: ignore [arg-type]
                     data=np.expand_dims(a=self._y, axis=-1),

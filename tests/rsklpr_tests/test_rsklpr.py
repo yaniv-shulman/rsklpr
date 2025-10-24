@@ -43,7 +43,7 @@ from tests.rsklpr_tests.utils import generate_linear_1d, generate_linear_nd, rng
 )
 @pytest.mark.slow
 def test_rsklpr_smoke_test_1d_regression_increasing_windows_expected_output(
-    x: np.ndarray, y: np.ndarray, k1: Callable[[np.ndarray, np.ndarray], np.ndarray], k2: str
+    x: np.ndarray, y: np.ndarray, kp: Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray], k2: str
 ) -> None:
     """
     Smoke test that reasonable values are returned for linear 1D input with various window sizes.
@@ -51,7 +51,7 @@ def test_rsklpr_smoke_test_1d_regression_increasing_windows_expected_output(
     size_neighborhood: int
 
     for size_neighborhood in np.linspace(start=3, stop=50, num=20, endpoint=True).astype(int):
-        target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood, kp=k1, kr=k2)
+        target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood, kp=kp, kr=k2)
 
         actual: np.ndarray = target(
             x=x,
@@ -82,7 +82,7 @@ def test_rsklpr_smoke_test_1d_regression_increasing_windows_expected_output(
 )
 @pytest.mark.slow
 def test_rsklpr_smoke_test_2d_regression_increasing_windows_expected_output(
-    x: np.ndarray, y: np.ndarray, k1: Callable[[np.ndarray, np.ndarray], np.ndarray], k2: str
+    x: np.ndarray, y: np.ndarray, kp: Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray], k2: str
 ) -> None:
     """
     Smoke test that reasonable values are returned for linear 1D input with various window sizes.
@@ -90,7 +90,7 @@ def test_rsklpr_smoke_test_2d_regression_increasing_windows_expected_output(
     size_neighborhood: int
 
     for size_neighborhood in np.linspace(start=4, stop=50, num=20, endpoint=True).astype(int):
-        target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood, kp=k1, kr=k2)
+        target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood, kp=kp, kr=k2)
 
         actual: np.ndarray = target(
             x=x,
@@ -121,7 +121,7 @@ def test_rsklpr_smoke_test_2d_regression_increasing_windows_expected_output(
 )
 @pytest.mark.slow
 def test_rsklpr_smoke_test_5d_regression_increasing_windows_expected_output(
-    x: np.ndarray, y: np.ndarray, k1: Callable[[np.ndarray, np.ndarray], np.ndarray], k2: str
+    x: np.ndarray, y: np.ndarray, kp: Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray], k2: str
 ) -> None:
     """
     Smoke test that reasonable values are returned for linear 1D input with various window sizes.
@@ -129,7 +129,7 @@ def test_rsklpr_smoke_test_5d_regression_increasing_windows_expected_output(
     size_neighborhood: int
 
     for size_neighborhood in np.linspace(start=7, stop=50, num=20, endpoint=True).astype(int):
-        target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood, kp=k1, kr=k2)
+        target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood, kp=kp, kr=k2)
 
         actual: np.ndarray = target(
             x=x,
@@ -160,12 +160,12 @@ def test_rsklpr_smoke_test_5d_regression_increasing_windows_expected_output(
 )
 @pytest.mark.slow
 def test_rsklpr_smoke_test_1d_estimate_bootstrap_expected_output(
-    x: np.ndarray, y: np.ndarray, k1: Callable[[np.ndarray, np.ndarray], np.ndarray], k2: str
+    x: np.ndarray, y: np.ndarray, kp: Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray], k2: str
 ) -> None:
     """
     Smoke test that reasonable values are returned for a linear 1D input using the joint kernel.
     """
-    target: Rsklpr = Rsklpr(size_neighborhood=20, kp=k1, kr=k2)
+    target: Rsklpr = Rsklpr(size_neighborhood=20, kp=kp, kr=k2)
     target.fit(x=x, y=y)
     actual: np.ndarray
     conf_low_actual: np.ndarray
