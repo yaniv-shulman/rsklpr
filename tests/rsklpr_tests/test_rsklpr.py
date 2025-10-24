@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 import statsmodels.api as sm
 from pytest_mock import MockerFixture
+from sklearn.preprocessing import PolynomialFeatures
 from statsmodels.regression.linear_model import RegressionResults
 
 import rsklpr
@@ -28,22 +29,23 @@ from tests.rsklpr_tests.utils import generate_linear_1d, generate_linear_nd, rng
     argvalues=[generate_linear_1d() for i in range(3)],
 )
 @pytest.mark.parametrize(
-    argnames="k1",
+    argnames="kp",
     argvalues=[
         tricube_normalized_metric,
         laplacian_normalized_metric,
     ],
 )
 @pytest.mark.parametrize(
-    argnames="k2",
+    argnames="kr",
     argvalues=[
         "joint",
         "conden",
     ],
 )
 @pytest.mark.slow
+@pytest.mark.filterwarnings("ignore:KDE bandwidth was 0.*:RuntimeWarning")
 def test_rsklpr_smoke_test_1d_regression_increasing_windows_expected_output(
-    x: np.ndarray, y: np.ndarray, kp: Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray], k2: str
+    x: np.ndarray, y: np.ndarray, kp: Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray], kr: str
 ) -> None:
     """
     Smoke test that reasonable values are returned for linear 1D input with various window sizes.
@@ -51,7 +53,7 @@ def test_rsklpr_smoke_test_1d_regression_increasing_windows_expected_output(
     size_neighborhood: int
 
     for size_neighborhood in np.linspace(start=3, stop=50, num=20, endpoint=True).astype(int):
-        target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood, kp=kp, kr=k2)
+        target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood, kp=kp, kr=kr)
 
         actual: np.ndarray = target(
             x=x,
@@ -70,19 +72,20 @@ def test_rsklpr_smoke_test_1d_regression_increasing_windows_expected_output(
     argvalues=[generate_linear_1d() for _ in range(3)],
 )
 @pytest.mark.parametrize(
-    argnames="k1",
+    argnames="kp",
     argvalues=[tricube_normalized_metric, laplacian_normalized_metric],
 )
 @pytest.mark.parametrize(
-    argnames="k2",
+    argnames="kr",
     argvalues=[
         "joint",
         "conden",
     ],
 )
 @pytest.mark.slow
+@pytest.mark.filterwarnings("ignore:KDE bandwidth was 0.*:RuntimeWarning")
 def test_rsklpr_smoke_test_2d_regression_increasing_windows_expected_output(
-    x: np.ndarray, y: np.ndarray, kp: Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray], k2: str
+    x: np.ndarray, y: np.ndarray, kp: Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray], kr: str
 ) -> None:
     """
     Smoke test that reasonable values are returned for linear 1D input with various window sizes.
@@ -90,7 +93,7 @@ def test_rsklpr_smoke_test_2d_regression_increasing_windows_expected_output(
     size_neighborhood: int
 
     for size_neighborhood in np.linspace(start=4, stop=50, num=20, endpoint=True).astype(int):
-        target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood, kp=kp, kr=k2)
+        target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood, kp=kp, kr=kr)
 
         actual: np.ndarray = target(
             x=x,
@@ -109,19 +112,20 @@ def test_rsklpr_smoke_test_2d_regression_increasing_windows_expected_output(
     argvalues=[generate_linear_1d()],
 )
 @pytest.mark.parametrize(
-    argnames="k1",
+    argnames="kp",
     argvalues=[tricube_normalized_metric, laplacian_normalized_metric],
 )
 @pytest.mark.parametrize(
-    argnames="k2",
+    argnames="kr",
     argvalues=[
         "joint",
         "conden",
     ],
 )
 @pytest.mark.slow
+@pytest.mark.filterwarnings("ignore:KDE bandwidth was 0.*:RuntimeWarning")
 def test_rsklpr_smoke_test_5d_regression_increasing_windows_expected_output(
-    x: np.ndarray, y: np.ndarray, kp: Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray], k2: str
+    x: np.ndarray, y: np.ndarray, kp: Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray], kr: str
 ) -> None:
     """
     Smoke test that reasonable values are returned for linear 1D input with various window sizes.
@@ -129,7 +133,7 @@ def test_rsklpr_smoke_test_5d_regression_increasing_windows_expected_output(
     size_neighborhood: int
 
     for size_neighborhood in np.linspace(start=7, stop=50, num=20, endpoint=True).astype(int):
-        target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood, kp=kp, kr=k2)
+        target: Rsklpr = Rsklpr(size_neighborhood=size_neighborhood, kp=kp, kr=kr)
 
         actual: np.ndarray = target(
             x=x,
@@ -148,24 +152,25 @@ def test_rsklpr_smoke_test_5d_regression_increasing_windows_expected_output(
     argvalues=[generate_linear_1d() for _ in range(3)],
 )
 @pytest.mark.parametrize(
-    argnames="k1",
+    argnames="kp",
     argvalues=[laplacian_normalized_metric, tricube_normalized_metric],
 )
 @pytest.mark.parametrize(
-    argnames="k2",
+    argnames="kr",
     argvalues=[
         "joint",
         "conden",
     ],
 )
 @pytest.mark.slow
+@pytest.mark.filterwarnings("ignore:KDE bandwidth was 0.*:RuntimeWarning")
 def test_rsklpr_smoke_test_1d_estimate_bootstrap_expected_output(
-    x: np.ndarray, y: np.ndarray, kp: Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray], k2: str
+    x: np.ndarray, y: np.ndarray, kp: Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray], kr: str
 ) -> None:
     """
     Smoke test that reasonable values are returned for a linear 1D input using the joint kernel.
     """
-    target: Rsklpr = Rsklpr(size_neighborhood=20, kp=kp, kr=k2)
+    target: Rsklpr = Rsklpr(size_neighborhood=20, kp=kp, kr=kr)
     target.fit(x=x, y=y)
     actual: np.ndarray
     conf_low_actual: np.ndarray
@@ -284,11 +289,12 @@ def test_rsklpr_init_raises_for_incorrect_inputs() -> None:
     with pytest.raises(expected_exception=ValueError, match="size_neighborhood must be at least 3"):
         Rsklpr(size_neighborhood=2)
 
-    with pytest.raises(expected_exception=ValueError, match="degree must be one of 0 or 1"):
-        Rsklpr(size_neighborhood=3, degree=2)
+    # Negative degree
+    with pytest.raises(expected_exception=ValueError, match="degree must be a non-negative integer"):
+        Rsklpr(size_neighborhood=3, degree=-1)
 
     with pytest.raises(
-        expected_exception=ValueError, match="k2 alb is unsupported and must be one of 'conden' or 'joint'"
+        expected_exception=ValueError, match="kr alb is unsupported and must be one of 'none', 'conden' or 'joint'"
     ):
         Rsklpr(size_neighborhood=3, kr="alb")
 
@@ -468,7 +474,7 @@ def test_predict_error_metrics_expected_values(x: np.ndarray, y: np.ndarray, met
 def test_predict_error_metrics_expected_metrics_are_calculated() -> None:
     """
     Tests only the expected error metrics are calculated. When residuals is specified all global metrics expected to be
-    lazily evaluated. When 'root_mean_square' is specified also 'mean_square' should become available due to it's use in
+    lazily evaluated. When 'root_mean_square' is specified also 'mean_square' should become available due to its use in
     calculation
     """
     x: np.ndarray = generate_linear_1d()
@@ -724,3 +730,344 @@ def test_get_metric_params_error_cases(
 
     with pytest.raises(expected_exception):
         target.fit(x=x, y=y)
+
+
+@pytest.mark.parametrize(
+    "x, x_0, degree, expected",
+    [
+        # 1D data
+        (np.array([[1], [2], [3]]), np.array([[2]]), 0, np.array([[1], [1], [1]])),
+        (
+            np.array([[1], [2], [3]]),
+            np.array([[2]]),
+            1,
+            np.array([[1, -1], [1, 0], [1, 1]]),
+        ),
+        (
+            np.array([[1], [2], [3]]),
+            np.array([[2]]),
+            2,
+            np.array([[1, -1, 1], [1, 0, 0], [1, 1, 1]]),
+        ),
+        # 2D data
+        (
+            np.array([[1, 10], [2, 20]]),
+            np.array([[1, 10]]),
+            0,
+            np.array([[1], [1]]),
+        ),
+        (
+            np.array([[1, 10], [2, 20]]),
+            np.array([[1, 10]]),
+            1,
+            np.array([[1, 0, 0], [1, 1, 10]]),
+        ),
+        (
+            np.array([[1, 10], [2, 20]]),
+            np.array([[1, 10]]),
+            2,
+            np.array([[1, 0, 0, 0, 0, 0], [1, 1, 10, 1, 10, 100]]),
+        ),
+    ],
+)
+def test_create_design_matrix_expected_output(
+    x: np.ndarray, x_0: np.ndarray, degree: int, expected: np.ndarray
+) -> None:
+    """Tests the _create_design_matrix helper function for various degrees and dimensions."""
+    from rsklpr.rsklpr import _create_design_matrix
+
+    actual: np.ndarray = _create_design_matrix(x=x, x_0=x_0, degree=degree)
+    np.testing.assert_allclose(actual, expected)
+
+
+def test_create_design_matrix_raises_for_negative_degree() -> None:
+    """Tests that _create_design_matrix raises a ValueError for a negative degree."""
+    from rsklpr.rsklpr import _create_design_matrix
+
+    with pytest.raises(ValueError, match="Degree must be a non-negative integer."):
+        _create_design_matrix(x=np.array([[1]]), x_0=np.array([[0]]), degree=-1)
+
+
+@pytest.mark.parametrize(
+    argnames="x",
+    argvalues=[generate_linear_1d().reshape((-1, 1)) for _ in range(2)],
+)
+@pytest.mark.parametrize(
+    argnames="y",
+    argvalues=[generate_linear_1d(), generate_quad_1d(), generate_sin_1d()],
+)
+@pytest.mark.parametrize(
+    argnames="weights",
+    argvalues=[
+        rng.uniform(low=0.01, high=1, size=50),
+        np.ones(shape=50),
+    ],
+)
+def test_weighted_local_regression_degree_0_expected_values(x: np.ndarray, y: np.ndarray, weights: np.ndarray) -> None:
+    """Test the weighted local regression for degree=0, which should be the weighted average."""
+    # For degree 0, the prediction is just the weighted average of the neighbors.
+    # We use x_0 at the mean just as a placeholder; it shouldn't affect the degree 0 result.
+    x_0: np.ndarray = np.mean(x, axis=0)
+    actual: float
+    r_squared: Optional[float]
+
+    actual, r_squared = _weighted_local_regression(
+        x_0=x_0,
+        x=x,
+        y=y,
+        weights=weights,
+        degree=0,
+        calculate_r_squared=True,
+    )
+
+    expected_pred: float = np.average(y, weights=weights)
+    assert actual == pytest.approx(expected_pred)
+
+    # R-squared for a constant-only model
+    x_sm: np.ndarray = np.ones_like(x)
+    model_sm = sm.WLS(endog=y, exog=x_sm, weights=weights)
+    results_sm: RegressionResults = model_sm.fit()
+    assert r_squared == pytest.approx(float(results_sm.rsquared))
+
+
+@pytest.mark.parametrize(
+    argnames="x_0",
+    argvalues=[rng.uniform(low=-10, high=10, size=1) for _ in range(3)],
+)
+@pytest.mark.parametrize(
+    argnames="x",
+    argvalues=[generate_quad_1d().reshape((-1, 1))],
+)
+@pytest.mark.parametrize(
+    argnames="y",
+    argvalues=[generate_quad_1d()],
+)
+@pytest.mark.parametrize(
+    argnames="weights",
+    argvalues=[
+        rng.uniform(low=0.01, high=1, size=50),
+        np.ones(shape=50),
+    ],
+)
+def test_weighted_local_regression_degree_2_expected_values(
+    x_0: np.ndarray, x: np.ndarray, y: np.ndarray, weights: np.ndarray
+) -> None:
+    """Test the weighted local regression implementation for degree=2 (quadratic)."""
+    actual: float
+    r_squared: Optional[float]
+
+    actual, r_squared = _weighted_local_regression(
+        x_0=x_0, x=x, y=y, weights=weights, degree=2, calculate_r_squared=True
+    )
+
+    # Compare to a global WLS quadratic model
+    poly: PolynomialFeatures = PolynomialFeatures(degree=2, include_bias=True)
+    x_sm: np.ndarray = poly.fit_transform(x)
+    model_sm: sm.WLS = sm.WLS(endog=y, exog=x_sm, weights=weights)
+    results_sm: RegressionResults = model_sm.fit()
+
+    # The local regression's beta[0] should equal the global model's prediction at x_0
+    x_0_poly: np.ndarray = poly.transform(x_0.reshape(1, -1))
+    expected_pred: float = float((x_0_poly @ results_sm.params)[0].item())
+
+    assert actual == pytest.approx(expected_pred)
+    assert r_squared == pytest.approx(float(results_sm.rsquared))
+
+
+@pytest.mark.parametrize(
+    "degree, weights, side_effect, expected_match",
+    [
+        (-1, np.ones(50), None, "Degree -1 is not supported. Must be 0, 1, 2, ..."),
+        (1, np.zeros(50), None, None),  # Expect nan, no error
+        (
+            1,
+            np.ones(50),
+            np.linalg.LinAlgError,
+            None,
+        ),  # Expect nan, no error
+    ],
+)
+def test_weighted_local_regression_edge_cases(
+    mocker: MockerFixture,
+    degree: int,
+    weights: np.ndarray,
+    side_effect: Optional[Type[Exception]],
+    expected_match: Optional[str],
+) -> None:
+    """Tests edge cases for _weighted_local_regression: negative degree, zero weights, and linalg errors."""
+    x: np.ndarray = generate_linear_1d().reshape((-1, 1))
+    y: np.ndarray = generate_linear_1d()
+    x_0: np.ndarray = np.array([x.mean()])
+
+    if side_effect:
+        mocker.patch("numpy.linalg.lstsq", side_effect=side_effect)
+
+    if expected_match:
+        with pytest.raises(ValueError, match=expected_match):
+            _weighted_local_regression(x_0=x_0, x=x, y=y, weights=weights, degree=degree)
+    else:
+        # Should return nan without raising an error
+        actual, r_squared = _weighted_local_regression(x_0=x_0, x=x, y=y, weights=weights, degree=degree)
+        assert np.isnan(actual)
+        assert np.isnan(r_squared)  # type: ignore[arg-type]
+
+
+_x_base_linear: np.ndarray = generate_linear_1d(start=-5, stop=5, num=50)
+_y_base_quad: np.ndarray = np.square(_x_base_linear)  # y = x^2 (with the small noise from x)
+
+
+@pytest.mark.parametrize(
+    "x, y, degree, atol",
+    [
+        # Case for degree 0: constant data y = 5
+        (
+            generate_linear_1d(start=0, stop=10, num=50),  # A standard x array
+            np.ones(50) * 5.0,  # A y array that is constant
+            0,
+            1e-5,  # This should pass, as the weighted avg of 5.0 is 5.0
+        ),
+        # Case for degree 2: y = x^2
+        (
+            _x_base_linear,  # x is linear
+            _y_base_quad,  # y is the square of x
+            2,
+            5e-2,  # A more realistic tolerance for a local regression
+        ),
+    ],
+)
+@pytest.mark.filterwarnings("ignore:KDE bandwidth was 0.*:RuntimeWarning")
+def test_rsklpr_smoke_test_1d_degree_0_and_2(x: np.ndarray, y: np.ndarray, degree: int, atol: float) -> None:
+    """Smoke test that reasonable values are returned for degree 0 (constant) and 2 (quadratic) fits."""
+    target: Rsklpr = Rsklpr(size_neighborhood=25, degree=degree, kp=tricube_normalized_metric)
+    actual: np.ndarray = target(x=x, y=y)
+    np.testing.assert_allclose(actual=actual, desired=y, atol=atol)
+
+
+@pytest.mark.parametrize(
+    "x_in, y_in, neighborhood, match",
+    [
+        # Reshape 1D x
+        (np.ones(10), np.ones(10), 5, None),
+        # x.ndim > 2
+        (
+            np.ones((10, 2, 2)),
+            np.ones(10),
+            5,
+            "x dimension must be at most 2",
+        ),
+        # x.shape[0] < size_neighborhood
+        (
+            np.ones((5, 2)),
+            np.ones(5),
+            10,
+            "less than specified neighborhood size",
+        ),
+        # y.ndim > 1
+        (
+            np.ones((10, 2)),
+            np.ones((10, 2)),
+            5,
+            "y dimension must be at most 1",
+        ),
+        # Incompatible shapes
+        (np.ones((10, 2)), np.ones(5), 5, "x and y have incompatible shapes"),
+    ],
+)
+def test_check_and_reshape_inputs_errors_and_reshape(
+    x_in: np.ndarray,
+    y_in: np.ndarray,
+    neighborhood: int,
+    match: Optional[str],
+) -> None:
+    """Tests the validation logic in _check_and_reshape_inputs."""
+    target: Rsklpr = Rsklpr(size_neighborhood=neighborhood)
+    if match:
+        with pytest.raises(ValueError, match=match):
+            target._check_and_reshape_inputs(x=x_in, y=y_in)
+    else:
+        # Test successful reshape
+        x_out, y_out = target._check_and_reshape_inputs(x=x_in, y=y_in)
+        assert x_out.shape == (10, 1)
+        assert y_out is not None
+        assert y_out.shape == (10,)
+        # Test x-only path
+        x_out_only, y_out_only = target._check_and_reshape_inputs(x=x_in, y=None)
+        assert x_out_only.shape == (10, 1)
+        assert y_out_only is None
+
+
+def test_predict_raises_errors() -> None:
+    """Tests errors raised by the predict method."""
+    x: np.ndarray = generate_linear_1d()
+    y: np.ndarray = generate_linear_1d()
+    target: Rsklpr = Rsklpr(size_neighborhood=10)
+    target.fit(x=x, y=y)
+
+    # Error for requesting metrics with different x
+    with pytest.raises(
+        ValueError,
+        match="must be the same as the values provided to 'fit'",
+    ):
+        target.predict(x=x[1:], metrics="all")
+
+    # Error for unknown metric
+    with pytest.raises(ValueError, match="Unknown error metric bla"):
+        target.predict(x=x, metrics="bla")
+
+
+def test_predict_bootstrap_raises_for_invalid_iterations() -> None:
+    """Tests predict_bootstrap raises for <= 0 iterations."""
+    x: np.ndarray = generate_linear_1d()
+    y: np.ndarray = generate_linear_1d()
+    target: Rsklpr = Rsklpr(size_neighborhood=10)
+    target.fit(x=x, y=y)
+
+    with pytest.raises(ValueError, match="At least one bootstrap iteration need to be specified"):
+        target.predict_bootstrap(x=x, num_bootstrap_resamples=0)
+
+    with pytest.raises(ValueError, match="At least one bootstrap iteration need to be specified"):
+        target.predict_bootstrap(x=x, num_bootstrap_resamples=-1)
+
+
+def test_lazy_properties_are_calculated_from_residuals() -> None:
+    """Tests that lazy-loaded metric properties are correctly calculated if residuals exist."""
+    x: np.ndarray = generate_linear_1d()
+    y: np.ndarray = generate_linear_1d()
+    target: Rsklpr = Rsklpr(size_neighborhood=10)
+    y_hat: np.ndarray = target.fit_and_predict(x=x, y=y, metrics=["residuals"])
+
+    # At this point, only residuals should be set
+    assert target._residuals is not None
+    assert target._mean_square_error is None
+    assert target._root_mean_square_error is None
+    assert target._mean_abs_error is None
+    assert target._bias_error is None
+    assert target._std_error is None
+
+    # Accessing properties should trigger calculation
+    expected_mse: float = sm.tools.eval_measures.mse(y_hat, y)
+    assert target.mean_square_error == pytest.approx(expected_mse)
+    assert target._mean_square_error is not None  # Check it's now cached
+
+    expected_rmse: float = sm.tools.eval_measures.rmse(y_hat, y)
+    assert target.root_mean_square_error == pytest.approx(expected_rmse)
+    assert target._root_mean_square_error is not None
+
+    expected_mae: float = sm.tools.eval_measures.meanabs(y_hat, y)
+    assert target.mean_abs_error == pytest.approx(expected_mae)
+    assert target._mean_abs_error is not None
+
+    expected_bias: float = sm.tools.eval_measures.bias(y_hat, y)
+    assert target.bias_error == pytest.approx(expected_bias)
+    assert target._bias_error is not None
+
+    expected_std: float = sm.tools.eval_measures.stde(y_hat, y)
+    assert target.std_error == pytest.approx(expected_std)
+    assert target._std_error is not None
+
+    # Test RMSE calculation when MSE is already cached
+    target_rmse: Rsklpr = Rsklpr(size_neighborhood=10)
+    y_hat_rmse: np.ndarray = target_rmse.fit_and_predict(x=x, y=y, metrics=["mean_square"])
+    assert target_rmse._mean_square_error is not None
+    assert target_rmse._root_mean_square_error is None
+    assert target_rmse.root_mean_square_error == pytest.approx(sm.tools.eval_measures.rmse(y_hat_rmse, y))

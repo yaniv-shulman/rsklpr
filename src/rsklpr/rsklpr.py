@@ -6,6 +6,7 @@ from typing import Optional, Sequence, Tuple, Callable, List, Union, Any, Dict
 import numpy as np
 from numpy.random import default_rng as np_default_rng
 from sklearn.neighbors import NearestNeighbors
+from sklearn.preprocessing import PolynomialFeatures
 
 from rsklpr.kde_statsmodels_impl.bandwidths import select_bandwidth
 from rsklpr.kde_statsmodels_impl.kernel_density import KDEMultivariate
@@ -102,6 +103,32 @@ def _r_squared(beta: np.ndarray, x_w: np.ndarray, y_w: np.ndarray, y: np.ndarray
     return 1.0 - sse / sst_centered
 
 
+def _create_design_matrix(x: np.ndarray, x_0: np.ndarray, degree: int) -> np.ndarray:
+    """
+    Creates the polynomial design matrix for local regression centered at x_0.
+
+    Args:
+        x: The predictors in all observations, shape [N, K].
+        x_0: The target regression point, shape [1, K].
+        degree: The regression polynomial degree (0 for constant, 1 for linear, etc.).
+
+    Returns:
+        The design matrix, shape [N, P] where P is the number of polynomial features.
+    """
+    if degree < 0:
+        raise ValueError("Degree must be a non-negative integer.")
+
+    # Center the data at the target point
+    x_centered: np.ndarray = x - x_0
+
+    # Use PolynomialFeatures to generate terms
+    # include_bias=True adds the intercept (constant) term
+    poly: PolynomialFeatures = PolynomialFeatures(degree=degree, include_bias=True)
+    x_mat: np.ndarray = poly.fit_transform(x_centered)
+
+    return x_mat
+
+
 def _weighted_local_regression(
     x_0: np.ndarray,
     x: np.ndarray,
@@ -118,13 +145,13 @@ def _weighted_local_regression(
         x: The predictors in all observations, of shape [N, K] where N is the observations and K is the dimension.
         y: The N scalar response values corresponding to the provided predictors.
         weights: The N scalar weights associated with each observation.
-        degree: The regression polynomial degree, supported values are 0 or 1.
+        degree: The regression polynomial degree.
 
     Returns:
         The predicted y_hat at locations x.
     """
-    if degree not in (0, 1):
-        raise ValueError(f"Degree {degree} is not supported. Supported values are 0 and 1.")
+    if degree < 0:
+        raise ValueError(f"Degree {degree} is not supported. Must be 0, 1, 2, ...")
 
     if x.ndim != 2:
         raise ValueError("x must be a two dimensional array.")
@@ -135,21 +162,12 @@ def _weighted_local_regression(
     if np.sum(weights) <= np.finfo(weights.dtype).eps:
         return np.nan, np.nan
 
-    bias: np.ndarray = np.ones(shape=(x.shape[0], 1))
-
-    x_mat: np.ndarray = (
-        np.concatenate(
-            [bias, x - x_0],
-            axis=1,
-        )
-        if degree == 1
-        else bias
-    )
+    x_mat: np.ndarray = _create_design_matrix(x=x, x_0=x_0, degree=degree)
 
     w_sqrt: np.ndarray = np.sqrt(weights)
     y_w: np.ndarray = w_sqrt * y
     x_mat_w: np.ndarray = w_sqrt * x_mat
-    del x_mat, bias
+    del x_mat
 
     beta: np.ndarray
 
@@ -206,8 +224,8 @@ class Rsklpr:
         """
         Args:
             size_neighborhood: The number of points in the neighborhood to consider in the local regression.
-            degree: The degree of the polynomial fitted locally, supported values are 0 or 1 (default) that result in
-                local constant and local linear regression respectively.
+            degree: The degree of the polynomial fitted locally (e.g., 0 for constant, 1 for linear, 2 for quadratic).
+                Defaults to 1.
             metric_x: Metric for distance computation for the predictors using sklearn.neighbors.NearestNeighbors. See
                 https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestNeighbors.html for details.
             metric_x_params: Metric parameters if required. For 'mahalanobis' (default) the inverted covariance matrix
@@ -246,8 +264,8 @@ class Rsklpr:
         if size_neighborhood < 3:
             raise ValueError("size_neighborhood must be at least 3")
 
-        if degree not in (0, 1):
-            raise ValueError("degree must be one of 0 or 1")
+        if degree < 0:
+            raise ValueError("degree must be a non-negative integer")
 
         kr = kr.lower()
 
@@ -671,9 +689,9 @@ class Rsklpr:
 
         """
         if metrics is not None:
-            if not np.allclose(a=x_arr, b=self._x):
+            if x_arr.shape != self._x.shape or not np.allclose(a=x_arr, b=self._x):
                 raise ValueError(
-                    "When specifying metrics the provided predictor values must be the same as the values "
+                    "When specifying metrics the provided predictor shape and values must be the same as the values "
                     "provided to 'fit'."
                 )
 
@@ -1000,10 +1018,12 @@ class Rsklpr:
         """
         Returns:
             The root mean squared error if available, otherwise None. Note this metric can be lazily evaluated if
-            residuals are stored.
+            residuals or mean_square_error are stored.
         """
-        if self._root_mean_square_error is None and self._residuals.shape[0] > 0:
-            mse: Optional[float] = self._mean_square_error
+        if self._root_mean_square_error is None:
+            # Try to get mse. This will either return the cached value or try to calculate it from residuals
+            # (if they exist) by calling the .mean_square_error property.
+            mse: Optional[float] = self.mean_square_error
 
             if mse is not None:
                 self._root_mean_square_error = math.sqrt(mse)
