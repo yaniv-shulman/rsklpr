@@ -27,7 +27,7 @@ class ExperimentConfig:
     num_points: int
     bw1: Union[str, Sequence[float], Callable[[Any], List[float]], float]  # type: ignore [misc]
     bw2: Union[str, Sequence[float], Callable[[Any], List[float]], float]  # type: ignore [misc]
-    k2: str = "joint"
+    kr: str = "joint"
     degree: int = 1
 
 
@@ -35,7 +35,7 @@ def benchmark_data(
     x: np.ndarray,
     y: np.ndarray,
     y_true: Optional[np.ndarray],
-    k2: str,
+    kr: str,
     size_neighborhood: Union[int, Dict[str, int]],
     num_points: int,
     bw1: Union[str, Sequence[float], Callable[[Any], List[float]]],  # type: ignore [misc]
@@ -50,7 +50,7 @@ def benchmark_data(
             dimension of X.
         y: The corresponding response for all observations.
         y_true: The ground truth response at the locations x.
-        k2: The kernel that models the conditional 'importance' of the response at the location.
+        kr: The kernel that models the conditional 'importance' of the response at the location.
         size_neighborhood: The number of neighbors to use for local fitting. If an int the same value is used for all
             relevant methods, if a dict then an explicit value need to be provided for each method. Relevant only for
             rsklpr linear and local quadratic methods i.e 'rsklpr', 'lowess', 'robust_lowess' and 'local_quad'.
@@ -82,7 +82,7 @@ def benchmark_data(
         rsklpr: Rsklpr = Rsklpr(
             size_neighborhood=use_neighbors,
             degree=1,
-            kr=k2,
+            kr=kr,
             bw1=bw1,
             bw2=bw2,
         )
@@ -103,7 +103,7 @@ def benchmark_data(
         rsklpr_quad: Rsklpr = Rsklpr(
             size_neighborhood=use_neighbors,
             degree=2,
-            kr=k2,
+            kr=kr,
             bw1=bw1,
             bw2=bw2,
         )
@@ -394,7 +394,7 @@ def _benchmark_increasing_neighborhoods(
     num_points: int,
     bw1: Union[str, Sequence[float], Callable[[Any], List[float]]],  # type: ignore [misc]
     bw2: Union[str, Sequence[float], Callable[[Any], List[float]]],  # type: ignore [misc]
-    k2: str,
+    kr: str,
     size_neighborhoods: List[int],
     methods: List[str],
 ) -> List[Dict[str, Union[np.ndarray, pd.DataFrame, ExperimentConfig]]]:
@@ -412,7 +412,7 @@ def _benchmark_increasing_neighborhoods(
         num_points: The number of points sampled from the curve in the experiments.
         bw1: Used for Rsklpr bw1.
         bw2: Used for Rsklpr bw2.
-        k2: Used for Rsklpr, the kernel that models the conditional 'importance' of the response at the location.
+        kr: Used for Rsklpr, the kernel that models the conditional 'importance' of the response at the location.
         size_neighborhoods: The sizes of neighborhoods to use in the experiments.
         methods: The list of methods to estimate on.
 
@@ -431,7 +431,7 @@ def _benchmark_increasing_neighborhoods(
             num_points=num_points,
             bw1=bw1,
             bw2=bw2,
-            k2=k2,
+            kr=kr,
         )
 
         result: pd.DataFrame
@@ -441,7 +441,7 @@ def _benchmark_increasing_neighborhoods(
             x=x,
             y=y,
             y_true=y_true,
-            k2=k2,
+            kr=kr,
             size_neighborhood=size_neighborhood,
             num_points=num_points,
             bw1=bw1,
@@ -467,7 +467,7 @@ def run_increasing_size_neighborhoods_experiments(
     size_neighborhoods: List[int],
     bw1: Union[str, Sequence[float], Callable[[Any], List[float]]],  # type: ignore [misc]
     bw2: Union[str, Sequence[float], Callable[[Any], List[float]]],  # type: ignore [misc]
-    k2: str,
+    kr: str,
     methods: List[str],
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
@@ -480,8 +480,8 @@ def run_increasing_size_neighborhoods_experiments(
         num_points: The number of points sampled from the curve in the experiments.
         size_neighborhoods: The sizes of neighborhoods to use in the experiments.
         bw1: The bandwidth selection method to used in the marginal predictor's kernel.
-        bw2: The joint or response bandwidth selection method to use in the k2.
-        k2: The kernel that models the conditional 'importance' of the response at the location.
+        bw2: The joint or response bandwidth selection method to use in the kr.
+        kr: The kernel that models the conditional 'importance' of the response at the location.
         methods: The list of methods to estimate on.
 
     Returns:
@@ -506,7 +506,7 @@ def run_increasing_size_neighborhoods_experiments(
             num_points=num_points,
             bw1=bw1,
             bw2=bw2,
-            k2=k2,
+            kr=kr,
             size_neighborhoods=size_neighborhoods,
             methods=methods,
         )
