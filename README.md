@@ -30,6 +30,13 @@ pip install rsklpr
 ```
 
 ### What's new? ###
+- Version 2.0.0: 
+  - Improved numerical stability.
+  - Generalise the API for arbitrary kernels.
+  - Support for disabling the robust KDE based kernel. This allows using the library as a standard local polynomial
+    regression implementation with various kernels.
+  - Implementation of additional of the shelf kernels.
+  - Supporting arbitrary polynomial degree for local fitting.
 - Version 1.0.0 - Dropped support for Python 3.8 and added support for Python 3.12.
 - Version 0.7.0 - Metrics including local R-Squared and more efficient computation of WLS. 
 - Version 0.6.0 - Bootstrap inference and confidence intervals

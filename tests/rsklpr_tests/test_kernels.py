@@ -183,7 +183,7 @@ u3_norm: np.ndarray = np.array([[0.0, 0.0, 0.0]])
     ],
 )
 def test_all_normalized_kernels_expected_output(
-    kernel_func: Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray],
+    kernel_func: Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray],
     u: np.ndarray,
     u_norm: np.ndarray,  # (unused, for clarity)
     expected: np.ndarray,
@@ -191,5 +191,5 @@ def test_all_normalized_kernels_expected_output(
     """
     Tests that all normalized kernels return the expected output for various inputs.
     """
-    actual: np.ndarray = kernel_func(DUMMY_ARG, DUMMY_ARG, u)
+    actual: np.ndarray = kernel_func(DUMMY_ARG, DUMMY_ARG, u, DUMMY_ARG)
     np.testing.assert_allclose(actual=actual, desired=expected)

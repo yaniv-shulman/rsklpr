@@ -212,8 +212,8 @@ class Rsklpr:
         metric_x: Union[str, Callable[[np.ndarray, np.ndarray], float]] = "mahalanobis",
         metric_x_params: Optional[Dict[str, Any]] = None,
         kp: Union[
-            Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray],
-            List[Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray]],
+            Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray],
+            List[Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray]],
         ] = laplacian_normalized_metric,
         kr: str = "joint",
         bw1: Union[str, float, Sequence[float], Callable[[Any], Sequence[float]]] = "normal_reference",  # type: ignore [misc]
@@ -320,7 +320,9 @@ class Rsklpr:
         )
 
         self._seed: int = seed
-        self._kp: List[Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray]] = [kp] if callable(kp) else kp
+        self._kp: List[Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray]] = (
+            [kp] if callable(kp) else kp
+        )
         self._rnd_gen: np.random.Generator = np_default_rng(seed=seed)
         self._x: np.ndarray = np.asarray([])
         self._y: np.ndarray = np.asarray([])
@@ -650,7 +652,7 @@ class Rsklpr:
         x_neighbors: np.ndarray = self._x[indices].squeeze(axis=0)
 
         weights_list: List[np.ndarray] = [
-            np.atleast_2d(self._kp[i](x_0, x_neighbors, dist_x_neighbors)) for i in range(len(self._kp))
+            np.atleast_2d(self._kp[i](x_0, x_neighbors, dist_x_neighbors, indices)) for i in range(len(self._kp))
         ]
 
         weights: np.ndarray = np.concatenate(weights_list, axis=0)

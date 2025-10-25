@@ -45,7 +45,7 @@ from tests.rsklpr_tests.utils import generate_linear_1d, generate_linear_nd, rng
 @pytest.mark.slow
 @pytest.mark.filterwarnings("ignore:KDE bandwidth was 0.*:RuntimeWarning")
 def test_rsklpr_smoke_test_1d_regression_increasing_windows_expected_output(
-    x: np.ndarray, y: np.ndarray, kp: Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray], kr: str
+    x: np.ndarray, y: np.ndarray, kp: Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray], kr: str
 ) -> None:
     """
     Smoke test that reasonable values are returned for linear 1D input with various window sizes.
@@ -85,7 +85,7 @@ def test_rsklpr_smoke_test_1d_regression_increasing_windows_expected_output(
 @pytest.mark.slow
 @pytest.mark.filterwarnings("ignore:KDE bandwidth was 0.*:RuntimeWarning")
 def test_rsklpr_smoke_test_2d_regression_increasing_windows_expected_output(
-    x: np.ndarray, y: np.ndarray, kp: Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray], kr: str
+    x: np.ndarray, y: np.ndarray, kp: Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray], kr: str
 ) -> None:
     """
     Smoke test that reasonable values are returned for linear 1D input with various window sizes.
@@ -125,7 +125,7 @@ def test_rsklpr_smoke_test_2d_regression_increasing_windows_expected_output(
 @pytest.mark.slow
 @pytest.mark.filterwarnings("ignore:KDE bandwidth was 0.*:RuntimeWarning")
 def test_rsklpr_smoke_test_5d_regression_increasing_windows_expected_output(
-    x: np.ndarray, y: np.ndarray, kp: Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray], kr: str
+    x: np.ndarray, y: np.ndarray, kp: Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray], kr: str
 ) -> None:
     """
     Smoke test that reasonable values are returned for linear 1D input with various window sizes.
@@ -165,7 +165,7 @@ def test_rsklpr_smoke_test_5d_regression_increasing_windows_expected_output(
 @pytest.mark.slow
 @pytest.mark.filterwarnings("ignore:KDE bandwidth was 0.*:RuntimeWarning")
 def test_rsklpr_smoke_test_1d_estimate_bootstrap_expected_output(
-    x: np.ndarray, y: np.ndarray, kp: Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray], kr: str
+    x: np.ndarray, y: np.ndarray, kp: Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray], kr: str
 ) -> None:
     """
     Smoke test that reasonable values are returned for a linear 1D input using the joint kernel.

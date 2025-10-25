@@ -21,7 +21,7 @@ def _normalize_distances(u: np.ndarray) -> np.ndarray:
     return u_shifted / u_max  # type: ignore [no-any-return]
 
 
-def laplacian_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray) -> np.ndarray:
+def laplacian_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray, ___: np.ndarray) -> np.ndarray:
     """
     Implementation of the Laplacian kernel on the neighbours metric. The inputs are first scaled to the range [0,1]
     before applying the kernel.
@@ -30,6 +30,7 @@ def laplacian_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray) ->
         _: ignored.
         __: ignored.
         u: The neighbours metric.
+        ___: ignored.
 
     Returns:
         The kernel output.
@@ -38,7 +39,7 @@ def laplacian_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray) ->
     return np.exp(-u_normalized)  # type: ignore [no-any-return]
 
 
-def tricube_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray) -> np.ndarray:
+def tricube_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray, ___: np.ndarray) -> np.ndarray:
     """
     Implementation of the normalized Tricube kernel on the neighbours metric. The inputs are scaled to the range [0,1]
     before applying the kernel.
@@ -47,6 +48,7 @@ def tricube_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray) -> n
         _: ignored.
         __: ignored.
         u: The neighbours metric.
+        ___: ignored.
 
     Returns:
         The kernel output.
@@ -60,7 +62,7 @@ def tricube_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray) -> n
     )
 
 
-def gaussian_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray) -> np.ndarray:
+def gaussian_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray, ___: np.ndarray) -> np.ndarray:
     """
     Implementation of the normalized Gaussian kernel on the neighbours metric. The inputs are scaled to the range [0,1]
     before applying the kernel.
@@ -69,6 +71,7 @@ def gaussian_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray) -> 
         _: ignored.
         __: ignored.
         u: The neighbours metric.
+        ___: ignored.
 
     Returns:
         The kernel output.
@@ -77,7 +80,7 @@ def gaussian_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray) -> 
     return np.exp(-0.5 * np.square(u_normalized))  # type: ignore [no-any-return]
 
 
-def epanechnikov_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray) -> np.ndarray:
+def epanechnikov_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray, ___: np.ndarray) -> np.ndarray:
     """
     Implementation of the normalized Epanechnikov kernel on the neighbours metric. The inputs are scaled to the range
     [0,1] before applying the kernel.
@@ -86,6 +89,7 @@ def epanechnikov_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray)
         _: ignored.
         __: ignored.
         u: The neighbours metric.
+        ___: ignored.
 
     Returns:
         The kernel output.
@@ -99,7 +103,7 @@ def epanechnikov_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray)
     )
 
 
-def triangular_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray) -> np.ndarray:
+def triangular_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray, ___: np.ndarray) -> np.ndarray:
     """
     Implementation of the normalized Triangular (or "cone") kernel on the neighbours metric.
     The inputs are scaled to the range [0,1] before applying the kernel.
@@ -108,6 +112,7 @@ def triangular_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray) -
         _: ignored.
         __: ignored.
         u: The neighbours metric.
+        ___: ignored.
 
     Returns:
         The kernel output.
@@ -121,7 +126,7 @@ def triangular_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray) -
     )
 
 
-def biweight_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray) -> np.ndarray:
+def biweight_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray, ___: np.ndarray) -> np.ndarray:
     """
     Implementation of the normalized Biweight (or "quartic") kernel on the neighbours metric.
     The inputs are scaled to the range [0,1] before applying the kernel.
@@ -130,6 +135,7 @@ def biweight_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray) -> 
         _: ignored.
         __: ignored.
         u: The neighbours metric.
+        ___: ignored.
 
     Returns:
         The kernel output.
@@ -143,7 +149,7 @@ def biweight_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray) -> 
     )
 
 
-def triweight_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray) -> np.ndarray:
+def triweight_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray, ___: np.ndarray) -> np.ndarray:
     """
     Implementation of the normalized Triweight kernel on the neighbours metric.
     The inputs are scaled to the range [0,1] before applying the kernel.
@@ -152,6 +158,7 @@ def triweight_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray) ->
         _: ignored.
         __: ignored.
         u: The neighbours metric.
+        ___: ignored.
 
     Returns:
         The kernel output.
@@ -165,7 +172,7 @@ def triweight_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray) ->
     )
 
 
-def uniform_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray) -> np.ndarray:
+def uniform_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray, ___: np.ndarray) -> np.ndarray:
     """
     Implementation of the normalized Uniform (or "boxcar") kernel.
     All neighbors in the window are weighted equally.
@@ -174,6 +181,7 @@ def uniform_normalized_metric(_: np.ndarray, __: np.ndarray, u: np.ndarray) -> n
         _: ignored.
         __: ignored.
         u: The neighbours metric.
+        ___: ignored.
 
     Returns:
         The kernel output (an array of ones).
