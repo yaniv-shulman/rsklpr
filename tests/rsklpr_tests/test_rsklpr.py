@@ -13,7 +13,6 @@ from rsklpr.kernels import laplacian_normalized_metric, tricube_normalized_metri
 from rsklpr.rsklpr import (
     Rsklpr,
     _dim_data,
-    _weighted_local_regression,
     _r_squared,
     all_metrics,
 )
@@ -352,10 +351,13 @@ def test_weighted_local_regression_1d_expected_values(
     x_0: np.ndarray, x: np.ndarray, y: np.ndarray, weights: np.ndarray
 ) -> None:
     """test the weighted linear regression implementation gives the expected results for the 1D case"""
+
+    target: Rsklpr = Rsklpr(size_neighborhood=15)
+    target.fit(x=x, y=y)
     actual: float
     r_squared: Optional[float]
 
-    actual, r_squared = _weighted_local_regression(
+    actual, r_squared = target._weighted_local_regression(
         x_0=x_0.reshape(1, -1), x=x, y=y, weights=weights, degree=1, calculate_r_squared=True
     )
 
@@ -395,10 +397,12 @@ def test_weighted_local_regression_2d_expected_values(
     x_0: np.ndarray, x: np.ndarray, y: np.ndarray, weights: np.ndarray
 ) -> None:
     """test the weighted linear regression implementation gives the expected results for the 2D case"""
+    target: Rsklpr = Rsklpr(size_neighborhood=15)
+    target.fit(x=x, y=y)
     actual: float
     r_squared: Optional[float]
 
-    actual, r_squared = _weighted_local_regression(
+    actual, r_squared = target._weighted_local_regression(
         x_0=x_0.reshape(1, -1), x=x, y=y, weights=weights, degree=1, calculate_r_squared=True
     )
 
@@ -469,7 +473,7 @@ def test_predict_error_metrics_expected_values(x: np.ndarray, y: np.ndarray, met
 
         x_sm: np.ndarray = np.squeeze(x[indices])
         x_sm = sm.add_constant(x_sm)
-        model_sm = sm.WLS(endog=np.squeeze(y[indices]), exog=x_sm, weights=np.squeeze(weights))
+        model_sm: sm.WLS = sm.WLS(endog=np.squeeze(y[indices]), exog=x_sm, weights=np.squeeze(weights))
         results_sm: RegressionResults = model_sm.fit()
         assert target.r_squared[i] == pytest.approx(float(results_sm.rsquared))
 
@@ -551,10 +555,13 @@ def test_weighted_local_regression_r_squared_is_none(mocker: MockerFixture) -> N
     y: np.ndarray = generate_linear_1d()
     weights: np.ndarray = rng.uniform(low=0.01, high=1, size=50).reshape((-1, 1))
     r_squared_mock: MagicMock = mocker.patch("rsklpr.rsklpr._r_squared", return_value=1.0)
+    target: Rsklpr = Rsklpr(size_neighborhood=15)
+    target.fit(x=x, y=y)
+
     actual: float
     r_squared: Optional[float]
 
-    actual, r_squared = _weighted_local_regression(
+    actual, r_squared = target._weighted_local_regression(
         x_0=x.mean(), x=x, y=y, weights=weights, degree=1, calculate_r_squared=False
     )
 
@@ -780,18 +787,19 @@ def test_create_design_matrix_expected_output(
     x: np.ndarray, x_0: np.ndarray, degree: int, expected: np.ndarray
 ) -> None:
     """Tests the _create_design_matrix helper function for various degrees and dimensions."""
-    from rsklpr.rsklpr import _create_design_matrix
-
-    actual: np.ndarray = _create_design_matrix(x=x, x_0=x_0, degree=degree)
+    target: Rsklpr = Rsklpr(size_neighborhood=3, degree=degree)
+    actual: np.ndarray = target._create_design_matrix(x=x, x_0=x_0, degree=degree)
     np.testing.assert_allclose(actual, expected)
 
 
 def test_create_design_matrix_raises_for_negative_degree() -> None:
     """Tests that _create_design_matrix raises a ValueError for a negative degree."""
-    from rsklpr.rsklpr import _create_design_matrix
+
+    target: Rsklpr = Rsklpr(size_neighborhood=15)
+    target.fit(x=np.linspace(0.0, 1.0), y=np.linspace(0.0, 1.0))
 
     with pytest.raises(ValueError, match="Degree must be a non-negative integer."):
-        _create_design_matrix(x=np.array([[1]]), x_0=np.array([[0]]), degree=-1)
+        target._create_design_matrix(x=np.array([[1]]), x_0=np.array([[0]]), degree=-1)
 
 
 @pytest.mark.parametrize(
@@ -814,10 +822,13 @@ def test_weighted_local_regression_degree_0_expected_values(x: np.ndarray, y: np
     # For degree 0, the prediction is just the weighted average of the neighbors.
     # We use x_0 at the mean just as a placeholder; it shouldn't affect the degree 0 result.
     x_0: np.ndarray = np.mean(x, axis=0)
+    target: Rsklpr = Rsklpr(size_neighborhood=15)
+    target.fit(x=x, y=y)
+
     actual: float
     r_squared: Optional[float]
 
-    actual, r_squared = _weighted_local_regression(
+    actual, r_squared = target._weighted_local_regression(
         x_0=x_0,
         x=x,
         y=y,
@@ -831,7 +842,7 @@ def test_weighted_local_regression_degree_0_expected_values(x: np.ndarray, y: np
 
     # R-squared for a constant-only model
     x_sm: np.ndarray = np.ones_like(x)
-    model_sm = sm.WLS(endog=y, exog=x_sm, weights=weights)
+    model_sm: sm.WLS = sm.WLS(endog=y, exog=x_sm, weights=weights)
     results_sm: RegressionResults = model_sm.fit()
     assert r_squared == pytest.approx(float(results_sm.rsquared))
 
@@ -859,10 +870,12 @@ def test_weighted_local_regression_degree_2_expected_values(
     x_0: np.ndarray, x: np.ndarray, y: np.ndarray, weights: np.ndarray
 ) -> None:
     """Test the weighted local regression implementation for degree=2 (quadratic)."""
+    target: Rsklpr = Rsklpr(size_neighborhood=15)
+    target.fit(x=x, y=y)
     actual: float
     r_squared: Optional[float]
 
-    actual, r_squared = _weighted_local_regression(
+    actual, r_squared = target._weighted_local_regression(
         x_0=x_0, x=x, y=y, weights=weights, degree=2, calculate_r_squared=True
     )
 
@@ -904,18 +917,20 @@ def test_weighted_local_regression_edge_cases(
     x: np.ndarray = generate_linear_1d().reshape((-1, 1))
     y: np.ndarray = generate_linear_1d()
     x_0: np.ndarray = np.array([x.mean()])
+    target: Rsklpr = Rsklpr(size_neighborhood=15)
+    target.fit(x=x, y=y)
 
     if side_effect:
         mocker.patch("numpy.linalg.lstsq", side_effect=side_effect)
 
     if expected_match:
         with pytest.raises(ValueError, match=expected_match):
-            _weighted_local_regression(x_0=x_0, x=x, y=y, weights=weights, degree=degree)
+            target._weighted_local_regression(x_0=x_0, x=x, y=y, weights=weights, degree=degree)
     else:
         # Should return nan without raising an error
-        actual, r_squared = _weighted_local_regression(x_0=x_0, x=x, y=y, weights=weights, degree=degree)
+        actual, r_squared = target._weighted_local_regression(x_0=x_0, x=x, y=y, weights=weights, degree=degree)
         assert np.isnan(actual)
-        assert np.isnan(r_squared)  # type: ignore[arg-type]
+        assert r_squared is None  # type: ignore[arg-type]
 
 
 _x_base_linear: np.ndarray = generate_linear_1d(start=-5, stop=5, num=50)
@@ -987,6 +1002,7 @@ def test_check_and_reshape_inputs_errors_and_reshape(
 ) -> None:
     """Tests the validation logic in _check_and_reshape_inputs."""
     target: Rsklpr = Rsklpr(size_neighborhood=neighborhood)
+
     if match:
         with pytest.raises(ValueError, match=match):
             target._check_and_reshape_inputs(x=x_in, y=y_in)
@@ -1017,7 +1033,10 @@ def test_predict_raises_errors() -> None:
         target.predict(x=x[1:], metrics="all")
 
     # Error for unknown metric
-    with pytest.raises(ValueError, match="Unknown error metric bla"):
+    with pytest.raises(
+        ValueError,
+        match=r"^Unknown metric bla\. Available metrics are \[.*\]$",
+    ):
         target.predict(x=x, metrics="bla")
 
 
