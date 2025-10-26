@@ -501,7 +501,7 @@ class Rsklpr:
         )
 
         bw_x: float = bw_x_array.mean().item()
-        eps: float = np.finfo(float).eps
+        eps: float = float(np.finfo(float).eps)
 
         if not np.isfinite(bw_x) or bw_x <= eps:
             warnings.warn(
