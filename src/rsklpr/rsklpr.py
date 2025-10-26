@@ -133,6 +133,7 @@ def _r_squared(beta: np.ndarray, x_w: np.ndarray, y_w: np.ndarray, y: np.ndarray
         warnings.warn(
             message="R-squared is undefined due to all-zero or all-NaN weights; returning NaN.",
             category=RuntimeWarning,
+            stacklevel=2,
         )
 
         return float("nan")
@@ -148,6 +149,7 @@ def _r_squared(beta: np.ndarray, x_w: np.ndarray, y_w: np.ndarray, y: np.ndarray
         warnings.warn(
             message="R-squared is undefined due to zero variance in weighted response; returning NaN.",
             category=RuntimeWarning,
+            stacklevel=2,
         )
 
         return float("nan")
@@ -362,6 +364,7 @@ class Rsklpr:
                         message=f"KDE bandwidth was 0 (neighborhood has 0 variance). "
                         f"Using a data-scaled fallback ({fallback_bw}) to proceed.",
                         category=RuntimeWarning,
+                        stacklevel=2,
                     )
 
                     return fallback_bw
@@ -396,6 +399,7 @@ class Rsklpr:
                     message=f"KDE bandwidth estimation '{bandwidth}' failed (e.g., 0 variance). "
                     f"Using a data-scaled fallback ({fallback_bw}) to proceed. Error: {e}",
                     category=RuntimeWarning,
+                    stacklevel=2,
                 )
 
                 return fallback_bw
@@ -486,7 +490,7 @@ class Rsklpr:
         """
         square_dist_y_windowed: np.ndarray = np.square(y_neighbors - y_neighbors.T)
 
-        bw_x: np.ndarray = np.asarray(
+        bw_x_array: np.ndarray = np.asarray(
             (
                 self._bw1
                 if isinstance(self._bw1, List)
@@ -496,10 +500,21 @@ class Rsklpr:
             else bw1_global
         )
 
-        bw_x = bw_x.mean()
+        bw_x: float = bw_x_array.mean().item()
+        eps: float = np.finfo(float).eps
+
+        if not np.isfinite(bw_x) or bw_x <= eps:
+            warnings.warn(
+                message="x bandwidth is non-finite or too small, using data-scaled fallback",
+                category=RuntimeWarning,
+                stacklevel=2,
+            )
+
+            bw_x = np.asarray(_get_fallback_bw(data_for_std=x_neighbors)).mean().item()
+
         weights: np.ndarray = np.exp(-0.5 * np.power(dist_x_neighbors / bw_x, 2)) / bw_x
 
-        bw_y: np.ndarray = np.asarray(
+        bw_y_array: np.ndarray = np.asarray(
             (
                 self._bw2
                 if isinstance(self._bw2, List)
@@ -509,8 +524,24 @@ class Rsklpr:
             else bw2_global
         )
 
-        if bw_y.size != 1:
-            raise ValueError(f"Too many values ({bw_y.size}) specified for y bandwidth")
+        if bw_y_array.size != 1:
+            raise ValueError(f"Too many values ({bw_y_array.size}) specified for y bandwidth")
+
+        bw_y: float = bw_y_array.item()
+
+        if not np.isfinite(bw_y) or bw_y <= eps:
+            warnings.warn(
+                message="y bandwidth is non-finite or too small, using data-scaled fallback",
+                category=RuntimeWarning,
+                stacklevel=2,
+            )
+
+            bw_y_list: List[float] = _get_fallback_bw(data_for_std=y_neighbors)
+
+            if len(bw_y_list) != 1:
+                raise ValueError("y data has more than one dimension, cannot calculate fallback bandwidth")
+
+            bw_y = bw_y_list[0]
 
         local_density: np.ndarray = np.exp(-0.5 * square_dist_y_windowed / (bw_y**2))
         local_density = (local_density * weights).sum(axis=-1)
@@ -939,7 +970,11 @@ class Rsklpr:
             raise ValueError("x dimension must be at most 2")
 
         if x.shape[0] < x.shape[1]:
-            warnings.warn("There are fewer observations than the number of dimensions, is this intended?")
+            warnings.warn(
+                message="There are fewer observations than the number of dimensions, is this intended?",
+                category=RuntimeWarning,
+                stacklevel=2,
+            )
 
         if x.shape[0] < self._size_neighborhood:
             raise ValueError(
