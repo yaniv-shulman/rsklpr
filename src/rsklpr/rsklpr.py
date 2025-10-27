@@ -191,6 +191,7 @@ class Rsklpr:
         bw1: Union[str, float, Sequence[float], Callable[[Any], Sequence[float]]] = "normal_reference",  # type: ignore [misc]
         bw2: Union[str, float, Sequence[float], Callable[[Any], Sequence[float]]] = "normal_reference",  # type: ignore [misc]
         bw_global_subsample_size: Optional[int] = None,
+        var_type_x: Optional[str] = None,
         seed: int = 888,
     ) -> None:
         """
@@ -232,6 +233,9 @@ class Rsklpr:
             bw_global_subsample_size: The size of subsample taken from the data for global cross validation bandwidth
                 estimation. If None the entire data is used for bandwidth estimation. This could be useful to speedup
                     global cross validation based estimates.
+            var_type_x: The variable types for the predictors if bw1 or bw2 is set to a cross validation based method.
+                Defaults to "c" (continuous variables) for all features if not specified. See statsmodels documentation
+                for details: https://www.statsmodels.org/dev/generated/statsmodels.nonparametric.kernel_density.KDEMultivariate.html.
             seed: The seed used for random subsampling for cross validation bandwidth estimation.
         """
         if size_neighborhood < 3:
@@ -306,6 +310,11 @@ class Rsklpr:
             int(bw_global_subsample_size) if bw_global_subsample_size is not None else None
         )
 
+        self._var_type_x: Optional[str] = var_type_x
+        self._var_type_x_resolved: str = ""
+        self._var_type_y_resolved: str = ""
+        self._var_type_xy_resolved: str = ""
+
         self._seed: int = seed
 
         self._kp: Iterable[Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray]] = (
@@ -331,6 +340,7 @@ class Rsklpr:
         self,
         bandwidth: Union[str, Callable[[Any], Sequence[float]]],  # type: ignore [misc]
         data: np.ndarray,
+        var_type: str,
     ) -> Sequence[float]:
         """
         Estimate the bandwidth for the data.
@@ -338,6 +348,7 @@ class Rsklpr:
         Args:
             bandwidth: The method used to estimate the bandwidth for the data.
             data: The data to estimate the bandwidth for.
+            var_type: The variable types for the data if bandwidth is set to a cross validation based method.
 
         Returns:
             The estimated bandwidth for the data.
@@ -389,7 +400,7 @@ class Rsklpr:
             try:
                 return KDEMultivariate(  # type: ignore [no-any-return]
                     data=subsample,
-                    var_type="c" * _dim_data(data=subsample),
+                    var_type=var_type,
                     bw=bandwidth[:5],  # 'cv_ls' or 'cv_ml' only, ignore '_global'.
                 ).bw
             except (RuntimeError, np.linalg.LinAlgError) as e:
@@ -433,16 +444,14 @@ class Rsklpr:
             axis=-1,
         )
 
-        var_type: str = "c" * _dim_data(data=x_neighbors)
-
         kde_marginal_x: KDEMultivariate = KDEMultivariate(
             data=x_neighbors,
-            var_type=var_type,
+            var_type=self._var_type_x_resolved,
             bw=(
                 self._bw1
                 if (self._bw1 in ("cv_ls", "cv_ml") or isinstance(self._bw1, List))
                 else (
-                    self._calculate_bandwidth(bandwidth=self._bw1, data=x_neighbors)  # type: ignore [arg-type]
+                    self._calculate_bandwidth(bandwidth=self._bw1, data=x_neighbors, var_type=self._var_type_x_resolved)  # type: ignore [arg-type]
                     if bw1_global is None
                     else bw1_global
                 )
@@ -451,12 +460,12 @@ class Rsklpr:
 
         kde_joint: KDEMultivariate = KDEMultivariate(
             data=xy_neighbors,
-            var_type=var_type + "c",
+            var_type=self._var_type_xy_resolved,
             bw=(
                 self._bw2
                 if (self._bw2 in ("cv_ls", "cv_ml") or isinstance(self._bw2, List))
                 else (
-                    self._calculate_bandwidth(bandwidth=self._bw2, data=xy_neighbors)  # type: ignore [arg-type]
+                    self._calculate_bandwidth(bandwidth=self._bw2, data=xy_neighbors, var_type=self._var_type_xy_resolved)  # type: ignore [arg-type]
                     if bw2_global is None
                     else bw2_global
                 )
@@ -494,7 +503,7 @@ class Rsklpr:
             (
                 self._bw1
                 if isinstance(self._bw1, List)
-                else self._calculate_bandwidth(bandwidth=self._bw1, data=x_neighbors)  # type: ignore [arg-type]
+                else self._calculate_bandwidth(bandwidth=self._bw1, data=x_neighbors, var_type=self._var_type_x_resolved)  # type: ignore [arg-type]
             )
             if bw1_global is None
             else bw1_global
@@ -518,7 +527,7 @@ class Rsklpr:
             (
                 self._bw2
                 if isinstance(self._bw2, List)
-                else self._calculate_bandwidth(bandwidth=self._bw2, data=y_neighbors)  # type: ignore [arg-type]
+                else self._calculate_bandwidth(bandwidth=self._bw2, data=y_neighbors, var_type=self._var_type_y_resolved)  # type: ignore [arg-type]
             )
             if bw2_global is None
             else bw2_global
@@ -865,6 +874,7 @@ class Rsklpr:
                 bw1=self._bw1,
                 bw2=self._bw2,
                 bw_global_subsample_size=self._bw_global_subsample_size,
+                var_type_x=self._var_type_x,
                 seed=self._seed,
             )
 
@@ -894,8 +904,7 @@ class Rsklpr:
 
         if self._bw1 == "cv_ls_global":
             bw1_global = self._calculate_bandwidth(
-                bandwidth=self._bw1,  # type: ignore [arg-type]
-                data=self._x,
+                bandwidth=self._bw1, data=self._x, var_type=self._var_type_x_resolved  # type: ignore [arg-type]
             )
 
         bw2_global: Optional[Sequence[float]] = None
@@ -905,11 +914,13 @@ class Rsklpr:
                 bw2_global = self._calculate_bandwidth(
                     bandwidth=self._bw2,  # type: ignore [arg-type]
                     data=np.concatenate([self._x, np.expand_dims(a=self._y, axis=-1)], axis=1),
+                    var_type=self._var_type_xy_resolved,
                 )
             elif kr == "joint":
                 bw2_global = self._calculate_bandwidth(
                     bandwidth=self._bw2,  # type: ignore [arg-type]
                     data=np.expand_dims(a=self._y, axis=-1),
+                    var_type=self._var_type_y_resolved,
                 )
 
         return bw1_global, bw2_global
@@ -998,6 +1009,37 @@ class Rsklpr:
 
         return x, y
 
+    def _resolve_var_types(self) -> None:
+        """
+        Resolves and validates the variable types for x, y and xy based on user input and data dimensions.
+        If user did not provide var_type_x, it defaults to 'c' for all features in x.
+        """
+        n_features_x: int = _dim_data(data=self._x)
+        n_features_y: int = _dim_data(data=self._y)  # This should be 1
+
+        if self._var_type_x is None:
+            # Fallback to default behavior
+            self._var_type_x_resolved = "c" * n_features_x
+        else:
+            # User provided it, so validate it
+            if len(self._var_type_x) != n_features_x:
+                raise ValueError(
+                    f"Length of var_type_x ('{self._var_type_x}', len={len(self._var_type_x)}) "
+                    f"does not match the number of features in x ({n_features_x})."
+                )
+            #  check for 'c', 'u', 'o'
+            for char in self._var_type_x:
+                if char not in ("c", "u", "o"):
+                    raise ValueError(
+                        f"Invalid character '{char}' in var_type_x. Supported types are 'c', 'u', and 'o'."
+                    )
+
+            self._var_type_x_resolved = self._var_type_x
+
+        # Set the y and xy resolved types (y is always 'c' for regression)
+        self._var_type_y_resolved = "c" * n_features_y
+        self._var_type_xy_resolved = self._var_type_x_resolved + self._var_type_y_resolved
+
     def fit(
         self,
         x: Union[np.ndarray, Sequence[Number], Sequence[Sequence[Number]]],
@@ -1022,6 +1064,9 @@ class Rsklpr:
         x_arr, y_arr = self._check_and_reshape_inputs(x=x, y=y)  # type: ignore [assignment]
         self._x = x_arr
         self._y = y_arr
+
+        self._resolve_var_types()
+
         metric_params: Dict[str, Any]
         p: float
         metric_params, p = self._get_metric_params()
