@@ -1,5 +1,6 @@
 import math
 import warnings
+from collections.abc import Sequence as _Seq
 from numbers import Number
 from typing import Optional, Sequence, Tuple, Callable, List, Union, Any, Dict, Iterable
 
@@ -11,6 +12,23 @@ from sklearn.preprocessing import PolynomialFeatures
 from rsklpr.kde_statsmodels_impl.bandwidths import select_bandwidth
 from rsklpr.kde_statsmodels_impl.kernel_density import KDEMultivariate
 from rsklpr.kernels import laplacian_normalized_metric
+
+_bw_seq_types: Tuple[Any, ...] = (list, tuple, np.ndarray)
+
+
+def _is_bw_valid_sequence_type(x: object) -> bool:
+    """
+    helper to exclude strings/bytes from Sequences.
+
+    Args:
+        x: Anything
+
+    Returns:
+        True if x is of type List, Tuple, or np.ndarray.
+    """
+    # ndarray isn't a Sequence; explicitly allow it
+    return isinstance(x, _Seq) and not isinstance(x, (str, bytes)) or isinstance(x, np.ndarray)
+
 
 all_metrics: List[str] = [
     "residuals",
@@ -100,7 +118,14 @@ def _std_error(residuals: np.ndarray) -> float:
     return float(np.nanstd(residuals).item())
 
 
-def _r_squared(beta: np.ndarray, x_w: np.ndarray, y_w: np.ndarray, y: np.ndarray, weights: np.ndarray) -> float:
+def _r_squared(
+    beta: np.ndarray,
+    x_w: np.ndarray,
+    y_w: np.ndarray,
+    y: np.ndarray,
+    weights: np.ndarray,
+    suppress_warnings: bool = False,
+) -> float:
     """
     Calculate the R-Square statistic, ignoring NaNs. The metric is calculated for a single local weighted local
     regression and is meaningful only in that context. The calculation is the same as in the statsmodels package for
@@ -112,6 +137,7 @@ def _r_squared(beta: np.ndarray, x_w: np.ndarray, y_w: np.ndarray, y: np.ndarray
         y_w: The weighted response.
         y: The response.
         weights: The weights.
+        suppress_warnings: Whether to suppress warnings during calculation.
 
     Returns:
         The R-Square statistic for the WLS regression.
@@ -130,11 +156,12 @@ def _r_squared(beta: np.ndarray, x_w: np.ndarray, y_w: np.ndarray, y: np.ndarray
 
     # Guard against zero total weight
     if w_sum <= np.finfo(float).eps:
-        warnings.warn(
-            message="R-squared is undefined due to all-zero or all-NaN weights; returning NaN.",
-            category=RuntimeWarning,
-            stacklevel=2,
-        )
+        if not suppress_warnings:
+            warnings.warn(
+                message="R-squared is undefined due to all-zero or all-NaN weights; returning NaN.",
+                category=RuntimeWarning,
+                stacklevel=2,
+            )
 
         return float("nan")
 
@@ -146,11 +173,12 @@ def _r_squared(beta: np.ndarray, x_w: np.ndarray, y_w: np.ndarray, y: np.ndarray
     # If sst_centered is effectively zero, it means there is no variance in the
     # weighted response variable. R-squared is undefined, so we return nan.
     if sst_centered <= np.finfo(float).eps:
-        warnings.warn(
-            message="R-squared is undefined due to zero variance in weighted response; returning NaN.",
-            category=RuntimeWarning,
-            stacklevel=2,
-        )
+        if not suppress_warnings:
+            warnings.warn(
+                message="R-squared is undefined due to zero variance in weighted response; returning NaN.",
+                category=RuntimeWarning,
+                stacklevel=2,
+            )
 
         return float("nan")
 
@@ -173,7 +201,7 @@ def _dim_data(data: np.ndarray) -> int:
 
 class Rsklpr:
     """
-    Implementation of the Robust Similarity Kernel Local Polynomial Regression for proposed in the paper
+    Implementation of the Robust Similarity Kernel Local Polynomial Regression as proposed in the paper
     https://github.com/yaniv-shulman/rsklpr/blob/main/paper/rsklpr.pdf.
     """
 
@@ -184,8 +212,8 @@ class Rsklpr:
         metric_x: Union[str, Callable[[np.ndarray, np.ndarray], float]] = "mahalanobis",
         metric_x_params: Optional[Dict[str, Any]] = None,
         kp: Union[
-            Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray],
-            Iterable[Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray]],
+            Callable[[np.ndarray, np.ndarray, np.ndarray, int, np.ndarray], np.ndarray],
+            Iterable[Callable[[np.ndarray, np.ndarray, np.ndarray, int, np.ndarray], np.ndarray]],
         ] = laplacian_normalized_metric,
         kr: str = "joint",
         bw1: Union[str, float, Sequence[float], Callable[[Any], Sequence[float]]] = "normal_reference",  # type: ignore [misc]
@@ -193,6 +221,7 @@ class Rsklpr:
         bw_global_subsample_size: Optional[int] = None,
         var_type_x: Optional[str] = None,
         seed: int = 888,
+        suppress_warnings: bool = False,
     ) -> None:
         """
         Args:
@@ -209,6 +238,13 @@ class Rsklpr:
             kp: The kernel that models the effect of similarity on weight between the local target regression to its
                 neighbours. This is similar to the kernel used in standard polynomial regression. Available options are
                 implementations in rsklpr.kernels or a custom callable. Defaults to the Laplacian kernel.
+                The inputs to a kernel are defined as:
+                    - x_0: The local regression location, a 2D array of size [K, N].
+                    - x_neighbors: The features for the k nearest neighbours, a 2D array of size [K, N].
+                    - dist_x_neighbors: The distance according to metric_x for each of the neighbours, a 2D array [1, K].
+                    - x_0_index: An integer denoting the index of x_0 in the predicted data.
+                    - indices_neighbors: The index of each of the neighbours in the fitted data [1, K].
+                Where N is the feature dimension. Note The kernel may ignore some inputs.
             kr: The kernel that models the 'importance' of the response at the location. Available options are 'none,
                 'joint' (joint density) and 'conden' (conditional density). The 'none' option results in standard
                 kernel local polynomial regression without robust weighting. Defaults to 'joint' since it is less
@@ -237,6 +273,7 @@ class Rsklpr:
                 Defaults to "c" (continuous variables) for all features if not specified. See statsmodels documentation
                 for details: https://www.statsmodels.org/dev/generated/statsmodels.nonparametric.kernel_density.KDEMultivariate.html.
             seed: The seed used for random subsampling for cross validation bandwidth estimation.
+            suppress_warnings: Whether to suppress warnings during fitting and prediction. Defaults to False.
         """
         if size_neighborhood < 3:
             raise ValueError("size_neighborhood must be at least 3")
@@ -268,6 +305,8 @@ class Rsklpr:
             "'scott' or 'cv_ls_global'"
         )
 
+        bw_error_type: str = f"When bandwidth is a sequence it must be one of {_bw_seq_types}"
+
         bw_methods: Tuple[str, ...] = (
             "normal_reference",
             "cv_ml",
@@ -283,6 +322,10 @@ class Rsklpr:
                 raise ValueError(bw_error_str)
         elif isinstance(bw1, float):
             bw1 = [bw1]
+        elif callable(bw1):
+            pass
+        elif not _is_bw_valid_sequence_type(x=bw1):
+            raise ValueError(bw_error_type)
 
         if isinstance(bw2, str):
             bw2 = bw2.lower()
@@ -291,6 +334,10 @@ class Rsklpr:
                 raise ValueError(bw_error_str)
         elif isinstance(bw2, float):
             bw2 = [bw2]
+        elif callable(bw1):
+            pass
+        elif not _is_bw_valid_sequence_type(x=bw2):
+            raise ValueError(bw_error_type)
 
         self._size_neighborhood: int = int(size_neighborhood)
         self._degree: int = int(degree)
@@ -317,7 +364,7 @@ class Rsklpr:
 
         self._seed: int = seed
 
-        self._kp: Iterable[Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray]] = (
+        self._kp: Iterable[Callable[[np.ndarray, np.ndarray, np.ndarray, int, np.ndarray], np.ndarray]] = (
             [kp] if callable(kp) else kp
         )
 
@@ -334,6 +381,7 @@ class Rsklpr:
         self._mean_r_squared: Optional[float] = None
         self._fit: bool = False
         self._poly_cache: Dict[Tuple[int, int], PolynomialFeatures] = {}
+        self._suppress_warnings: bool = suppress_warnings
         self._nearest_neighbors: NearestNeighbors
 
     def _calculate_bandwidth(  # type: ignore [return]
@@ -371,12 +419,13 @@ class Rsklpr:
                     # Use data-scaled fallback
                     fallback_bw = _get_fallback_bw(data_for_std=data)
 
-                    warnings.warn(
-                        message=f"KDE bandwidth was 0 (neighborhood has 0 variance). "
-                        f"Using a data-scaled fallback ({fallback_bw}) to proceed.",
-                        category=RuntimeWarning,
-                        stacklevel=2,
-                    )
+                    if not self._suppress_warnings:
+                        warnings.warn(
+                            message=f"KDE bandwidth was 0 (neighborhood has 0 variance). Using a data-scaled fallback "
+                            f"({fallback_bw}) to proceed. Consider increasing neighborhood size or using cv_* bandwidths.",
+                            category=RuntimeWarning,
+                            stacklevel=2,
+                        )
 
                     return fallback_bw
                 else:
@@ -406,12 +455,13 @@ class Rsklpr:
             except (RuntimeError, np.linalg.LinAlgError) as e:
                 fallback_bw = _get_fallback_bw(data_for_std=data)
 
-                warnings.warn(
-                    message=f"KDE bandwidth estimation '{bandwidth}' failed (e.g., 0 variance). "
-                    f"Using a data-scaled fallback ({fallback_bw}) to proceed. Error: {e}",
-                    category=RuntimeWarning,
-                    stacklevel=2,
-                )
+                if not self._suppress_warnings:
+                    warnings.warn(
+                        message=f"KDE bandwidth estimation '{bandwidth}' failed (e.g., 0 variance). "
+                        f"Using a data-scaled fallback ({fallback_bw}) to proceed. Error: {e}",
+                        category=RuntimeWarning,
+                        stacklevel=2,
+                    )
 
                 return fallback_bw
         else:
@@ -513,11 +563,12 @@ class Rsklpr:
         eps: float = float(np.finfo(float).eps)
 
         if not np.isfinite(bw_x) or bw_x <= eps:
-            warnings.warn(
-                message="x bandwidth is non-finite or too small, using data-scaled fallback",
-                category=RuntimeWarning,
-                stacklevel=2,
-            )
+            if not self._suppress_warnings:
+                warnings.warn(
+                    message="x bandwidth is non-finite or too small, using data-scaled fallback.",
+                    category=RuntimeWarning,
+                    stacklevel=2,
+                )
 
             bw_x = np.asarray(_get_fallback_bw(data_for_std=x_neighbors)).mean().item()
 
@@ -534,21 +585,25 @@ class Rsklpr:
         )
 
         if bw_y_array.size != 1:
-            raise ValueError(f"Too many values ({bw_y_array.size}) specified for y bandwidth")
+            raise ValueError(
+                f"Too many values ({bw_y_array.size}) specified for y bandwidth, expected 1 but was given "
+                f"{bw_y_array.size}."
+            )
 
         bw_y: float = bw_y_array.item()
 
         if not np.isfinite(bw_y) or bw_y <= eps:
-            warnings.warn(
-                message="y bandwidth is non-finite or too small, using data-scaled fallback",
-                category=RuntimeWarning,
-                stacklevel=2,
-            )
+            if not self._suppress_warnings:
+                warnings.warn(
+                    message="y bandwidth is non-finite or too small, using data-scaled fallback.",
+                    category=RuntimeWarning,
+                    stacklevel=2,
+                )
 
             bw_y_list: List[float] = _get_fallback_bw(data_for_std=y_neighbors)
 
             if len(bw_y_list) != 1:
-                raise ValueError("y data has more than one dimension, cannot calculate fallback bandwidth")
+                raise ValueError("y data has more than one dimension, cannot calculate fallback bandwidth.")
 
             bw_y = bw_y_list[0]
 
@@ -637,7 +692,9 @@ class Rsklpr:
         r_squared: Optional[float] = None
 
         if calculate_r_squared:
-            r_squared = _r_squared(beta=beta, x_w=x_mat_w, y_w=y_w, y=y, weights=weights)
+            r_squared = _r_squared(
+                beta=beta, x_w=x_mat_w, y_w=y_w, y=y, weights=weights, suppress_warnings=self._suppress_warnings
+            )
 
         return float(beta[0].item()), r_squared
 
@@ -690,7 +747,7 @@ class Rsklpr:
             x_0: np.ndarray = x_arr[i].reshape(1, -1)
 
             weights, indices, x_neighbors = self._calculate_weights(
-                x_0=x_0, bw1_global=bw1_global, bw2_global=bw2_global
+                x_0=x_0, x_0_index=i, bw1_global=bw1_global, bw2_global=bw2_global
             )
 
             r_squared: Optional[float]
@@ -709,9 +766,6 @@ class Rsklpr:
                     self._r_squared[i] = r_squared
 
                 if "mean_r_squared" in metrics and (r_squared is not None) and math.isfinite(r_squared):  # type: ignore[operator]
-                    if r_squared is None:
-                        raise ValueError("r_squared should not be None when calculate_r_squared is True")
-
                     mean_r_squared_total += r_squared
                     mean_r_squared_num_terms += 1
 
@@ -759,13 +813,18 @@ class Rsklpr:
             self._mean_r_squared = mean_r_squared
 
     def _calculate_weights(
-        self, x_0: np.ndarray, bw1_global: Optional[Sequence[float]], bw2_global: Optional[Sequence[float]]
+        self,
+        x_0: np.ndarray,
+        x_0_index: int,
+        bw1_global: Optional[Sequence[float]],
+        bw2_global: Optional[Sequence[float]],
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Calculates the regression weights.
 
         Args:
             x_0: The local regression location, a 2D array.
+            x_0_index: An integer denoting the index of x_0 in the predicted data.
             bw1_global: The bw1 calculated from the global data, if None a local bandwidth estimation will be used.
             bw2_global: The bw2 calculated from the global data, if None a local bandwidth estimation will be used.
 
@@ -773,12 +832,12 @@ class Rsklpr:
             The weights, the indices and values of the nearest neighbors.
         """
         dist_x_neighbors: np.ndarray
-        indices: np.ndarray
-        dist_x_neighbors, indices = self._nearest_neighbors.kneighbors(X=x_0)
-        x_neighbors: np.ndarray = self._x[indices].squeeze(axis=0)
+        indices_neighbors: np.ndarray
+        dist_x_neighbors, indices_neighbors = self._nearest_neighbors.kneighbors(X=x_0)
+        x_neighbors: np.ndarray = self._x[indices_neighbors].squeeze(axis=0)
 
         weights_list: List[np.ndarray] = [
-            np.atleast_2d(k(x_0, x_neighbors, dist_x_neighbors, indices)) for k in self._kp
+            np.atleast_2d(k(x_0, x_neighbors, dist_x_neighbors, x_0_index, indices_neighbors)) for k in self._kp
         ]
 
         weights: np.ndarray = np.concatenate(weights_list, axis=0)
@@ -787,20 +846,20 @@ class Rsklpr:
         if self._kr == "conden":
             weights *= self._kr_conden(
                 x_neighbors=x_neighbors,
-                y_neighbors=self._y[indices].T,
+                y_neighbors=self._y[indices_neighbors].T,
                 bw1_global=bw1_global,
                 bw2_global=bw2_global,
             )
         elif self._kr == "joint":
             weights *= self._kr_joint(
                 x_neighbors=x_neighbors,
-                y_neighbors=self._y[indices].T,
+                y_neighbors=self._y[indices_neighbors].T,
                 dist_x_neighbors=dist_x_neighbors,
                 bw1_global=bw1_global,
                 bw2_global=bw2_global,
             )
 
-        return weights, indices, x_neighbors
+        return weights, indices_neighbors, x_neighbors
 
     def _check_and_format_specified_metrics(
         self, metrics: Optional[Iterable[str]], x_arr: np.ndarray
@@ -876,6 +935,7 @@ class Rsklpr:
                 bw_global_subsample_size=self._bw_global_subsample_size,
                 var_type_x=self._var_type_x,
                 seed=self._seed,
+                suppress_warnings=self._suppress_warnings,
             )
 
             model.fit(x=x_resample, y=y_resample)
@@ -980,7 +1040,7 @@ class Rsklpr:
         elif x.ndim > 2:
             raise ValueError("x dimension must be at most 2")
 
-        if x.shape[0] < x.shape[1]:
+        if (x.shape[0] < x.shape[1]) and not self._suppress_warnings:
             warnings.warn(
                 message="There are fewer observations than the number of dimensions, is this intended?",
                 category=RuntimeWarning,
@@ -1131,7 +1191,7 @@ class Rsklpr:
             confidence estimates.
         """
         if num_bootstrap_resamples <= 0:
-            raise ValueError("At least one bootstrap iteration need to be specified")
+            raise ValueError("At least one bootstrap iteration needs to be specified.")
 
         y_hat: np.ndarray = self._estimate_bootstrap(x=x, bootstrap_iterations=num_bootstrap_resamples)
         y_conf_low: np.ndarray = np.quantile(a=y_hat, q=q_low, axis=1)

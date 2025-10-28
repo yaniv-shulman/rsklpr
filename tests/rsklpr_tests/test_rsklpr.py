@@ -44,7 +44,10 @@ from tests.rsklpr_tests.utils import generate_linear_1d, generate_linear_nd, rng
 @pytest.mark.slow
 @pytest.mark.filterwarnings("ignore:KDE bandwidth was 0.*:RuntimeWarning")
 def test_rsklpr_smoke_test_1d_regression_increasing_windows_expected_output(
-    x: np.ndarray, y: np.ndarray, kp: Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray], kr: str
+    x: np.ndarray,
+    y: np.ndarray,
+    kp: Callable[[np.ndarray, np.ndarray, np.ndarray, int, np.ndarray], np.ndarray],
+    kr: str,
 ) -> None:
     """
     Smoke test that reasonable values are returned for linear 1D input with various window sizes.
@@ -84,7 +87,10 @@ def test_rsklpr_smoke_test_1d_regression_increasing_windows_expected_output(
 @pytest.mark.slow
 @pytest.mark.filterwarnings("ignore:KDE bandwidth was 0.*:RuntimeWarning")
 def test_rsklpr_smoke_test_2d_regression_increasing_windows_expected_output(
-    x: np.ndarray, y: np.ndarray, kp: Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray], kr: str
+    x: np.ndarray,
+    y: np.ndarray,
+    kp: Callable[[np.ndarray, np.ndarray, np.ndarray, int, np.ndarray], np.ndarray],
+    kr: str,
 ) -> None:
     """
     Smoke test that reasonable values are returned for linear 1D input with various window sizes.
@@ -124,7 +130,10 @@ def test_rsklpr_smoke_test_2d_regression_increasing_windows_expected_output(
 @pytest.mark.slow
 @pytest.mark.filterwarnings("ignore:KDE bandwidth was 0.*:RuntimeWarning")
 def test_rsklpr_smoke_test_5d_regression_increasing_windows_expected_output(
-    x: np.ndarray, y: np.ndarray, kp: Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray], kr: str
+    x: np.ndarray,
+    y: np.ndarray,
+    kp: Callable[[np.ndarray, np.ndarray, np.ndarray, int, np.ndarray], np.ndarray],
+    kr: str,
 ) -> None:
     """
     Smoke test that reasonable values are returned for linear 1D input with various window sizes.
@@ -164,7 +173,10 @@ def test_rsklpr_smoke_test_5d_regression_increasing_windows_expected_output(
 @pytest.mark.slow
 @pytest.mark.filterwarnings("ignore:KDE bandwidth was 0.*:RuntimeWarning")
 def test_rsklpr_smoke_test_1d_estimate_bootstrap_expected_output(
-    x: np.ndarray, y: np.ndarray, kp: Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray], kr: str
+    x: np.ndarray,
+    y: np.ndarray,
+    kp: Callable[[np.ndarray, np.ndarray, np.ndarray, int, np.ndarray], np.ndarray],
+    kr: str,
 ) -> None:
     """
     Smoke test that reasonable values are returned for a linear 1D input using the joint kernel.
@@ -468,7 +480,7 @@ def test_predict_error_metrics_expected_values(x: np.ndarray, y: np.ndarray, met
         indices: np.ndarray
 
         weights, indices, n_x_neighbors = target._calculate_weights(
-            x_0=x[i].reshape(-1, 1), bw1_global=None, bw2_global=None
+            x_0=x[i].reshape(-1, 1), x_0_index=i, bw1_global=None, bw2_global=None
         )
 
         x_sm: np.ndarray = np.squeeze(x[indices])
@@ -1047,10 +1059,10 @@ def test_predict_bootstrap_raises_for_invalid_iterations() -> None:
     target: Rsklpr = Rsklpr(size_neighborhood=10)
     target.fit(x=x, y=y)
 
-    with pytest.raises(ValueError, match="At least one bootstrap iteration need to be specified"):
+    with pytest.raises(ValueError, match="At least one bootstrap iteration needs to be specified"):
         target.predict_bootstrap(x=x, num_bootstrap_resamples=0)
 
-    with pytest.raises(ValueError, match="At least one bootstrap iteration need to be specified"):
+    with pytest.raises(ValueError, match="At least one bootstrap iteration needs to be specified"):
         target.predict_bootstrap(x=x, num_bootstrap_resamples=-1)
 
 
