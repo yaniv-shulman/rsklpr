@@ -480,7 +480,7 @@ def test_predict_error_metrics_expected_values(x: np.ndarray, y: np.ndarray, met
         indices: np.ndarray
 
         weights, indices, n_x_neighbors = target._calculate_weights(
-            x_0=x[i].reshape(-1, 1), x_0_index=i, bw1_global=None, bw2_global=None
+            x_0=x[i].reshape(-1, 1), index_x_0=i, bw1_global=None, bw2_global=None
         )
 
         x_sm: np.ndarray = np.squeeze(x[indices])

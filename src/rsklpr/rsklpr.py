@@ -242,7 +242,7 @@ class Rsklpr:
                     - x_0: The local regression location, a 2D array of size [K, N].
                     - x_neighbors: The features for the k nearest neighbours, a 2D array of size [K, N].
                     - dist_x_neighbors: The distance according to metric_x for each of the neighbours, a 2D array [1, K].
-                    - x_0_index: An integer denoting the index of x_0 in the predicted data.
+                    - index_x_0: An integer denoting the index of x_0 in the predicted data.
                     - indices_neighbors: The index of each of the neighbours in the fitted data [1, K].
                 Where N is the feature dimension. Note The kernel may ignore some inputs.
             kr: The kernel that models the 'importance' of the response at the location. Available options are 'none,
@@ -747,7 +747,7 @@ class Rsklpr:
             x_0: np.ndarray = x_arr[i].reshape(1, -1)
 
             weights, indices, x_neighbors = self._calculate_weights(
-                x_0=x_0, x_0_index=i, bw1_global=bw1_global, bw2_global=bw2_global
+                x_0=x_0, index_x_0=i, bw1_global=bw1_global, bw2_global=bw2_global
             )
 
             r_squared: Optional[float]
@@ -815,7 +815,7 @@ class Rsklpr:
     def _calculate_weights(
         self,
         x_0: np.ndarray,
-        x_0_index: int,
+        index_x_0: int,
         bw1_global: Optional[Sequence[float]],
         bw2_global: Optional[Sequence[float]],
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -824,7 +824,7 @@ class Rsklpr:
 
         Args:
             x_0: The local regression location, a 2D array.
-            x_0_index: An integer denoting the index of x_0 in the predicted data.
+            index_x_0: An integer denoting the index of x_0 in the predicted data.
             bw1_global: The bw1 calculated from the global data, if None a local bandwidth estimation will be used.
             bw2_global: The bw2 calculated from the global data, if None a local bandwidth estimation will be used.
 
@@ -837,7 +837,7 @@ class Rsklpr:
         x_neighbors: np.ndarray = self._x[indices_neighbors].squeeze(axis=0)
 
         weights_list: List[np.ndarray] = [
-            np.atleast_2d(k(x_0, x_neighbors, dist_x_neighbors, x_0_index, indices_neighbors)) for k in self._kp
+            np.atleast_2d(k(x_0, x_neighbors, dist_x_neighbors, index_x_0, indices_neighbors)) for k in self._kp
         ]
 
         weights: np.ndarray = np.concatenate(weights_list, axis=0)
