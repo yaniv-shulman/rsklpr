@@ -632,10 +632,21 @@ class Rsklpr:
 
         if poly is None:
             poly = PolynomialFeatures(degree=degree, include_bias=True)
+
+            # Fit the object once and store in cache, this is independent of the actual data and just uses the shape to
+            # fit the transform.
+            poly.fit(np.zeros((1, x.shape[1])))
             self._poly_cache[key] = poly
 
+        # Center the data and scale. Scaling prevent the design matrix from being ill-conditioned (where the columns have
+        # wildly different scales) which can cause the least-squares solver (np.linalg.lstsq) to become numerically
+        # unstable. This does not affect the solution since b_0 is independent of scaling and all the other terms are
+        # zeros at x_0.
         x_centered: np.ndarray = x - x_0
-        x_mat: np.ndarray = poly.fit_transform(x_centered)
+        h: np.ndarray = np.std(x_centered, axis=0, ddof=1)
+        h = np.where(np.isfinite(h) & (h > 0), h, 1.0)  # avoid div-by-0
+        x_std = x_centered / h
+        x_mat: np.ndarray = poly.transform(x_std)
         return x_mat
 
     def _weighted_local_regression(
