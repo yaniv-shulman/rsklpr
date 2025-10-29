@@ -551,7 +551,7 @@ class Rsklpr:
                 # type-aware fallback: continuous dims get length floor; discrete get small smoothing prob
                 bw_x = _get_fallback_bw(x_neighbors, self._var_type_x_resolved)
 
-        eps: float = np.finfo(float).eps
+        eps: float = float(np.finfo(float).eps)
 
         if not isinstance(bw_x, str):
             # Sanitize bandwidths (belt-and-braces)
@@ -664,7 +664,7 @@ class Rsklpr:
                 # type-aware fallback: continuous dims get length floor; discrete get small smoothing prob
                 bw_xy = _get_fallback_bw(xy_neighbors, self._var_type_xy_resolved)
 
-        eps: float = np.finfo(float).eps
+        eps: float = float(np.finfo(float).eps)
 
         if not isinstance(bw_xy, str):
             # Sanitize bandwidths (belt-and-braces)
