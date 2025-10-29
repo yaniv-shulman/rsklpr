@@ -1,4 +1,4 @@
-from typing import List, Optional, Union, Dict, Any, Type, Callable
+from typing import List, Optional, Union, Dict, Any, Type, Callable, Tuple, Sequence
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -15,6 +15,9 @@ from rsklpr.rsklpr import (
     _dim_data,
     _r_squared,
     all_metrics,
+    _robust_scale,
+    _get_fallback_bw,
+    _is_bw_valid_sequence_type,
 )
 from tests.rsklpr_tests.utils import generate_linear_1d, generate_linear_nd, rng, generate_quad_1d, generate_sin_1d
 
@@ -1075,9 +1078,9 @@ def test_check_and_reshape_inputs_errors_and_reshape(
 
     if match:
         with pytest.raises(ValueError, match=match):
-            target._check_and_reshape_inputs(x=x_in, y=y_in)
+            target._check_and_reshape_inputs(x=x_in, y=y_in, enforce_min_x_size=True)
     else:
-        # Test successful reshape
+        # Test successful reshape (default enforce_min_x_size=False)
         x_out, y_out = target._check_and_reshape_inputs(x=x_in, y=y_in)
         assert x_out.shape == (10, 1)
         assert y_out is not None
@@ -1166,3 +1169,497 @@ def test_lazy_properties_are_calculated_from_residuals() -> None:
     assert target_rmse._mean_square_error is not None
     assert target_rmse._root_mean_square_error is None
     assert target_rmse.root_mean_square_error == pytest.approx(sm.tools.eval_measures.rmse(y_hat_rmse, y))
+
+
+# --------------------------------------------------------------------------------------
+# Helpers
+# --------------------------------------------------------------------------------------
+
+
+def _column_kernel(
+    x_0: np.ndarray,
+    x_neighbors: np.ndarray,
+    dist_x_neighbors: np.ndarray,
+    index_x_0: int,
+    indices_neighbors: np.ndarray,
+) -> np.ndarray:
+    """Returns a (K,1) column vector to exercise weight-shape normalization."""
+    k: int = x_neighbors.shape[0]
+    w: np.ndarray = np.linspace(1.0, 0.5, num=k)
+    return w.reshape(-1, 1)
+
+
+def _row_kernel(
+    x_0: np.ndarray,
+    x_neighbors: np.ndarray,
+    dist_x_neighbors: np.ndarray,
+    index_x_0: int,
+    indices_neighbors: np.ndarray,
+) -> np.ndarray:
+    """Returns a (1,K) row vector; pairs with _column_kernel to test product + concat."""
+    k: int = x_neighbors.shape[0]
+    return (np.ones(k) * 0.8).reshape(1, -1)
+
+
+# --------------------------------------------------------------------------------------
+# Init input validation / kernel list handling
+# --------------------------------------------------------------------------------------
+
+
+def test_rsklpr_init_accepts_iterable_kernels() -> None:
+    """kp can be a single callable or an Iterable of callables."""
+    target: Rsklpr = Rsklpr(size_neighborhood=7, kp=[tricube_normalized_metric, laplacian_normalized_metric])
+    assert isinstance(target, Rsklpr)
+
+
+def test_rsklpr_init_rejects_invalid_kernels() -> None:
+    """kp must be callable(s)."""
+    with pytest.raises(ValueError, match="kp must be a callable or a sequence of callables"):
+        Rsklpr(size_neighborhood=7, kp=[tricube_normalized_metric, 123])  # type: ignore[list-item]
+
+
+def test_rsklpr_init_bw2_callable_regression() -> None:
+    """Regression: bw2 callable must be accepted (no accidental bw1 check)."""
+
+    def bw2(_: np.ndarray) -> List[float]:
+        return [0.7]
+
+    # Should not raise
+    _ = Rsklpr(size_neighborhood=5, bw2=bw2)
+
+
+# --------------------------------------------------------------------------------------
+# _check_and_reshape_inputs ergonomics (scalar / 1D / enforce_min_x_size)
+# --------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "x_in, expected_shape",
+    [
+        (0.0, (1, 1)),
+        (np.array(1.0), (1, 1)),
+        (np.array([1.0, 2.0, 3.0]), (3, 1)),
+        (np.array([[1.0], [2.0], [3.0]]), (3, 1)),
+    ],
+)
+def test_check_and_reshape_inputs_shapes(x_in: np.ndarray | float, expected_shape: Tuple[int, int]) -> None:
+    """Tests scalar -> (1,1), 1D -> (N,1), 2D unchanged; does not enforce min size by default."""
+    target: Rsklpr = Rsklpr(size_neighborhood=10)
+    x_out: np.ndarray
+    y_out: Optional[np.ndarray]
+    x_out, y_out = target._check_and_reshape_inputs(x=x_in, y=None)  # type: ignore[arg-type]
+    assert x_out.shape == expected_shape
+    assert y_out is None
+
+
+def test_check_and_reshape_inputs_enforce_min_size() -> None:
+    """When enforce_min_x_size=True, too-few rows should raise."""
+    target: Rsklpr = Rsklpr(size_neighborhood=5)
+    with pytest.raises(ValueError, match="less than specified neighborhood size"):
+        target._check_and_reshape_inputs(x=np.array([[1.0], [2.0]]), y=np.array([1.0, 2.0]), enforce_min_x_size=True)
+
+
+# --------------------------------------------------------------------------------------
+# predict ergonomics and shapes (scalar, 1D, 2D); __call__ alias
+# --------------------------------------------------------------------------------------
+
+
+def test_predict_accepts_scalar_and_single_row() -> None:
+    x: np.ndarray = np.linspace(-3, 3, 50)
+    y: np.ndarray = 2 * x + 1
+    target: Rsklpr = Rsklpr(size_neighborhood=7, kr="none")
+    target.fit(x=x, y=y)
+
+    # scalar
+    yhat_scalar: np.ndarray = target.predict(0.0)
+    assert yhat_scalar.shape == (1,)
+
+    # single row 2D
+    yhat_row: np.ndarray = target.predict(np.array([[0.0]]))
+    assert yhat_row.shape == (1,)
+
+    # 1D vector
+    xs: np.ndarray = np.array([0.0, 1.0, 2.0])
+    yhat_vec: np.ndarray = target.predict(xs)
+    assert yhat_vec.shape == (3,)
+
+
+def test_call_alias_to_fit_and_predict() -> None:
+    x: np.ndarray = np.linspace(-1, 1, 30)
+    y: np.ndarray = -3 * x + 2
+    target: Rsklpr = Rsklpr(size_neighborhood=6, kr="none")
+    yhat: np.ndarray = target(x=x, y=y)  # __call__
+    assert isinstance(yhat, np.ndarray)
+    assert yhat.shape == y.shape
+
+
+# --------------------------------------------------------------------------------------
+# Var-type resolution coverage
+# --------------------------------------------------------------------------------------
+
+
+def test_resolve_var_types_defaults_and_custom() -> None:
+    x: np.ndarray = np.random.default_rng(0).normal(size=(40, 3))
+    y: np.ndarray = x[:, 0] + 0.1 * np.random.default_rng(1).normal(size=40)
+
+    target_default: Rsklpr = Rsklpr(size_neighborhood=10, var_type_x=None, kr="none")
+    target_default.fit(x=x, y=y)
+    assert target_default._var_type_x_resolved == "ccc"
+    assert target_default._var_type_y_resolved == "c"
+    assert target_default._var_type_xy_resolved == "cccc"
+
+    target_custom: Rsklpr = Rsklpr(size_neighborhood=10, var_type_x="cuo", kr="none")
+    target_custom.fit(x=x, y=y)
+    assert target_custom._var_type_x_resolved == "cuo"
+    assert target_custom._var_type_xy_resolved == "cuoc"
+
+
+def test_resolve_var_types_length_mismatch_raises() -> None:
+    x: np.ndarray = np.random.default_rng(0).normal(size=(20, 2))
+    y: np.ndarray = np.random.default_rng(1).normal(size=20)
+    target: Rsklpr = Rsklpr(size_neighborhood=5, var_type_x="ccc")  # wrong length
+
+    with pytest.raises(ValueError, match="does not match the number of features"):
+        target.fit(x=x, y=y)
+
+
+def test_resolve_var_types_invalid_char_raises() -> None:
+    x: np.ndarray = np.random.default_rng(0).normal(size=(20, 2))
+    y: np.ndarray = np.random.default_rng(1).normal(size=20)
+    target: Rsklpr = Rsklpr(size_neighborhood=5, var_type_x="cx")
+
+    with pytest.raises(ValueError, match="Invalid character 'x'"):
+        target.fit(x=x, y=y)
+
+
+# --------------------------------------------------------------------------------------
+# Bandwidth calculation and fallbacks
+# --------------------------------------------------------------------------------------
+
+
+@pytest.mark.filterwarnings("ignore:KDE bandwidth was 0.*:RuntimeWarning")
+def test_calculate_bandwidth_select_bandwidth_zero_falls_back(mocker: MockerFixture) -> None:
+    """If statsmodels select_bandwidth raises 'bandwidth is 0', fallback is used and a warning is issued."""
+    x: np.ndarray = np.random.default_rng(0).normal(size=(60, 2))
+    y: np.ndarray = np.random.default_rng(1).normal(size=60)
+
+    target: Rsklpr = Rsklpr(size_neighborhood=10, kr="none", suppress_warnings=False)
+    target.fit(x=x, y=y)
+
+    # Force select_bandwidth to raise the specific error
+    def _raise(*_: Any, **__: Any) -> np.ndarray:
+        raise RuntimeError("bandwidth is 0")
+
+    mocker.patch("rsklpr.rsklpr.select_bandwidth", side_effect=_raise)
+
+    with pytest.warns(RuntimeWarning, match="KDE bandwidth was 0"):
+        bw: Sequence[float] = target._calculate_bandwidth(
+            bandwidth="scott", data=x, var_type=target._var_type_x_resolved
+        )
+
+    assert isinstance(bw, Sequence)
+    assert len(bw) == x.shape[1]
+
+
+@pytest.mark.filterwarnings("ignore:KDE bandwidth was 0.*:RuntimeWarning")
+def test_calculate_bandwidth_cv_fail_falls_back(mocker: MockerFixture) -> None:
+    """If KDEMultivariate (cv_*) fails, fallback is used and a warning is issued."""
+    x: np.ndarray = np.random.default_rng(0).normal(size=(80, 3))
+    y: np.ndarray = np.random.default_rng(1).normal(size=80)
+
+    target: Rsklpr = Rsklpr(size_neighborhood=12, kr="none", suppress_warnings=False)
+    target.fit(x=x, y=y)
+
+    class FailingKDE:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise np.linalg.LinAlgError("bad")
+
+    mocker.patch("rsklpr.rsklpr.KDEMultivariate", FailingKDE)
+
+    with pytest.warns(RuntimeWarning, match="KDE bandwidth estimation 'cv_ls' failed"):
+        bw: Sequence[float] = target._calculate_bandwidth(bandwidth="cv_ls", data=x, var_type="ccc")
+
+    assert isinstance(bw, Sequence)
+    assert len(bw) == x.shape[1]
+
+
+def test_get_bandwidth_global_paths_and_shapes(mocker: MockerFixture) -> None:
+    """Covers cv_ls_global for bw1 and bw2 (both 'conden' and 'joint'). Ensures shapes are correct."""
+    rng_: np.random.Generator = np.random.default_rng(0)
+    x: np.ndarray = rng_.normal(size=(200, 2))
+    y: np.ndarray = x[:, 0] + rng_.normal(scale=0.05, size=200)
+
+    class DummyKDE:
+        def __init__(self, data: np.ndarray, var_type: str, bw: str) -> None:
+            # Return 'bw' as ones of correct length
+            self.bw: np.ndarray = np.ones(data.shape[1], dtype=float)
+
+    mocker.patch("rsklpr.rsklpr.KDEMultivariate", DummyKDE)
+
+    target_conden: Rsklpr = Rsklpr(
+        size_neighborhood=20,
+        kr="conden",
+        bw1="cv_ls_global",
+        bw2="cv_ls_global",
+        bw_global_subsample_size=50,
+        suppress_warnings=True,
+    )
+
+    target_conden.fit(x, y)
+    bw1_c, bw2_c = target_conden._get_bandwidth_global(kr="conden")
+    assert bw1_c is not None and len(bw1_c) == x.shape[1]
+    assert bw2_c is not None and len(bw2_c) == (x.shape[1] + 1)
+
+    target_joint: Rsklpr = Rsklpr(
+        size_neighborhood=20,
+        kr="joint",
+        bw1="cv_ls_global",
+        bw2="cv_ls_global",
+        bw_global_subsample_size=50,
+        suppress_warnings=True,
+    )
+
+    target_joint.fit(x, y)
+    bw1_j, bw2_j = target_joint._get_bandwidth_global(kr="joint")
+    assert bw1_j is not None and len(bw1_j) == x.shape[1]
+    assert bw2_j is not None and len(bw2_j) == 1
+
+
+def test_cv_ls_global_subsample_without_replacement(mocker: MockerFixture) -> None:
+    """Ensure global CV subsampling uses replace=False by checking uniqueness of the subsample."""
+    rng_: np.random.Generator = np.random.default_rng(0)
+    x: np.ndarray = rng_.normal(size=(300, 3))
+    y: np.ndarray = rng_.normal(size=300)
+
+    # Capture every 'data' array passed into KDEMultivariate so we can inspect the subsample
+    captured_data: List[np.ndarray] = []
+
+    class CapturingKDE:
+        def __init__(self, data: np.ndarray, var_type: str, bw: str) -> None:
+            captured_data.append(np.asarray(data))
+            # Minimal interface: expose .bw with correct length so caller proceeds
+            self.bw: np.ndarray = np.ones(data.shape[1], dtype=float)
+
+    mocker.patch("rsklpr.rsklpr.KDEMultivariate", CapturingKDE)
+
+    subsz: int = 75
+
+    target: Rsklpr = Rsklpr(
+        size_neighborhood=25,
+        kr="conden",
+        bw1="cv_ls_global",
+        bw2="cv_ls_global",
+        bw_global_subsample_size=subsz,
+        suppress_warnings=True,
+    )
+
+    target.fit(x, y)
+
+    # Trigger the global bandwidth computations (both bw1 for X and bw2 for [X|y])
+    _ = target._get_bandwidth_global(kr="conden")
+
+    # Among captured calls, pick the one that corresponds to X-only (same n_features as X)
+    x_only_calls: List[np.ndarray] = [arr for arr in captured_data if arr.shape[1] == x.shape[1]]
+    assert x_only_calls, "Expected at least one KDE call with X-only data"
+
+    subsample: np.ndarray = x_only_calls[0]
+    # Expected subsample size: min(N, subsz)
+    expected_n: int = min(x.shape[0], subsz)
+    assert subsample.shape[0] == expected_n
+
+    # Uniqueness along rows → implies replace=False (duplicates extremely unlikely in continuous data)
+    n_unique: int = int(np.unique(subsample, axis=0).shape[0])
+    assert n_unique == expected_n, "Subsample appears to contain duplicates; expected sampling without replacement"
+
+
+# --------------------------------------------------------------------------------------
+# Kernel weighting paths and mixed shapes
+# --------------------------------------------------------------------------------------
+
+
+@pytest.mark.filterwarnings("ignore:KDE bandwidth was 0.*:RuntimeWarning")
+def test_calculate_weights_with_mixed_kernel_shapes() -> None:
+    """Multiple kernels whose outputs are (K,), (1,K), and (K,1) should combine robustly."""
+    x: np.ndarray = np.linspace(-2, 2, 50).reshape(-1, 1)
+    y: np.ndarray = 3 * x.squeeze() - 1
+
+    target: Rsklpr = Rsklpr(
+        size_neighborhood=10, kp=[laplacian_normalized_metric, _column_kernel, _row_kernel], kr="none"
+    )
+
+    target.fit(x, y)
+
+    w: np.ndarray
+    idx: np.ndarray
+    x_n: np.ndarray
+    w, idx, x_n = target._calculate_weights(x_0=x[10:11], index_x_0=10, bw1_global=None, bw2_global=None)
+
+    w_flat: np.ndarray = np.ravel(w)
+    assert w_flat.ndim == 1
+    assert x_n.shape[0] == w_flat.shape[0] == idx.shape[1]
+
+
+# --------------------------------------------------------------------------------------
+# _kr_conden / _kr_joint: sanitize/normalize/eps guards
+# --------------------------------------------------------------------------------------
+
+
+@pytest.mark.filterwarnings("ignore:KDE bandwidth was 0.*:RuntimeWarning")
+@pytest.mark.filterwarnings("ignore: invalid value encountered in divide*:RuntimeWarning")
+def test_kr_conden_and_joint_weight_properties(mocker: MockerFixture) -> None:
+    """KDE pdf paths: infinities/NaNs replaced, mean-normalized, and epsilon floor applied."""
+    rng_: np.random.Generator = np.random.default_rng(0)
+    x: np.ndarray = rng_.normal(size=(60, 2))
+    y: np.ndarray = x[:, 0] + 0.25 * x[:, 1] + rng_.normal(scale=0.01, size=60)
+
+    # Dummy KDE that returns mixed finite / inf / nan to exercise guards
+    class DummyKDE:
+        def __init__(self, data: np.ndarray, var_type: str, bw: Any) -> None:
+            self._n: int = data.shape[0]
+            self.bw: np.ndarray = np.ones(data.shape[1], dtype=float)
+
+        def pdf(self, data_predict: np.ndarray) -> np.ndarray:
+            n: int = data_predict.shape[0]
+            out: np.ndarray = np.ones(n, dtype=float)
+            if n >= 3:
+                out[0] = np.inf
+                out[1] = np.nan
+                out[2] = -1.0  # negative will be handled by epsilon floor after normalization
+            return out
+
+    mocker.patch("rsklpr.rsklpr.KDEMultivariate", DummyKDE)
+
+    # 'conden' path uses joint/marginal ratio
+    target_conden: Rsklpr = Rsklpr(size_neighborhood=20, kr="conden", suppress_warnings=True)
+    target_conden.fit(x, y)
+    w_c, _, _ = target_conden._calculate_weights(x_0=x[5:6], index_x_0=5, bw1_global=None, bw2_global=None)
+    assert np.all(np.isfinite(w_c)), "Weights must be finite"
+
+    # Allow tiny floating variation below eps after normalization; still require strictly positive.
+    assert np.all(w_c > 0.0), "Weights must be strictly positive"
+
+    # 'joint' path uses joint pdf only
+    target_joint: Rsklpr = Rsklpr(size_neighborhood=20, kr="joint", suppress_warnings=True)
+    target_joint.fit(x, y)
+    w_j, _, _ = target_joint._calculate_weights(x_0=x[5:6], index_x_0=5, bw1_global=None, bw2_global=None)
+    assert np.all(np.isfinite(w_j))
+    assert np.all(w_j > 0.0)
+
+
+# --------------------------------------------------------------------------------------
+# _r_squared edge cases
+# --------------------------------------------------------------------------------------
+
+
+def test_r_squared_zero_weight_sum_returns_nan_and_warns() -> None:
+    rng_: np.random.Generator = np.random.default_rng(0)
+    y: np.ndarray = rng_.normal(size=10)
+    beta: np.ndarray = np.zeros((3, 1))
+    x_w: np.ndarray = np.ones((10, 3))
+    y_w: np.ndarray = np.zeros((10, 1))
+    weights: np.ndarray = np.zeros((10, 1))
+
+    with pytest.warns(RuntimeWarning, match="R-squared is undefined due to all-zero"):
+        r2: float = _r_squared(beta=beta, x_w=x_w, y_w=y_w, y=y.reshape(-1, 1), weights=weights)
+
+    assert np.isnan(r2)
+
+
+def test_r_squared_zero_variance_returns_nan_and_warns() -> None:
+    y: np.ndarray = np.ones(10) * 5.0
+    beta: np.ndarray = np.zeros((3, 1))
+    x_w: np.ndarray = np.ones((10, 3))
+    y_w: np.ndarray = np.ones((10, 1)) * 5.0
+    weights: np.ndarray = np.ones((10, 1))
+
+    with pytest.warns(RuntimeWarning, match="zero variance in weighted response"):
+        r2: float = _r_squared(beta=beta, x_w=x_w, y_w=y_w, y=y.reshape(-1, 1), weights=weights)
+
+    assert np.isnan(r2)
+
+
+# --------------------------------------------------------------------------------------
+# Bootstrap return values and explicit return_all_bootstraps
+# --------------------------------------------------------------------------------------
+
+
+@pytest.mark.filterwarnings("ignore:Mean of empty slice:RuntimeWarning")
+@pytest.mark.filterwarnings("ignore:All-NaN slice encountered:RuntimeWarning")
+def test_predict_bootstrap_returns_all_when_requested() -> None:
+    rng_: np.random.Generator = np.random.default_rng(0)
+    x: np.ndarray = np.linspace(-2, 2, 30)
+    y: np.ndarray = 0.5 * x + 1.0 + rng_.normal(scale=0.05, size=30)
+
+    target: Rsklpr = Rsklpr(size_neighborhood=10, kr="none", suppress_warnings=True)
+    target.fit(x, y)
+    mean_y: np.ndarray
+    lo: np.ndarray
+    hi: np.ndarray
+    mat: Optional[np.ndarray]
+
+    mean_y, lo, hi, mat = target.predict_bootstrap(x=x, num_bootstrap_resamples=12, return_all_bootstraps=True)
+    assert mean_y.shape == x.shape
+    assert lo.shape == x.shape
+    assert hi.shape == x.shape
+    assert mat is not None
+    assert mat.shape == (x.shape[0], 12)
+
+
+# --------------------------------------------------------------------------------------
+# Private helpers: _robust_scale and _get_fallback_bw and _is_bw_valid_sequence_type
+# --------------------------------------------------------------------------------------
+
+
+@pytest.mark.filterwarnings("ignore:All-NaN slice encountered*:RuntimeWarning")
+@pytest.mark.filterwarnings("ignore:Degrees of freedom <= 0 for slice*:RuntimeWarning")
+def test_robust_scale_handles_constants_and_nans() -> None:
+    x: np.ndarray = np.array(
+        [
+            [1.0, 2.0, np.nan, 5.0],
+            [1.0, 2.0, np.nan, 5.0],
+            [1.0, 3.0, np.nan, 5.0],
+        ]
+    )
+    s: np.ndarray = _robust_scale(x)
+    # constant columns get fallback std of 1.0 (last column), finite columns positive, NaN column -> fallback 1.0
+    assert np.isfinite(s).all()
+    assert (s > 0).all()
+
+
+def test_get_fallback_bw_type_awareness() -> None:
+    rng_: np.random.Generator = np.random.default_rng(0)
+    a: np.ndarray = rng_.normal(size=(50, 3))
+    vt: str = "cuo"  # mixed
+    actual: List[float] = _get_fallback_bw(a=a, var_type=vt)
+    assert len(actual) == 3
+    # discrete dims should equal disc_floor default (0.05), continuous > 0
+    assert actual[0] > 0.0
+    assert actual[1] == pytest.approx(0.05)
+    assert actual[2] == pytest.approx(0.05)
+
+
+def test_is_bw_valid_sequence_type_accepts_sequence_and_ndarray() -> None:
+    assert _is_bw_valid_sequence_type([0.1, 0.2])
+    assert _is_bw_valid_sequence_type((0.1, 0.2))
+    assert _is_bw_valid_sequence_type(np.array([0.1, 0.2]))
+    assert not _is_bw_valid_sequence_type("not ok")
+    assert not _is_bw_valid_sequence_type(b"bytes")
+
+
+# --------------------------------------------------------------------------------------
+# Misc: num_poly_terms property after fit; _dim_data quick sanity
+# --------------------------------------------------------------------------------------
+
+
+def test_num_poly_terms_property_after_fit() -> None:
+    x: np.ndarray = np.random.default_rng(0).normal(size=(30, 2))
+    y: np.ndarray = np.random.default_rng(1).normal(size=30)
+    target: Rsklpr = Rsklpr(size_neighborhood=8, degree=2)
+    target.fit(x, y)
+    # comb(2+2, 2) = 6
+    assert target.num_poly_terms == 6
+
+
+def test_dim_data_quick_check() -> None:
+    assert _dim_data(np.array([1, 2, 3])) == 1
+    assert _dim_data(np.array([[1, 2], [3, 4]])) == 2

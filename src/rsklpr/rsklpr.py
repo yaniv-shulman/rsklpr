@@ -58,26 +58,50 @@ all_metrics: List[str] = [
 ]
 
 
-def _get_fallback_bw(data_for_std: np.ndarray) -> List[float]:
+def _robust_scale(x: np.ndarray) -> np.ndarray:
     """
-    Calculate a data-scaled fallback bandwidth. This is 1e-6 * max(1.0, std_dev) for each dimension.
+    Robust per-dim scale ~ std using MAD, with sane fallbacks. The rows are observations, the columns are the features.
+    see https://stats.stackexchange.com/questions/355943/how-to-estimate-the-scale-factor-for-mad-for-a-non-normal-distribution.
 
     Args:
-        data_for_std: The data to calculate the fallback bandwidth for.
+        x: The vector to compute scalers to
 
     Returns:
-        The fallback bandwidth as a list of floats.
+        Robust scalers for each feature (column) in the inputs.
     """
-    std: np.ndarray = np.std(data_for_std, axis=0, ddof=1)
-    std = np.atleast_1d(std)
+    med: np.ndarray = np.nanmedian(x, axis=0)
+    mad: np.ndarray = np.nanmedian(np.abs(x - med), axis=0)
+    s: np.ndarray = 1.4826 * mad  # MAD -> std
+    s = np.where((~np.isfinite(s)) | (s <= np.finfo(float).eps), np.nanstd(x, axis=0, ddof=1), s)
+    s = np.where((~np.isfinite(s)) | (s <= np.finfo(float).eps), 1.0, s)
+    return s
 
-    # Replace NaNs (from all-NaN columns) or 0s (from constant data)
-    # We replace them with 0.0, so they become 1.0 in the next step
-    std = np.nan_to_num(std, nan=0.0)
 
-    # Calculate the fallback: 1e-6 * max(1.0, std)
-    fallback_bw_vec: np.ndarray = 1e-6 * np.maximum(1.0, std)
-    return fallback_bw_vec.tolist()  # type: ignore [no-any-return]
+def _get_fallback_bw(a: np.ndarray, var_type: str, cont_floor: float = 0.2, disc_floor: float = 0.05) -> list[float]:
+    """
+    Calculates a robust version of the MAD of a 2D vector of observations, type-aware fallback bandwidths:
+      - continuous ('c'): length floor = cont_floor * robust scale
+      - discrete ('u'/'o'): small smoothing prob = disc_floor
+
+    Args:
+      a: The input 2D vector of observations.
+      var_type: The var type for each dimension, denote continuous variables with 'c', otherwise considered discrete.
+
+    Returns:
+      The fallback bandwidth for each dimension.
+    """
+    s: np.ndarray = _robust_scale(x=a)
+    out: np.ndarray = np.empty_like(s, dtype=float)
+    j: int
+    vt: str
+
+    for j, vt in enumerate(var_type):
+        if vt == "c":
+            out[j] = cont_floor * float(s[j])
+        else:  # 'u' or 'o'
+            out[j] = float(disc_floor)
+
+    return out.tolist()  # type: ignore[no-any-return]
 
 
 def _mean_square_error(residuals: np.ndarray) -> float:
@@ -349,7 +373,7 @@ class Rsklpr:
                 raise ValueError(bw_error_str)
         elif isinstance(bw2, float):
             bw2 = [bw2]
-        elif callable(bw1):
+        elif callable(bw2):
             pass
         elif not _is_bw_valid_sequence_type(x=bw2):
             raise ValueError(bw_error_type)
@@ -432,7 +456,7 @@ class Rsklpr:
                 if "bandwidth is 0" in str(e):
 
                     # Use data-scaled fallback
-                    fallback_bw = _get_fallback_bw(data_for_std=data)
+                    fallback_bw = _get_fallback_bw(a=data, var_type=var_type)
 
                     if not self._suppress_warnings:
                         warnings.warn(
@@ -457,6 +481,7 @@ class Rsklpr:
                 sample_idx: np.ndarray = self._rnd_gen.choice(
                     a=data.shape[0],
                     size=min(int(data.shape[0]), self._bw_global_subsample_size),
+                    replace=False,
                 )
                 subsample = data[sample_idx, :]
 
@@ -468,7 +493,7 @@ class Rsklpr:
                     bw=bandwidth[:5],  # 'cv_ls' or 'cv_ml' only, ignore '_global'.
                 ).bw
             except (RuntimeError, np.linalg.LinAlgError) as e:
-                fallback_bw = _get_fallback_bw(data_for_std=data)
+                fallback_bw = _get_fallback_bw(a=data, var_type=var_type)
 
                 if not self._suppress_warnings:
                     warnings.warn(
@@ -490,7 +515,8 @@ class Rsklpr:
         bw2_global: Optional[Sequence[float]] = None,
     ) -> np.ndarray:
         """
-        Calculates the conditional density similarity kernel for the observations in the neighborhood.
+        Calculates the conditional density similarity kernel for the observations in the neighborhood with type-aware
+        bandwidth fallbacks, degeneracy guards, and safe division.
 
         Args:
             x_neighbors: The predictors values of all neighbors.
@@ -504,127 +530,166 @@ class Rsklpr:
         if x_neighbors.ndim > 2:
             x_neighbors = np.squeeze(x_neighbors).reshape(-1, x_neighbors.shape[-1])
 
+        if y_neighbors.ndim == 1:
+            y_neighbors = y_neighbors.reshape(-1, 1)
+
+        bw_x: Union[str, Sequence[float], Callable[[Any], Sequence[float]]]
+
+        if bw1_global is not None:
+            bw_x = bw1_global
+        else:
+            try:
+                if isinstance(self._bw1, str) and self._bw1 in ("cv_ls", "cv_ml"):
+                    bw_x = self._bw1
+                elif _is_bw_valid_sequence_type(x=self._bw1):
+                    bw_x = self._bw1
+                else:
+                    bw_x = self._calculate_bandwidth(
+                        bandwidth=self._bw1, data=x_neighbors, var_type=self._var_type_x_resolved  # type: ignore[arg-type]
+                    )
+            except (RuntimeError, np.linalg.LinAlgError):
+                # type-aware fallback: continuous dims get length floor; discrete get small smoothing prob
+                bw_x = _get_fallback_bw(x_neighbors, self._var_type_x_resolved)
+
+        eps: float = np.finfo(float).eps
+
+        if not isinstance(bw_x, str):
+            # Sanitize bandwidths (belt-and-braces)
+            bw_x_arr: np.ndarray = np.asarray(bw_x, dtype=float)
+
+            if (not np.all(np.isfinite(bw_x_arr))) or np.any(bw_x_arr <= eps):
+                bw_x_arr = np.asarray(_get_fallback_bw(a=x_neighbors, var_type=self._var_type_x_resolved), dtype=float)
+
+            bw_x = bw_x_arr.tolist()
+
+        kde_marginal_x: KDEMultivariate = KDEMultivariate(
+            data=x_neighbors,
+            var_type=self._var_type_x_resolved,
+            bw=bw_x,
+        )
+
         xy_neighbors: np.ndarray = np.concatenate(
             [x_neighbors, y_neighbors],
             axis=-1,
         )
 
-        kde_marginal_x: KDEMultivariate = KDEMultivariate(
-            data=x_neighbors,
-            var_type=self._var_type_x_resolved,
-            bw=(
-                self._bw1
-                if (self._bw1 in ("cv_ls", "cv_ml") or isinstance(self._bw1, List))
-                else (
-                    self._calculate_bandwidth(bandwidth=self._bw1, data=x_neighbors, var_type=self._var_type_x_resolved)  # type: ignore [arg-type]
-                    if bw1_global is None
-                    else bw1_global
+        bw_xy: Union[str, Sequence[float], Callable[[Any], Sequence[float]]]
+
+        if bw2_global is not None:
+            bw_xy = bw2_global
+        else:
+            try:
+                if isinstance(self._bw2, str) and self._bw2 in ("cv_ls", "cv_ml"):
+                    bw_xy = self._bw2
+                elif _is_bw_valid_sequence_type(x=self._bw2):
+                    bw_xy = self._bw2
+                else:
+                    bw_xy = self._calculate_bandwidth(
+                        bandwidth=self._bw2, data=xy_neighbors, var_type=self._var_type_xy_resolved  # type: ignore[arg-type]
+                    )
+            except (RuntimeError, np.linalg.LinAlgError):
+                # type-aware fallback: continuous dims get length floor; discrete get small smoothing prob
+                bw_xy = _get_fallback_bw(xy_neighbors, self._var_type_xy_resolved)
+
+        if not isinstance(bw_xy, str):
+            # Sanitize bandwidths (belt-and-braces)
+            bw_xy_arr: np.ndarray = np.asarray(bw_xy, dtype=float)
+
+            if (not np.all(np.isfinite(bw_xy_arr))) or np.any(bw_xy_arr <= eps):
+                bw_xy_arr = np.asarray(
+                    _get_fallback_bw(a=xy_neighbors, var_type=self._var_type_xy_resolved), dtype=float
                 )
-            ),
-        )
+
+            bw_xy = bw_xy_arr.tolist()
 
         kde_joint: KDEMultivariate = KDEMultivariate(
             data=xy_neighbors,
             var_type=self._var_type_xy_resolved,
-            bw=(
-                self._bw2
-                if (self._bw2 in ("cv_ls", "cv_ml") or isinstance(self._bw2, List))
-                else (
-                    self._calculate_bandwidth(bandwidth=self._bw2, data=xy_neighbors, var_type=self._var_type_xy_resolved)  # type: ignore [arg-type]
-                    if bw2_global is None
-                    else bw2_global
-                )
-            ),
+            bw=bw_xy,
         )
 
-        return kde_joint.pdf(data_predict=xy_neighbors) / kde_marginal_x.pdf(  # type: ignore [no-any-return]
-            data_predict=x_neighbors
+        w: np.ndarray = np.asarray(kde_joint.pdf(data_predict=xy_neighbors)) / np.asarray(
+            kde_marginal_x.pdf(data_predict=x_neighbors)
         )
+
+        w = np.where(np.isfinite(w), w, 0.0)
+        m: float = float(np.nanmean(w)) if w.size > 0 else 1.0
+
+        if m > eps:
+            w = w / m  # mean-normalize (keeps weight magnitudes in a nice range)
+
+        w[w <= 0] = eps  # avoid exact zeros
+        return w
 
     def _kr_joint(
         self,
         x_neighbors: np.ndarray,
         y_neighbors: np.ndarray,
-        dist_x_neighbors: np.ndarray,
-        bw1_global: Optional[Sequence[float]] = None,
         bw2_global: Optional[Sequence[float]] = None,
     ) -> np.ndarray:
         """
-        Calculates the joint density similarity kernel for the observations in the neighborhood.
+        Calculates the joint density similarity kernel for the observations in the neighborhood with type-aware
+        bandwidth fallbacks, degeneracy guards, and safe division.
 
         Args:
             x_neighbors: The predictors values of all neighbors.
             y_neighbors: The corresponding response of all neighbors.
-            dist_x_neighbors: The distance of all neighbors to the regression target location.
-            bw1_global: The bw1 calculated from the global data, if None a local bandwidth estimation will be used.
             bw2_global: The bw2 calculated from the global data, if None a local bandwidth estimation will be used.
 
         Returns:
             The kernel values to all observations.
         """
-        square_dist_y_windowed: np.ndarray = np.square(y_neighbors - y_neighbors.T)
+        if x_neighbors.ndim > 2:
+            x_neighbors = np.squeeze(x_neighbors).reshape(-1, x_neighbors.shape[-1])
 
-        bw_x_array: np.ndarray = np.asarray(
-            (
-                self._bw1
-                if isinstance(self._bw1, List)
-                else self._calculate_bandwidth(bandwidth=self._bw1, data=x_neighbors, var_type=self._var_type_x_resolved)  # type: ignore [arg-type]
-            )
-            if bw1_global is None
-            else bw1_global
+        if y_neighbors.ndim == 1:
+            y_neighbors = y_neighbors.reshape(-1, 1)
+
+        xy_neighbors: np.ndarray = np.concatenate([x_neighbors, y_neighbors], axis=1)
+        bw_xy: Union[str, float, Sequence[float]]
+
+        if bw2_global is not None:
+            bw_xy = bw2_global
+        else:
+            try:
+                if isinstance(self._bw2, str) and self._bw2 in ("cv_ls", "cv_ml"):
+                    bw_xy = self._bw2
+                elif _is_bw_valid_sequence_type(x=self._bw2):
+                    bw_xy = self._bw2  # type: ignore[assignment]
+                else:
+                    bw_xy = self._calculate_bandwidth(
+                        bandwidth=self._bw2, data=xy_neighbors, var_type=self._var_type_xy_resolved  # type: ignore[arg-type]
+                    )
+            except (RuntimeError, np.linalg.LinAlgError):
+                # type-aware fallback: continuous dims get length floor; discrete get small smoothing prob
+                bw_xy = _get_fallback_bw(xy_neighbors, self._var_type_xy_resolved)
+
+        eps: float = np.finfo(float).eps
+
+        if not isinstance(bw_xy, str):
+            # Sanitize bandwidths (belt-and-braces)
+            bw_arr: np.ndarray = np.asarray(bw_xy, dtype=float)
+
+            if (not np.all(np.isfinite(bw_arr))) or np.any(bw_arr <= eps):
+                bw_arr = np.asarray(_get_fallback_bw(a=xy_neighbors, var_type=self._var_type_xy_resolved), dtype=float)
+
+            bw_xy = bw_arr.tolist()
+
+        kde_joint: KDEMultivariate = KDEMultivariate(
+            data=xy_neighbors,
+            var_type=self._var_type_xy_resolved,
+            bw=bw_xy,
         )
 
-        bw_x: float = bw_x_array.mean().item()
-        eps: float = float(np.finfo(float).eps)
+        w: np.ndarray = np.asarray(kde_joint.pdf(data_predict=xy_neighbors), dtype=float)
+        w = np.where(np.isfinite(w), w, 0.0)
+        m: float = float(np.nanmean(w)) if w.size > 0 else 1.0
 
-        if not np.isfinite(bw_x) or bw_x <= eps:
-            if not self._suppress_warnings:
-                warnings.warn(
-                    message="x bandwidth is non-finite or too small, using data-scaled fallback.",
-                    category=RuntimeWarning,
-                    stacklevel=2,
-                )
+        if m > eps:
+            w = w / m  # mean-normalize (keeps weight magnitudes in a nice range)
 
-            bw_x = np.asarray(_get_fallback_bw(data_for_std=x_neighbors)).mean().item()
-
-        weights: np.ndarray = np.exp(-0.5 * np.power(dist_x_neighbors / bw_x, 2)) / bw_x
-
-        bw_y_array: np.ndarray = np.asarray(
-            (
-                self._bw2
-                if isinstance(self._bw2, List)
-                else self._calculate_bandwidth(bandwidth=self._bw2, data=y_neighbors, var_type=self._var_type_y_resolved)  # type: ignore [arg-type]
-            )
-            if bw2_global is None
-            else bw2_global
-        )
-
-        if bw_y_array.size != 1:
-            raise ValueError(
-                f"Too many values ({bw_y_array.size}) specified for y bandwidth, expected 1 but was given "
-                f"{bw_y_array.size}."
-            )
-
-        bw_y: float = bw_y_array.item()
-
-        if not np.isfinite(bw_y) or bw_y <= eps:
-            if not self._suppress_warnings:
-                warnings.warn(
-                    message="y bandwidth is non-finite or too small, using data-scaled fallback.",
-                    category=RuntimeWarning,
-                    stacklevel=2,
-                )
-
-            bw_y_list: List[float] = _get_fallback_bw(data_for_std=y_neighbors)
-
-            if len(bw_y_list) != 1:
-                raise ValueError("y data has more than one dimension, cannot calculate fallback bandwidth.")
-
-            bw_y = bw_y_list[0]
-
-        local_density: np.ndarray = np.exp(-0.5 * square_dist_y_windowed / (bw_y**2))
-        local_density = (local_density * weights).sum(axis=-1)
-        return local_density
+        w[w <= 0] = eps  # avoid exact zeros
+        return w
 
     def _create_design_matrix(self, x: np.ndarray, x_0: np.ndarray, degree: int) -> np.ndarray:
         """
@@ -761,7 +826,7 @@ class Rsklpr:
             The estimated values of m(x) at the locations.
         """
         x_arr: np.ndarray
-        x_arr, _ = self._check_and_reshape_inputs(x=x)
+        x_arr, _ = self._check_and_reshape_inputs(x=x, enforce_min_x_size=False)
         n: int = x_arr.shape[0]
         y_hat: np.ndarray = np.empty((n))
         bw1_global: Optional[Sequence[float]]
@@ -882,10 +947,13 @@ class Rsklpr:
         indices_neighbors: np.ndarray
         dist_x_neighbors, indices_neighbors = self._nearest_neighbors.kneighbors(X=x_0)
         x_neighbors: np.ndarray = self._x[indices_neighbors].squeeze(axis=0)
+        weights_list: List[np.ndarray] = []
+        kfun: Callable[[np.ndarray, np.ndarray, np.ndarray, int, np.ndarray], np.ndarray]
 
-        weights_list: List[np.ndarray] = [
-            np.atleast_2d(k(x_0, x_neighbors, dist_x_neighbors, index_x_0, indices_neighbors)) for k in self._kp
-        ]
+        for kfun in self._kp:
+            w: np.ndarray = kfun(x_0, x_neighbors, dist_x_neighbors, index_x_0, indices_neighbors)
+            w = np.ravel(w)[None, :]  # row of shape (1, K)
+            weights_list.append(w)
 
         weights: np.ndarray = np.concatenate(weights_list, axis=0)
         weights = np.prod(weights, axis=0)
@@ -901,8 +969,6 @@ class Rsklpr:
             weights *= self._kr_joint(
                 x_neighbors=x_neighbors,
                 y_neighbors=self._y[indices_neighbors].T,
-                dist_x_neighbors=dist_x_neighbors,
-                bw1_global=bw1_global,
                 bw2_global=bw2_global,
             )
 
@@ -958,7 +1024,7 @@ class Rsklpr:
             All bootstrap prediction values at the locations.
         """
         x_arr: np.ndarray
-        x_arr, _ = self._check_and_reshape_inputs(x=x)
+        x_arr, _ = self._check_and_reshape_inputs(x=x, enforce_min_x_size=False)
         y_hat: np.ndarray = np.empty((x_arr.shape[0], bootstrap_iterations))
         i: int
 
@@ -1056,17 +1122,19 @@ class Rsklpr:
         self,
         x: Union[np.ndarray, Sequence[Number], Sequence[Sequence[Number]], float],
         y: Optional[Union[np.ndarray, Sequence[Number]]] = None,
+        enforce_min_x_size: bool = False,
     ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
         """
         Checks and reshapes the input so that x is a 2D numpy array of dimensions [N,K] where N is the observations and
         K is the dimensionality of the observations. if y is provided it is reshaped into a 1D ndarray.
 
         Args:
-           x: The predictor values. Must be compatible with a numpy array of dimension two at most. The first axis
+            x: The predictor values. Must be compatible with a numpy array of dimension two at most. The first axis
                 denotes the observation and the second axis the vector components of each observation, i.e. the
                 coordinates of data point i are given by x[i,:].
-           y: Optional response values at the corresponding predictor locations. Must be compatible with a 1 dimensional
+            y: Optional response values at the corresponding predictor locations. Must be compatible with a 1 dimensional
                 numpy array.
+            enforce_min_x_size: If True an exception is raised if the x is smaller than the neighbourhood size.
 
         Returns:
             The reshaped x array and reshaped y values if provided.
@@ -1077,12 +1145,16 @@ class Rsklpr:
             ValueError: When y dimension is larger than one.
             ValueError: when x and y has incompatible shapes
         """
-        if isinstance(x, np.ndarray):
+        if np.isscalar(x):
+            x = np.array([[float(x)]], dtype=float)  # type: ignore[arg-type]
+        elif isinstance(x, np.ndarray):
             x = x.copy().astype(float)
         else:
             x = np.asarray(x, dtype=float)
 
-        if x.ndim == 1:
+        if x.ndim == 0:
+            x = x.reshape((1, 1))
+        elif x.ndim == 1:
             x = x.reshape((-1, 1))
         elif x.ndim > 2:
             raise ValueError("x dimension must be at most 2")
@@ -1094,7 +1166,7 @@ class Rsklpr:
                 stacklevel=2,
             )
 
-        if x.shape[0] < self._size_neighborhood:
+        if enforce_min_x_size and x.shape[0] < self._size_neighborhood:
             raise ValueError(
                 f"Provided inputs have {x.shape[0]} observations which is less than specified "
                 f"neighborhood size {self._size_neighborhood}"
@@ -1168,7 +1240,7 @@ class Rsklpr:
 
         x_arr: np.ndarray
         y_arr: np.ndarray
-        x_arr, y_arr = self._check_and_reshape_inputs(x=x, y=y)  # type: ignore [assignment]
+        x_arr, y_arr = self._check_and_reshape_inputs(x=x, y=y, enforce_min_x_size=True)  # type: ignore [assignment]
         self._x = x_arr
         self._y = y_arr
 
