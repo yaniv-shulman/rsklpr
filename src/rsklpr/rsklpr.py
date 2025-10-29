@@ -30,6 +30,21 @@ def _is_bw_valid_sequence_type(x: object) -> bool:
     return isinstance(x, _Seq) and not isinstance(x, (str, bytes)) or isinstance(x, np.ndarray)
 
 
+def _num_poly_terms(dim: int, degree: int) -> int:
+    """
+    Calculates the number of terms in the design matrix for a given data dimension and fit degree. Assumes both are
+    non-negative integers.
+
+    Args:
+        dim: The data dimension.
+        degree: The polynomial fit degree.
+
+    Returns:
+        The number of terms in the design matrix.
+    """
+    return math.comb(dim + degree, degree)
+
+
 all_metrics: List[str] = [
     "residuals",
     "mean_square",
@@ -379,7 +394,7 @@ class Rsklpr:
         self._std_error: Optional[float] = None
         self._r_squared: np.ndarray = np.asarray([])
         self._mean_r_squared: Optional[float] = None
-        self._fit: bool = False
+        self._is_fit: bool = False
         self._poly_cache: Dict[Tuple[int, int], PolynomialFeatures] = {}
         self._suppress_warnings: bool = suppress_warnings
         self._nearest_neighbors: NearestNeighbors
@@ -679,6 +694,27 @@ class Rsklpr:
 
         if x.ndim != 2:
             raise ValueError("x must be a two dimensional array.")
+
+        n_features: int = x.shape[1]
+        p_initial: int = _num_poly_terms(dim=n_features, degree=degree)
+        degree_initial: int = degree
+
+        # Effective sample size (robust to near-zero weights)
+        neff: float = float(np.nansum(weights) ** 2) / (np.nansum(weights**2) + np.finfo(float).eps)
+
+        if neff <= p_initial:
+            # Auto downgrade degree (robust default), in future versions consider if there is a better way or perhaps
+            # add as a configurable option.
+            while degree > 0 and neff <= _num_poly_terms(dim=x.shape[1], degree=degree):
+                degree -= 1
+
+            if not self._suppress_warnings:
+                warnings.warn(
+                    f"Local system for point {x_0.tolist()} underdetermined/ill-conditioned: initial degree="
+                    f"{degree_initial}, d={n_features}, P={p_initial}, N_eff≈{neff:.1f}. Auto reduced local degree to: "
+                    f"degree={degree}. To prevent increase neighborhood or reduce degree.",
+                    RuntimeWarning,
+                )
 
         y = y.reshape((x.shape[0]), 1)
         weights = weights.reshape(y.shape)
@@ -1127,7 +1163,7 @@ class Rsklpr:
             y: The response values at the corresponding predictor locations. Must be compatible with a 1 dimensional
                 numpy array.
         """
-        if self._fit:
+        if self._is_fit:
             raise ValueError("Fit already called, use a new instance if you need to fit new data.")
 
         x_arr: np.ndarray
@@ -1151,7 +1187,7 @@ class Rsklpr:
         )
 
         self._nearest_neighbors.fit(self._x)
-        self._fit = True
+        self._is_fit = True
 
     def predict(
         self,
@@ -1172,7 +1208,7 @@ class Rsklpr:
         Returns:
             The estimated responses at the corresponding locations.
         """
-        if not self._fit:
+        if not self._is_fit:
             raise ValueError("Model must be fitted by calling 'fit' before calling 'predict'")
 
         return self._estimate(x=x, metrics=metrics)
@@ -1205,9 +1241,10 @@ class Rsklpr:
             raise ValueError("At least one bootstrap iteration needs to be specified.")
 
         y_hat: np.ndarray = self._estimate_bootstrap(x=x, bootstrap_iterations=num_bootstrap_resamples)
-        y_conf_low: np.ndarray = np.quantile(a=y_hat, q=q_low, axis=1)
-        y_conf_high: np.ndarray = np.quantile(a=y_hat, q=q_high, axis=1)
-        return y_hat.mean(axis=1), y_conf_low, y_conf_high, y_hat if return_all_bootstraps else None
+        y_conf_low: np.ndarray = np.nanquantile(y_hat, q=q_low, axis=1)
+        y_conf_high: np.ndarray = np.nanquantile(y_hat, q=q_high, axis=1)
+        y_mean: np.ndarray = np.nanmean(y_hat, axis=1)
+        return y_mean, y_conf_low, y_conf_high, y_hat if return_all_bootstraps else None
 
     def fit_and_predict(
         self,
@@ -1335,3 +1372,14 @@ class Rsklpr:
             Mean of all successfully calculated local WLS R-Square statistics.
         """
         return self._mean_r_squared
+
+    @property
+    def num_poly_terms(self) -> Optional[int]:
+        """
+        Returns:
+            The number of terms in the design matrix
+        """
+        if not self._is_fit:
+            return None
+
+        return _num_poly_terms(dim=self._x.shape[1], degree=self._degree)
