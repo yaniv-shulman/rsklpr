@@ -1242,7 +1242,7 @@ def test_rsklpr_init_bw2_callable_regression() -> None:
         (np.array([[1.0], [2.0], [3.0]]), (3, 1)),
     ],
 )
-def test_check_and_reshape_inputs_shapes(x_in: np.ndarray | float, expected_shape: Tuple[int, int]) -> None:
+def test_check_and_reshape_inputs_shapes(x_in: Union[np.ndarray, float], expected_shape: Tuple[int, int]) -> None:
     """Tests scalar -> (1,1), 1D -> (N,1), 2D unchanged; does not enforce min size by default."""
     target: Rsklpr = Rsklpr(size_neighborhood=10)
     x_out: np.ndarray
