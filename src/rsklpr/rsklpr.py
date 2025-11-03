@@ -330,7 +330,7 @@ class Rsklpr:
 
         if raise_kp_error:
             raise ValueError(
-                "kp must be a callable or a sequence of callables. You may use one of the "
+                "kp must be a callable or a iterable of callables. You may use one of the "
                 "functions in rsklpr.kernels or provide a custom implementation."
             )
 
@@ -507,6 +507,56 @@ class Rsklpr:
         else:
             raise ValueError(f"Unknown bandwidth {bandwidth}")
 
+    def _resolve_effective_bw(  # type: ignore[return]
+        self,
+        *,
+        bw_spec: Union[str, Sequence[float], Callable[[Any], Sequence[float]]],
+        data: np.ndarray,
+        var_type: str,
+        bw_global: Optional[Sequence[float]] = None,
+    ) -> Union[str, Sequence[float]]:
+        """
+        A helper method for resolving a bandwidth setting into an effective value to use for KDE:
+          - Prefer an explicitly provided global value if present.
+          - Otherwise: if bw_spec is 'cv_ls'/'cv_ml' (string), pass that through (statsmodels will estimate locally).
+                       if bw_spec is a sequence, pass it through.
+                       else compute via _calculate_bandwidth(...).
+          - On failures or invalid/degenerate values, fall back to type-aware defaults.
+          - Always sanitize numeric sequences (finite and > eps); strings are passed as-is.
+
+        Args:
+            bw_spec: One of self._bw1 or self._bw2.
+            data: The corresponding data to resolve the bandwidth for.
+            var_type: The resolved var type for the data
+            bw_global: The corresponding bw_global if specified.
+
+        Returns:
+             The effective bandwidth to use for density estimation.
+        """
+        bw: Union[str, Sequence[float]]
+        if bw_global is not None:
+            bw = bw_global
+        else:
+            try:
+                if isinstance(bw_spec, str) and bw_spec in ("cv_ls", "cv_ml"):
+                    bw = bw_spec
+                elif _is_bw_valid_sequence_type(x=bw_spec):
+                    bw = bw_spec  # type: ignore[assignment]
+                else:
+                    bw = self._calculate_bandwidth(bandwidth=bw_spec, data=data, var_type=var_type)  # type: ignore[arg-type]
+            except (RuntimeError, np.linalg.LinAlgError):
+                bw = _get_fallback_bw(a=data, var_type=var_type)
+
+            if not isinstance(bw, str):
+                eps: float = float(np.finfo(float).eps)
+                bw_arr: np.ndarray = np.asarray(bw, dtype=float)
+
+                if (not np.all(np.isfinite(bw_arr))) or np.any(bw_arr <= eps):
+                    bw_arr = np.asarray(_get_fallback_bw(a=data, var_type=var_type), dtype=float)
+                bw = bw_arr.tolist()
+
+        return bw
+
     def _kr_conden(
         self,
         x_neighbors: np.ndarray,
@@ -533,34 +583,9 @@ class Rsklpr:
         if y_neighbors.ndim == 1:
             y_neighbors = y_neighbors.reshape(-1, 1)
 
-        bw_x: Union[str, Sequence[float], Callable[[Any], Sequence[float]]]
-
-        if bw1_global is not None:
-            bw_x = bw1_global
-        else:
-            try:
-                if isinstance(self._bw1, str) and self._bw1 in ("cv_ls", "cv_ml"):
-                    bw_x = self._bw1
-                elif _is_bw_valid_sequence_type(x=self._bw1):
-                    bw_x = self._bw1
-                else:
-                    bw_x = self._calculate_bandwidth(
-                        bandwidth=self._bw1, data=x_neighbors, var_type=self._var_type_x_resolved  # type: ignore[arg-type]
-                    )
-            except (RuntimeError, np.linalg.LinAlgError):
-                # type-aware fallback: continuous dims get length floor; discrete get small smoothing prob
-                bw_x = _get_fallback_bw(x_neighbors, self._var_type_x_resolved)
-
-        eps: float = float(np.finfo(float).eps)
-
-        if not isinstance(bw_x, str):
-            # Sanitize bandwidths (belt-and-braces)
-            bw_x_arr: np.ndarray = np.asarray(bw_x, dtype=float)
-
-            if (not np.all(np.isfinite(bw_x_arr))) or np.any(bw_x_arr <= eps):
-                bw_x_arr = np.asarray(_get_fallback_bw(a=x_neighbors, var_type=self._var_type_x_resolved), dtype=float)
-
-            bw_x = bw_x_arr.tolist()
+        bw_x: Union[str, Sequence[float], Callable[[Any], Sequence[float]]] = self._resolve_effective_bw(
+            bw_spec=self._bw1, data=x_neighbors, var_type=self._var_type_x_resolved, bw_global=bw1_global
+        )
 
         kde_marginal_x: KDEMultivariate = KDEMultivariate(
             data=x_neighbors,
@@ -573,34 +598,9 @@ class Rsklpr:
             axis=-1,
         )
 
-        bw_xy: Union[str, Sequence[float], Callable[[Any], Sequence[float]]]
-
-        if bw2_global is not None:
-            bw_xy = bw2_global
-        else:
-            try:
-                if isinstance(self._bw2, str) and self._bw2 in ("cv_ls", "cv_ml"):
-                    bw_xy = self._bw2
-                elif _is_bw_valid_sequence_type(x=self._bw2):
-                    bw_xy = self._bw2
-                else:
-                    bw_xy = self._calculate_bandwidth(
-                        bandwidth=self._bw2, data=xy_neighbors, var_type=self._var_type_xy_resolved  # type: ignore[arg-type]
-                    )
-            except (RuntimeError, np.linalg.LinAlgError):
-                # type-aware fallback: continuous dims get length floor; discrete get small smoothing prob
-                bw_xy = _get_fallback_bw(xy_neighbors, self._var_type_xy_resolved)
-
-        if not isinstance(bw_xy, str):
-            # Sanitize bandwidths (belt-and-braces)
-            bw_xy_arr: np.ndarray = np.asarray(bw_xy, dtype=float)
-
-            if (not np.all(np.isfinite(bw_xy_arr))) or np.any(bw_xy_arr <= eps):
-                bw_xy_arr = np.asarray(
-                    _get_fallback_bw(a=xy_neighbors, var_type=self._var_type_xy_resolved), dtype=float
-                )
-
-            bw_xy = bw_xy_arr.tolist()
+        bw_xy: Union[str, Sequence[float], Callable[[Any], Sequence[float]]] = self._resolve_effective_bw(
+            bw_spec=self._bw2, data=xy_neighbors, var_type=self._var_type_xy_resolved, bw_global=bw2_global
+        )
 
         kde_joint: KDEMultivariate = KDEMultivariate(
             data=xy_neighbors,
@@ -614,6 +614,7 @@ class Rsklpr:
 
         w = np.where(np.isfinite(w), w, 0.0)
         m: float = float(np.nanmean(w)) if w.size > 0 else 1.0
+        eps: float = float(np.finfo(float).eps)
 
         if m > eps:
             w = w / m  # mean-normalize (keeps weight magnitudes in a nice range)
@@ -646,34 +647,10 @@ class Rsklpr:
             y_neighbors = y_neighbors.reshape(-1, 1)
 
         xy_neighbors: np.ndarray = np.concatenate([x_neighbors, y_neighbors], axis=1)
-        bw_xy: Union[str, float, Sequence[float]]
 
-        if bw2_global is not None:
-            bw_xy = bw2_global
-        else:
-            try:
-                if isinstance(self._bw2, str) and self._bw2 in ("cv_ls", "cv_ml"):
-                    bw_xy = self._bw2
-                elif _is_bw_valid_sequence_type(x=self._bw2):
-                    bw_xy = self._bw2  # type: ignore[assignment]
-                else:
-                    bw_xy = self._calculate_bandwidth(
-                        bandwidth=self._bw2, data=xy_neighbors, var_type=self._var_type_xy_resolved  # type: ignore[arg-type]
-                    )
-            except (RuntimeError, np.linalg.LinAlgError):
-                # type-aware fallback: continuous dims get length floor; discrete get small smoothing prob
-                bw_xy = _get_fallback_bw(xy_neighbors, self._var_type_xy_resolved)
-
-        eps: float = float(np.finfo(float).eps)
-
-        if not isinstance(bw_xy, str):
-            # Sanitize bandwidths (belt-and-braces)
-            bw_arr: np.ndarray = np.asarray(bw_xy, dtype=float)
-
-            if (not np.all(np.isfinite(bw_arr))) or np.any(bw_arr <= eps):
-                bw_arr = np.asarray(_get_fallback_bw(a=xy_neighbors, var_type=self._var_type_xy_resolved), dtype=float)
-
-            bw_xy = bw_arr.tolist()
+        bw_xy: Union[str, float, Sequence[float]] = self._resolve_effective_bw(
+            bw_spec=self._bw2, data=xy_neighbors, var_type=self._var_type_xy_resolved, bw_global=bw2_global
+        )
 
         kde_joint: KDEMultivariate = KDEMultivariate(
             data=xy_neighbors,
@@ -684,6 +661,7 @@ class Rsklpr:
         w: np.ndarray = np.asarray(kde_joint.pdf(data_predict=xy_neighbors), dtype=float)
         w = np.where(np.isfinite(w), w, 0.0)
         m: float = float(np.nanmean(w)) if w.size > 0 else 1.0
+        eps: float = float(np.finfo(float).eps)
 
         if m > eps:
             w = w / m  # mean-normalize (keeps weight magnitudes in a nice range)
