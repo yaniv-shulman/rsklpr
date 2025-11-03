@@ -1,6 +1,6 @@
 # Robust Local Polynomial Regression with Similarity Kernels #
 
-[![Downloads](https://static.pepy.tech/badge/rsklpr)](https://pepy.tech/project/rsklpr) ![Tests](https://github.com/yaniv-shulman/rsklpr/actions/workflows/linting_and_tests.yml/badge.svg?branch=main) [![phorm.ai](https://img.shields.io/badge/ask%20phorm.ai-8A2BE2)](https://www.phorm.ai/query?projectId=04cda149-26bc-4050-bfa6-5b28ee16ceda) [![Pyversions](https://img.shields.io/pypi/pyversions/rsklpr.svg?style=flat-square)](https://pypi.python.org/pypi/rsklpr)
+[![Downloads](https://static.pepy.tech/badge/rsklpr)](https://pepy.tech/project/rsklpr) ![Tests](https://github.com/yaniv-shulman/rsklpr/actions/workflows/linting_and_tests.yml/badge.svg?branch=main) [![Pyversions](https://img.shields.io/pypi/pyversions/rsklpr.svg?style=flat-square)](https://pypi.python.org/pypi/rsklpr)
 
 ## TL;DR ##
 This library is useful to perform robust locally weighted regression (similar to [LOESS](https://en.wikipedia.org/wiki/Local_regression)) in Python when:
