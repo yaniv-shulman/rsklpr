@@ -33,7 +33,7 @@ paper.
 
 ### How do I get set up? ###
 The easiest way to setup for development or explore the code is to create or activate a Poetry virtual environment by
-executing configure.sh. The included development environment uses Python 3.8 or higher, and Poetry 1.6.1 or higher is recommended.
+executing configure.sh. The included development environment uses Python 3.9 or higher, and Poetry 1.6.1 or higher is recommended.
 If you require any help getting setup please get in touch by email to the address specified in the paper.
 
 ### Example usage for developers ###
@@ -54,7 +54,7 @@ experiment_config: ExperimentConfig = ExperimentConfig(
     num_points=150,
     bw1=[0.4],
     bw2="normal_reference",
-    k2="joint",
+    kr="joint",
 )
 
 x: np.ndarray
@@ -106,7 +106,7 @@ experiment_config: ExperimentConfig = ExperimentConfig(
     num_points=100,
     bw1=[0.4],
     bw2="normal_reference",
-    k2="joint",
+    kr="joint",
 )
 
 x: np.ndarray

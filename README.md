@@ -1,6 +1,6 @@
 # Robust Local Polynomial Regression with Similarity Kernels #
 
-[![Downloads](https://static.pepy.tech/badge/rsklpr)](https://pepy.tech/project/rsklpr) ![Tests](https://github.com/yaniv-shulman/rsklpr/actions/workflows/linting_and_tests.yml/badge.svg?branch=main) [![phorm.ai](https://img.shields.io/badge/ask%20phorm.ai-8A2BE2)](https://www.phorm.ai/query?projectId=04cda149-26bc-4050-bfa6-5b28ee16ceda) [![Pyversions](https://img.shields.io/pypi/pyversions/rsklpr.svg?style=flat-square)](https://pypi.python.org/pypi/rsklpr)
+[![Downloads](https://static.pepy.tech/badge/rsklpr)](https://pepy.tech/project/rsklpr) ![Tests](https://github.com/yaniv-shulman/rsklpr/actions/workflows/linting_and_tests.yml/badge.svg?branch=main) [![Pyversions](https://img.shields.io/pypi/pyversions/rsklpr.svg?style=flat-square)](https://pypi.python.org/pypi/rsklpr)
 
 ## TL;DR ##
 This library is useful to perform robust locally weighted regression (similar to [LOESS](https://en.wikipedia.org/wiki/Local_regression)) in Python when:
@@ -30,6 +30,13 @@ pip install rsklpr
 ```
 
 ### What's new? ###
+- Version 2.0.0: 
+  - Improved numerical stability.
+  - Generalise the API for arbitrary kernels.
+  - Support for disabling the robust KDE based kernel. This allows using the library as a standard local polynomial
+    regression implementation with various kernels.
+  - Implementation of additional of the shelf kernels.
+  - Supporting arbitrary polynomial degree for local fitting.
 - Version 1.0.0 - Dropped support for Python 3.8 and added support for Python 3.12.
 - Version 0.7.0 - Metrics including local R-Squared and more efficient computation of WLS. 
 - Version 0.6.0 - Bootstrap inference and confidence intervals

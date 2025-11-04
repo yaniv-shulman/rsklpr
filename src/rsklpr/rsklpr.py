@@ -1,14 +1,49 @@
 import math
 import warnings
+from collections.abc import Sequence as _Seq
 from numbers import Number
-from typing import Optional, Sequence, Tuple, Callable, List, Union, Any, Dict
+from typing import Optional, Sequence, Tuple, Callable, List, Union, Any, Dict, Iterable
 
 import numpy as np
 from numpy.random import default_rng as np_default_rng
 from sklearn.neighbors import NearestNeighbors
+from sklearn.preprocessing import PolynomialFeatures
 
 from rsklpr.kde_statsmodels_impl.bandwidths import select_bandwidth
 from rsklpr.kde_statsmodels_impl.kernel_density import KDEMultivariate
+from rsklpr.kernels import laplacian_normalized_metric
+
+_bw_seq_types: Tuple[Any, ...] = (list, tuple, np.ndarray)
+
+
+def _is_bw_valid_sequence_type(x: object) -> bool:
+    """
+    helper to exclude strings/bytes from Sequences.
+
+    Args:
+        x: Anything
+
+    Returns:
+        True if x is of type List, Tuple, or np.ndarray.
+    """
+    # ndarray isn't a Sequence; explicitly allow it
+    return isinstance(x, _Seq) and not isinstance(x, (str, bytes)) or isinstance(x, np.ndarray)
+
+
+def _num_poly_terms(dim: int, degree: int) -> int:
+    """
+    Calculates the number of terms in the design matrix for a given data dimension and fit degree. Assumes both are
+    non-negative integers.
+
+    Args:
+        dim: The data dimension.
+        degree: The polynomial fit degree.
+
+    Returns:
+        The number of terms in the design matrix.
+    """
+    return math.comb(dim + degree, degree)
+
 
 all_metrics: List[str] = [
     "residuals",
@@ -23,9 +58,55 @@ all_metrics: List[str] = [
 ]
 
 
+def _robust_scale(x: np.ndarray) -> np.ndarray:
+    """
+    Robust per-dim scale ~ std using MAD, with sane fallbacks. The rows are observations, the columns are the features.
+    see https://stats.stackexchange.com/questions/355943/how-to-estimate-the-scale-factor-for-mad-for-a-non-normal-distribution.
+
+    Args:
+        x: The vector to compute scalers to
+
+    Returns:
+        Robust scalers for each feature (column) in the inputs.
+    """
+    med: np.ndarray = np.nanmedian(x, axis=0)
+    mad: np.ndarray = np.nanmedian(np.abs(x - med), axis=0)
+    s: np.ndarray = 1.4826 * mad  # MAD -> std
+    s = np.where((~np.isfinite(s)) | (s <= np.finfo(float).eps), np.nanstd(x, axis=0, ddof=1), s)
+    s = np.where((~np.isfinite(s)) | (s <= np.finfo(float).eps), 1.0, s)
+    return s
+
+
+def _get_fallback_bw(a: np.ndarray, var_type: str, cont_floor: float = 0.2, disc_floor: float = 0.05) -> list[float]:
+    """
+    Calculates a robust version of the MAD of a 2D vector of observations, type-aware fallback bandwidths:
+      - continuous ('c'): length floor = cont_floor * robust scale
+      - discrete ('u'/'o'): small smoothing prob = disc_floor
+
+    Args:
+      a: The input 2D vector of observations.
+      var_type: The var type for each dimension, denote continuous variables with 'c', otherwise considered discrete.
+
+    Returns:
+      The fallback bandwidth for each dimension.
+    """
+    s: np.ndarray = _robust_scale(x=a)
+    out: np.ndarray = np.empty_like(s, dtype=float)
+    j: int
+    vt: str
+
+    for j, vt in enumerate(var_type):
+        if vt == "c":
+            out[j] = cont_floor * float(s[j])
+        else:  # 'u' or 'o'
+            out[j] = float(disc_floor)
+
+    return out.tolist()  # type: ignore[no-any-return]
+
+
 def _mean_square_error(residuals: np.ndarray) -> float:
     """
-    Calculate the mean squared error for a given residuals.
+    Calculate the mean squared error for a given residuals, ignoring nans.
 
     Args:
         residuals: The regression residuals.
@@ -33,12 +114,12 @@ def _mean_square_error(residuals: np.ndarray) -> float:
     Returns:
         The mean squared error.
     """
-    return float(np.mean(residuals**2).item())
+    return float(np.nanmean(residuals**2).item())
 
 
 def _mean_abs_error(residuals: np.ndarray) -> float:
     """
-    Calculate the mean absolute error for a given residuals.
+    Calculate the mean absolute error for a given residuals, ignoring nans.
 
     Args:
         residuals: The regression residuals.
@@ -47,12 +128,12 @@ def _mean_abs_error(residuals: np.ndarray) -> float:
         The mean absolute error.
     """
 
-    return float(np.mean(np.abs(residuals)).item())
+    return float(np.nanmean(np.abs(residuals)).item())
 
 
 def _bias_error(residuals: np.ndarray) -> float:
     """
-    Calculate the residuals bias.
+    Calculate the residuals bias, ignoring nans.
 
     Args:
         residuals: The regression residuals.
@@ -60,12 +141,12 @@ def _bias_error(residuals: np.ndarray) -> float:
     Returns:
         The residuals bias.
     """
-    return float(np.mean(residuals).item())
+    return float(np.nanmean(residuals).item())
 
 
 def _std_error(residuals: np.ndarray) -> float:
     """
-    Calculate the residuals standard deviation.
+    Calculate the residuals standard deviation, ignoring nans.
 
     Args:
         residuals: The regression residuals.
@@ -73,13 +154,21 @@ def _std_error(residuals: np.ndarray) -> float:
     Returns:
         The residuals standard deviation.
     """
-    return float(np.std(residuals).item())
+    return float(np.nanstd(residuals).item())
 
 
-def _r_squared(beta: np.ndarray, x_w: np.ndarray, y_w: np.ndarray, y: np.ndarray, weights: np.ndarray) -> float:
+def _r_squared(
+    beta: np.ndarray,
+    x_w: np.ndarray,
+    y_w: np.ndarray,
+    y: np.ndarray,
+    weights: np.ndarray,
+    suppress_warnings: bool = False,
+) -> float:
     """
-    Calculate the R-Square statistic. The metric is calculated for a single local weighted local regression and is meaningful
-    only in that context. The calculation is the same as in the statsmodels package for compatibility.
+    Calculate the R-Square statistic, ignoring NaNs. The metric is calculated for a single local weighted local
+    regression and is meaningful only in that context. The calculation is the same as in the statsmodels package for
+    compatibility.
 
     Args:
         beta: The fitted regression parameters.
@@ -87,6 +176,7 @@ def _r_squared(beta: np.ndarray, x_w: np.ndarray, y_w: np.ndarray, y: np.ndarray
         y_w: The weighted response.
         y: The response.
         weights: The weights.
+        suppress_warnings: Whether to suppress warnings during calculation.
 
     Returns:
         The R-Square statistic for the WLS regression.
@@ -94,64 +184,44 @@ def _r_squared(beta: np.ndarray, x_w: np.ndarray, y_w: np.ndarray, y: np.ndarray
     if y.shape != weights.shape:
         raise ValueError("y and weights must have the same shape")
 
+    # SSE calculation robust to NaNs
     y_hat: np.ndarray = x_w @ beta
     e: np.ndarray = y_hat - y_w
-    sse: float = float((e.T @ e).item())
-    sst_centered: float = float((np.sum(weights * (y - np.average(y, weights=weights)) ** 2)).item())
+    # (e.T @ e) is equivalent to np.sum(e**2). We use np.nansum.
+    sse: float = float(np.nansum(e**2).item())
+
+    # Calculate a nan-safe weighted average
+    w_sum: float = float(np.nansum(weights).item())
+
+    # Guard against zero total weight
+    if w_sum <= np.finfo(float).eps:
+        if not suppress_warnings:
+            warnings.warn(
+                message="R-squared is undefined due to all-zero or all-NaN weights; returning NaN.",
+                category=RuntimeWarning,
+                stacklevel=2,
+            )
+
+        return float("nan")
+
+    avg: float = float(np.nansum(y * weights).item()) / w_sum
+
+    # Calculate sst_centered using nansum
+    sst_centered: float = float(np.nansum(weights * (y - avg) ** 2).item())
+
+    # If sst_centered is effectively zero, it means there is no variance in the
+    # weighted response variable. R-squared is undefined, so we return nan.
+    if sst_centered <= np.finfo(float).eps:
+        if not suppress_warnings:
+            warnings.warn(
+                message="R-squared is undefined due to zero variance in weighted response; returning NaN.",
+                category=RuntimeWarning,
+                stacklevel=2,
+            )
+
+        return float("nan")
+
     return 1.0 - sse / sst_centered
-
-
-def _weighted_local_regression(
-    x_0: np.ndarray,
-    x: np.ndarray,
-    y: np.ndarray,
-    weights: np.ndarray,
-    degree: int,
-    calculate_r_squared: bool = False,
-) -> Tuple[float, Optional[float]]:
-    """
-    Calculates the closed form matrix equations weighted constant or linear local regression centered at a point.
-
-    Args:
-        x_0: The target regression point.
-        x: The predictors in all observations, of shape [N, K] where N is the observations and K is the dimension.
-        y: The N scalar response values corresponding to the provided predictors.
-        weights: The N scalar weights associated with each observation.
-        degree: The regression polynomial degree, supported values are 0 or 1.
-
-    Returns:
-        The predicted y_hat at locations x.
-    """
-    if degree not in (0, 1):
-        raise ValueError(f"Degree {degree} is not supported. Supported values are 0 and 1.")
-
-    if x.ndim != 2:
-        raise ValueError("x must be a two dimensional array.")
-
-    y = y.reshape((x.shape[0]), 1)
-    weights = weights.reshape(y.shape)
-    bias: np.ndarray = np.ones(shape=(x.shape[0], 1))
-
-    x_mat: np.ndarray = (
-        np.concatenate(
-            [bias, x - x_0],
-            axis=1,
-        )
-        if degree == 1
-        else bias
-    )
-
-    w_sqrt: np.ndarray = np.sqrt(weights)
-    y_w: np.ndarray = w_sqrt * y
-    x_mat_w: np.ndarray = w_sqrt * x_mat
-    del x_mat, bias
-    beta: np.ndarray = np.linalg.inv(x_mat_w.T @ x_mat_w) @ x_mat_w.T @ y_w
-    r_squared: Optional[float] = None
-
-    if calculate_r_squared:
-        r_squared = _r_squared(beta=beta, x_w=x_mat_w, y_w=y_w, y=y, weights=weights)
-
-    return float(beta[0].item()), r_squared
 
 
 def _dim_data(data: np.ndarray) -> int:
@@ -168,41 +238,9 @@ def _dim_data(data: np.ndarray) -> int:
     return data.shape[1] if data.ndim > 1 else 1
 
 
-def _laplacian_normalized(u: np.ndarray) -> np.ndarray:
-    """
-    Implementation of the Laplacian kernel. The inputs are first scaled to the range [0,1] before applying the kernel.
-
-    Args:
-        u: The kernel input.
-
-    Returns:
-        The kernel output.
-    """
-    return np.exp(-u / np.max(np.atleast_2d(u), axis=1, keepdims=True).astype(float))  # type: ignore [no-any-return]
-
-
-def _tricube_normalized(u: np.ndarray) -> np.ndarray:
-    """
-    Implementation of the normalized Tricube kernel. The implementation assumes all inputs are non-negative with a 0
-    value present. The inputs are scaled to the range [0,1] before applying the kernel.
-
-    Args:
-        u: The kernel input, note it is assumed all inputs are non-negative.
-
-    Returns:
-        The kernel output.
-    """
-    assert u.min() >= 0  # negative values are not expected to happen during normal execution.
-    return np.clip(  # type: ignore [no-any-return, call-overload]
-        a=np.power((1 - np.power(u / np.max(np.atleast_2d(u), axis=1, keepdims=True).astype(float), 3)), 3),
-        a_min=0.0,
-        a_max=None,
-    )
-
-
 class Rsklpr:
     """
-    Implementation of the Robust Similarity Kernel Local Polynomial Regression for proposed in the paper
+    Implementation of the Robust Similarity Kernel Local Polynomial Regression as proposed in the paper
     https://github.com/yaniv-shulman/rsklpr/blob/main/paper/rsklpr.pdf.
     """
 
@@ -210,20 +248,25 @@ class Rsklpr:
         self,
         size_neighborhood: int,
         degree: int = 1,
-        metric_x: str = "mahalanobis",
+        metric_x: Union[str, Callable[[np.ndarray, np.ndarray], float]] = "mahalanobis",
         metric_x_params: Optional[Dict[str, Any]] = None,
-        k1: str = "laplacian",
-        k2: str = "joint",
+        kp: Union[
+            Callable[[np.ndarray, np.ndarray, np.ndarray, int, np.ndarray], np.ndarray],
+            Iterable[Callable[[np.ndarray, np.ndarray, np.ndarray, int, np.ndarray], np.ndarray]],
+        ] = laplacian_normalized_metric,
+        kr: str = "joint",
         bw1: Union[str, float, Sequence[float], Callable[[Any], Sequence[float]]] = "normal_reference",  # type: ignore [misc]
         bw2: Union[str, float, Sequence[float], Callable[[Any], Sequence[float]]] = "normal_reference",  # type: ignore [misc]
         bw_global_subsample_size: Optional[int] = None,
+        var_type_x: Optional[str] = None,
         seed: int = 888,
+        suppress_warnings: bool = False,
     ) -> None:
         """
         Args:
             size_neighborhood: The number of points in the neighborhood to consider in the local regression.
-            degree: The degree of the polynomial fitted locally, supported values are 0 or 1 (default) that result in
-                local constant and local linear regression respectively.
+            degree: The degree of the polynomial fitted locally (e.g., 0 for constant, 1 for linear, 2 for quadratic).
+                Defaults to 1.
             metric_x: Metric for distance computation for the predictors using sklearn.neighbors.NearestNeighbors. See
                 https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestNeighbors.html for details.
             metric_x_params: Metric parameters if required. For 'mahalanobis' (default) the inverted covariance matrix
@@ -231,15 +274,23 @@ class Rsklpr:
                 Minkowski metric 'p' can be specified here however defaults to 2 if left unspecified. See
                 https://docs.scipy.org/doc/scipy/reference/spatial.distance.html#module-scipy.spatial.distance for more
                 details on the various metrics and their parameters.
-            k1: The kernel that models the effect of distance on weight between the local target regression to its
+            kp: The kernel that models the effect of similarity on weight between the local target regression to its
                 neighbours. This is similar to the kernel used in standard polynomial regression. Available options are
-                'laplacian' (default) and 'tricube', of which the latter is traditionally used in LOESS.
-            k2: The kernel that models the 'importance' of the response at the location. Available options are 'joint'
-                (joint density) and 'conden' (conditional density). The 'joint' kernel implements a weighted KDE of the
-                marginal density of the response where the weights are based on the distance of the predictor from the
-                location. The 'conden' kernel calculates the KDE of (Y|X).
+                implementations in rsklpr.kernels or a custom callable. Defaults to the Laplacian kernel.
+                The inputs to a kernel are defined as:
+                    - x_0: The local regression location, a 2D array of size [K, N].
+                    - x_neighbors: The features for the k nearest neighbours, a 2D array of size [K, N].
+                    - dist_x_neighbors: The distance according to metric_x for each of the neighbours, a 2D array [1, K].
+                    - index_x_0: An integer denoting the index of x_0 in the predicted data.
+                    - indices_neighbors: The index of each of the neighbours in the fitted data [1, K].
+                Where N is the feature dimension. Note The kernel may ignore some inputs.
+            kr: The kernel that models the 'importance' of the response at the location. Available options are 'none,
+                'joint' (joint density) and 'conden' (conditional density). The 'none' option results in standard
+                kernel local polynomial regression without robust weighting. Defaults to 'joint' since it is less
+                computationally intensive than 'conden' however 'conden' is a more natural choice for many regression
+                tasks.
             bw1: The method used to estimate the bandwidth for the marginal predictor's kernel used by both methods
-                implemented for k2. Supported options are 'normal_reference' and 'scott' which correspond to the local
+                implemented for kr. Supported options are 'normal_reference' and 'scott' which correspond to the local
                 normal reference rule of thumb (default) and local Scott's rule, both implemented in statsmodels. See
                 https://www.statsmodels.org/stable/_modules/statsmodels/nonparametric/bandwidths.html. An additional
                 provided option is 'cv_ls_global' which correspond to global least squares cross validation based
@@ -250,33 +301,50 @@ class Rsklpr:
                 sm.nonparametric.KDEMultivariate. Finally, it is also possible to pass in a sequence of floats, one per
                 dimension of the data, or a callable that takes the data as input and returns the same, i.e a sequence
                 of floats have one scalar value per dimension.
-            bw2: The method used to estimate the second bandwidth used by k2. The semantics depend on the kernel used
-                for k2. For the 'conden' kernel, bw2 represents the bandwidth estimation method for the joint KDE of
+            bw2: The method used to estimate the second bandwidth used by kr. The semantics depend on the kernel used
+                for kr. For the 'conden' kernel, bw2 represents the bandwidth estimation method for the joint KDE of
                 (X,Y). For the 'joint' kernel this is the bandwidth estimation method for marginal KDE of Y. The
                 supported options are the same as bw1.
             bw_global_subsample_size: The size of subsample taken from the data for global cross validation bandwidth
                 estimation. If None the entire data is used for bandwidth estimation. This could be useful to speedup
                     global cross validation based estimates.
-            seed: The seed used for random sub sampling for cross validation bandwidth estimation.
+            var_type_x: The variable types for the predictors if bw1 or bw2 is set to a cross validation based method.
+                Defaults to "c" (continuous variables) for all features if not specified. See statsmodels documentation
+                for details: https://www.statsmodels.org/dev/generated/statsmodels.nonparametric.kernel_density.KDEMultivariate.html.
+            seed: The seed used for random subsampling for cross validation bandwidth estimation.
+            suppress_warnings: Whether to suppress warnings during fitting and prediction. Defaults to False.
         """
         if size_neighborhood < 3:
             raise ValueError("size_neighborhood must be at least 3")
 
-        if degree not in (0, 1):
-            raise ValueError("degree must be one of 0 or 1")
+        if degree < 0:
+            raise ValueError("degree must be a non-negative integer")
 
-        k1 = k1.lower()
-        if k1 not in ("laplacian", "tricube"):
-            raise ValueError(f"k1 {k1} is unsupported and must be one of 'laplacian' or 'tricube'")
+        raise_kp_error: bool = False
 
-        k2 = k2.lower()
-        if k2 not in ("conden", "joint"):
-            raise ValueError(f"k2 {k2} is unsupported and must be one of 'conden' or 'joint'")
+        if isinstance(kp, Iterable):
+            if not all(callable(k) for k in kp):
+                raise_kp_error = True
+        elif not callable(kp):
+            raise_kp_error = True
+
+        if raise_kp_error:
+            raise ValueError(
+                "kp must be a callable or a iterable of callables. You may use one of the "
+                "functions in rsklpr.kernels or provide a custom implementation."
+            )
+
+        kr = kr.lower()
+
+        if kr not in ("none", "conden", "joint"):
+            raise ValueError(f"kr {kr} is unsupported and must be one of 'none', 'conden' or 'joint'")
 
         bw_error_str: str = (
             "When bandwidth is a string it must be one of 'normal_reference', 'cv_ml', 'cv_ls', "
             "'scott' or 'cv_ls_global'"
         )
+
+        bw_error_type: str = f"When bandwidth is a sequence it must be one of {_bw_seq_types}"
 
         bw_methods: Tuple[str, ...] = (
             "normal_reference",
@@ -293,6 +361,10 @@ class Rsklpr:
                 raise ValueError(bw_error_str)
         elif isinstance(bw1, float):
             bw1 = [bw1]
+        elif callable(bw1):
+            pass
+        elif not _is_bw_valid_sequence_type(x=bw1):
+            raise ValueError(bw_error_type)
 
         if isinstance(bw2, str):
             bw2 = bw2.lower()
@@ -301,13 +373,22 @@ class Rsklpr:
                 raise ValueError(bw_error_str)
         elif isinstance(bw2, float):
             bw2 = [bw2]
+        elif callable(bw2):
+            pass
+        elif not _is_bw_valid_sequence_type(x=bw2):
+            raise ValueError(bw_error_type)
 
         self._size_neighborhood: int = int(size_neighborhood)
         self._degree: int = int(degree)
-        self._metric_x: str = metric_x.lower()
+
+        self._metric_x: Union[str, Callable[[np.ndarray, np.ndarray], float]] = metric_x
+
+        if isinstance(metric_x, str):
+            self._metric_x = metric_x.lower()
+
         self._metric_x_params: Optional[Dict[str, Any]] = metric_x_params
-        self._k1: str = k1
-        self._k2: str = k2
+
+        self._kr: str = kr
         self._bw1: Union[str, Sequence[float], Callable[[Any], Sequence[float]]] = bw1  # type: ignore [misc]
         self._bw2: Union[str, Sequence[float], Callable[[Any], Sequence[float]]] = bw2  # type: ignore [misc]
 
@@ -315,10 +396,15 @@ class Rsklpr:
             int(bw_global_subsample_size) if bw_global_subsample_size is not None else None
         )
 
+        self._var_type_x: Optional[str] = var_type_x
+        self._var_type_x_resolved: str = ""
+        self._var_type_y_resolved: str = ""
+        self._var_type_xy_resolved: str = ""
+
         self._seed: int = seed
 
-        self._k1_func: Callable[[np.ndarray], np.ndarray] = (
-            _laplacian_normalized if k1 == "laplacian" else _tricube_normalized
+        self._kp: Iterable[Callable[[np.ndarray, np.ndarray, np.ndarray, int, np.ndarray], np.ndarray]] = (
+            [kp] if callable(kp) else kp
         )
 
         self._rnd_gen: np.random.Generator = np_default_rng(seed=seed)
@@ -332,13 +418,16 @@ class Rsklpr:
         self._std_error: Optional[float] = None
         self._r_squared: np.ndarray = np.asarray([])
         self._mean_r_squared: Optional[float] = None
-        self._fit: bool = False
+        self._is_fit: bool = False
+        self._poly_cache: Dict[Tuple[int, int], PolynomialFeatures] = {}
+        self._suppress_warnings: bool = suppress_warnings
         self._nearest_neighbors: NearestNeighbors
 
     def _calculate_bandwidth(  # type: ignore [return]
         self,
         bandwidth: Union[str, Callable[[Any], Sequence[float]]],  # type: ignore [misc]
         data: np.ndarray,
+        var_type: str,
     ) -> Sequence[float]:
         """
         Estimate the bandwidth for the data.
@@ -346,14 +435,41 @@ class Rsklpr:
         Args:
             bandwidth: The method used to estimate the bandwidth for the data.
             data: The data to estimate the bandwidth for.
+            var_type: The variable types for the data if bandwidth is set to a cross validation based method.
 
         Returns:
             The estimated bandwidth for the data.
         """
+        fallback_bw: List[float]
+
         if callable(bandwidth):  # type: ignore [arg-type]
             return bandwidth(data)  # type: ignore [operator]
         elif bandwidth in ("scott", "normal_reference"):
-            return select_bandwidth(x=data, bw=bandwidth, kernel=None).tolist()  # type: ignore [no-any-return]
+            try:
+                # Attempt to calculate bandwidth normally
+                bw: np.ndarray = select_bandwidth(x=data, bw=bandwidth, kernel=None)
+                return bw.tolist()  # type: ignore [no-any-return]
+
+            except RuntimeError as e:
+                # This happens if statsmodels calculates a bandwidth of 0
+                # (e.g., all data points in the neighborhood are identical).
+                if "bandwidth is 0" in str(e):
+
+                    # Use data-scaled fallback
+                    fallback_bw = _get_fallback_bw(a=data, var_type=var_type)
+
+                    if not self._suppress_warnings:
+                        warnings.warn(
+                            message=f"KDE bandwidth was 0 (neighborhood has 0 variance). Using a data-scaled fallback "
+                            f"({fallback_bw}) to proceed. Consider increasing neighborhood size or using cv_* bandwidths.",
+                            category=RuntimeWarning,
+                            stacklevel=2,
+                        )
+
+                    return fallback_bw
+                else:
+                    # Re-raise if it's a different runtime error
+                    raise e
         elif bandwidth.startswith("cv_"):
             subsample: np.ndarray = data
 
@@ -365,18 +481,83 @@ class Rsklpr:
                 sample_idx: np.ndarray = self._rnd_gen.choice(
                     a=data.shape[0],
                     size=min(int(data.shape[0]), self._bw_global_subsample_size),
+                    replace=False,
                 )
                 subsample = data[sample_idx, :]
 
-            return KDEMultivariate(  # type: ignore [no-any-return]
-                data=subsample,
-                var_type="c" * _dim_data(data=subsample),
-                bw="cv_ls",
-            ).bw
+            # We should also wrap this, as it might fail for similar reasons
+            try:
+                return KDEMultivariate(  # type: ignore [no-any-return]
+                    data=subsample,
+                    var_type=var_type,
+                    bw=bandwidth[:5],  # 'cv_ls' or 'cv_ml' only, ignore '_global'.
+                ).bw
+            except (RuntimeError, np.linalg.LinAlgError) as e:
+                fallback_bw = _get_fallback_bw(a=data, var_type=var_type)
+
+                if not self._suppress_warnings:
+                    warnings.warn(
+                        message=f"KDE bandwidth estimation '{bandwidth}' failed (e.g., 0 variance). "
+                        f"Using a data-scaled fallback ({fallback_bw}) to proceed. Error: {e}",
+                        category=RuntimeWarning,
+                        stacklevel=2,
+                    )
+
+                return fallback_bw
         else:
             raise ValueError(f"Unknown bandwidth {bandwidth}")
 
-    def _k2_conden(
+    def _resolve_effective_bw(  # type: ignore[return]
+        self,
+        *,
+        bw_spec: Union[str, Sequence[float], Callable[[Any], Sequence[float]]],
+        data: np.ndarray,
+        var_type: str,
+        bw_global: Optional[Sequence[float]] = None,
+    ) -> Union[str, Sequence[float]]:
+        """
+        A helper method for resolving a bandwidth setting into an effective value to use for KDE:
+          - Prefer an explicitly provided global value if present.
+          - Otherwise: if bw_spec is 'cv_ls'/'cv_ml' (string), pass that through (statsmodels will estimate locally).
+                       if bw_spec is a sequence, pass it through.
+                       else compute via _calculate_bandwidth(...).
+          - On failures or invalid/degenerate values, fall back to type-aware defaults.
+          - Always sanitize numeric sequences (finite and > eps); strings are passed as-is.
+
+        Args:
+            bw_spec: One of self._bw1 or self._bw2.
+            data: The corresponding data to resolve the bandwidth for.
+            var_type: The resolved var type for the data
+            bw_global: The corresponding bw_global if specified.
+
+        Returns:
+             The effective bandwidth to use for density estimation.
+        """
+        bw: Union[str, Sequence[float]]
+        if bw_global is not None:
+            bw = bw_global
+        else:
+            try:
+                if isinstance(bw_spec, str) and bw_spec in ("cv_ls", "cv_ml"):
+                    bw = bw_spec
+                elif _is_bw_valid_sequence_type(x=bw_spec):
+                    bw = bw_spec  # type: ignore[assignment]
+                else:
+                    bw = self._calculate_bandwidth(bandwidth=bw_spec, data=data, var_type=var_type)  # type: ignore[arg-type]
+            except (RuntimeError, np.linalg.LinAlgError):
+                bw = _get_fallback_bw(a=data, var_type=var_type)
+
+            if not isinstance(bw, str):
+                eps: float = float(np.finfo(float).eps)
+                bw_arr: np.ndarray = np.asarray(bw, dtype=float)
+
+                if (not np.all(np.isfinite(bw_arr))) or np.any(bw_arr <= eps):
+                    bw_arr = np.asarray(_get_fallback_bw(a=data, var_type=var_type), dtype=float)
+                bw = bw_arr.tolist()
+
+        return bw
+
+    def _kr_conden(
         self,
         x_neighbors: np.ndarray,
         y_neighbors: np.ndarray,
@@ -384,7 +565,8 @@ class Rsklpr:
         bw2_global: Optional[Sequence[float]] = None,
     ) -> np.ndarray:
         """
-        Calculates the conditional density similarity kernel for the observations in the neighborhood.
+        Calculates the conditional density similarity kernel for the observations in the neighborhood with type-aware
+        bandwidth fallbacks, degeneracy guards, and safe division.
 
         Args:
             x_neighbors: The predictors values of all neighbors.
@@ -398,102 +580,218 @@ class Rsklpr:
         if x_neighbors.ndim > 2:
             x_neighbors = np.squeeze(x_neighbors).reshape(-1, x_neighbors.shape[-1])
 
+        if y_neighbors.ndim == 1:
+            y_neighbors = y_neighbors.reshape(-1, 1)
+
+        bw_x: Union[str, Sequence[float], Callable[[Any], Sequence[float]]] = self._resolve_effective_bw(
+            bw_spec=self._bw1, data=x_neighbors, var_type=self._var_type_x_resolved, bw_global=bw1_global
+        )
+
+        kde_marginal_x: KDEMultivariate = KDEMultivariate(
+            data=x_neighbors,
+            var_type=self._var_type_x_resolved,
+            bw=bw_x,
+        )
+
         xy_neighbors: np.ndarray = np.concatenate(
             [x_neighbors, y_neighbors],
             axis=-1,
         )
 
-        var_type: str = "c" * _dim_data(data=x_neighbors)
-
-        kde_marginal_x: KDEMultivariate = KDEMultivariate(
-            data=x_neighbors,
-            var_type=var_type,
-            bw=(
-                self._bw1
-                if (self._bw1 in ("cv_ls", "cv_ml") or isinstance(self._bw1, List))
-                else (
-                    self._calculate_bandwidth(bandwidth=self._bw1, data=x_neighbors)  # type: ignore [arg-type]
-                    if bw1_global is None
-                    else bw1_global
-                )
-            ),
+        bw_xy: Union[str, Sequence[float], Callable[[Any], Sequence[float]]] = self._resolve_effective_bw(
+            bw_spec=self._bw2, data=xy_neighbors, var_type=self._var_type_xy_resolved, bw_global=bw2_global
         )
 
         kde_joint: KDEMultivariate = KDEMultivariate(
             data=xy_neighbors,
-            var_type=var_type + "c",
-            bw=(
-                self._bw2
-                if (self._bw2 in ("cv_ls", "cv_ml") or isinstance(self._bw2, List))
-                else (
-                    self._calculate_bandwidth(bandwidth=self._bw2, data=xy_neighbors)  # type: ignore [arg-type]
-                    if bw2_global is None
-                    else bw2_global
-                )
-            ),
+            var_type=self._var_type_xy_resolved,
+            bw=bw_xy,
         )
 
-        return kde_joint.pdf(data_predict=xy_neighbors) / kde_marginal_x.pdf(  # type: ignore [no-any-return]
-            data_predict=x_neighbors
+        w: np.ndarray = np.asarray(kde_joint.pdf(data_predict=xy_neighbors)) / np.asarray(
+            kde_marginal_x.pdf(data_predict=x_neighbors)
         )
 
-    def _k2_joint(
+        w = np.where(np.isfinite(w), w, 0.0)
+        m: float = float(np.nanmean(w)) if w.size > 0 else 1.0
+        eps: float = float(np.finfo(float).eps)
+
+        if m > eps:
+            w = w / m  # mean-normalize (keeps weight magnitudes in a nice range)
+
+        w[w <= 0] = eps  # avoid exact zeros
+        return w
+
+    def _kr_joint(
         self,
         x_neighbors: np.ndarray,
         y_neighbors: np.ndarray,
-        dist_x_neighbors: np.ndarray,
-        bw1_global: Optional[Sequence[float]] = None,
         bw2_global: Optional[Sequence[float]] = None,
     ) -> np.ndarray:
         """
-        Calculates the joint density similarity kernel for the observations in the neighborhood.
+        Calculates the joint density similarity kernel for the observations in the neighborhood with type-aware
+        bandwidth fallbacks, degeneracy guards, and safe division.
 
         Args:
             x_neighbors: The predictors values of all neighbors.
             y_neighbors: The corresponding response of all neighbors.
-            dist_x_neighbors: The distance of all neighbors to the regression target location.
-            bw1_global: The bw1 calculated from the global data, if None a local bandwidth estimation will be used.
             bw2_global: The bw2 calculated from the global data, if None a local bandwidth estimation will be used.
 
         Returns:
             The kernel values to all observations.
         """
-        square_dist_y_windowed: np.ndarray = np.square(y_neighbors - y_neighbors.T)
+        if x_neighbors.ndim > 2:
+            x_neighbors = np.squeeze(x_neighbors).reshape(-1, x_neighbors.shape[-1])
 
-        bw_x: np.ndarray = np.asarray(
-            (
-                self._bw1
-                if isinstance(self._bw1, List)
-                else self._calculate_bandwidth(bandwidth=self._bw1, data=x_neighbors)  # type: ignore [arg-type]
-            )
-            if bw1_global is None
-            else bw1_global
+        if y_neighbors.ndim == 1:
+            y_neighbors = y_neighbors.reshape(-1, 1)
+
+        xy_neighbors: np.ndarray = np.concatenate([x_neighbors, y_neighbors], axis=1)
+
+        bw_xy: Union[str, float, Sequence[float]] = self._resolve_effective_bw(
+            bw_spec=self._bw2, data=xy_neighbors, var_type=self._var_type_xy_resolved, bw_global=bw2_global
         )
 
-        bw_x = bw_x.mean()
-        weights: np.ndarray = np.exp(-0.5 * np.power(dist_x_neighbors / bw_x, 2)) / bw_x
-
-        bw_y: np.ndarray = np.asarray(
-            (
-                self._bw2
-                if isinstance(self._bw2, List)
-                else self._calculate_bandwidth(bandwidth=self._bw2, data=y_neighbors)  # type: ignore [arg-type]
-            )
-            if bw2_global is None
-            else bw2_global
+        kde_joint: KDEMultivariate = KDEMultivariate(
+            data=xy_neighbors,
+            var_type=self._var_type_xy_resolved,
+            bw=bw_xy,
         )
 
-        if bw_y.size != 1:
-            raise ValueError(f"Too many values ({bw_y.size}) specified for y bandwidth")
+        w: np.ndarray = np.asarray(kde_joint.pdf(data_predict=xy_neighbors), dtype=float)
+        w = np.where(np.isfinite(w), w, 0.0)
+        m: float = float(np.nanmean(w)) if w.size > 0 else 1.0
+        eps: float = float(np.finfo(float).eps)
 
-        local_density: np.ndarray = np.exp(-0.5 * square_dist_y_windowed / (bw_y**2))
-        local_density = (local_density * weights).sum(axis=-1)
-        return local_density
+        if m > eps:
+            w = w / m  # mean-normalize (keeps weight magnitudes in a nice range)
+
+        w[w <= 0] = eps  # avoid exact zeros
+        return w
+
+    def _create_design_matrix(self, x: np.ndarray, x_0: np.ndarray, degree: int) -> np.ndarray:
+        """
+        Creates the polynomial design matrix for local regression centered at x_0.
+        Uses a cache for PolynomialFeatures objects to improve performance.
+
+        Args:
+            x: The predictors in all observations, shape [N, K].
+            x_0: The target regression point, shape [1, K].
+            degree: The regression polynomial degree (0 for constant, 1 for linear, etc.).
+
+        Returns:
+            The design matrix, shape [N, P] where P is the number of polynomial features.
+        """
+        if degree < 0:
+            raise ValueError("Degree must be a non-negative integer.")
+
+        key: Tuple[int, int] = (degree, x.shape[1])
+        poly: Optional[PolynomialFeatures] = self._poly_cache.get(key)
+
+        if poly is None:
+            poly = PolynomialFeatures(degree=degree, include_bias=True)
+
+            # Fit the object once and store in cache, this is independent of the actual data and just uses the shape to
+            # fit the transform.
+            poly.fit(np.zeros((1, x.shape[1])))
+            self._poly_cache[key] = poly
+
+        # Center the data and scale. Scaling prevent the design matrix from being ill-conditioned (where the columns have
+        # wildly different scales) which can cause the least-squares solver (np.linalg.lstsq) to become numerically
+        # unstable. This does not affect the solution since b_0 is independent of scaling and all the other terms are
+        # zeros at x_0.
+        x_centered: np.ndarray = x - x_0
+        h: np.ndarray = np.std(x_centered, axis=0, ddof=1)
+        h = np.where(np.isfinite(h) & (h > 0), h, 1.0)  # avoid div-by-0
+        x_std = x_centered / h
+        x_mat: np.ndarray = poly.transform(x_std)
+        return x_mat
+
+    def _weighted_local_regression(
+        self,
+        x_0: np.ndarray,
+        x: np.ndarray,
+        y: np.ndarray,
+        weights: np.ndarray,
+        degree: int,
+        calculate_r_squared: bool = False,
+    ) -> Tuple[float, Optional[float]]:
+        """
+        Calculates the closed form matrix equations weighted constant or linear local regression centered at a point.
+
+        Args:
+            x_0: The target regression point, a scaler or 2D array.
+            x: The predictors in all observations, of shape [N, K] where N is the observations and K is the dimension.
+            y: The N scalar response values corresponding to the provided predictors.
+            weights: The N scalar weights associated with each observation.
+            degree: The regression polynomial degree.
+            calculate_r_squared: Whether to calculate the R-Squared statistic for this local regression.
+
+        Returns:
+            The predicted y_hat at locations x and optionally the R-Squared statistic. If the regression could not be
+            calculated (e.g., due to singular matrix) NaN values are returned. If the R-Squared statistic could not be
+            calculated NaN is returned for it.
+        """
+        if degree < 0:
+            raise ValueError(f"Degree {degree} is not supported. Must be 0, 1, 2, ...")
+
+        if x.ndim != 2:
+            raise ValueError("x must be a two dimensional array.")
+
+        n_features: int = x.shape[1]
+        p_initial: int = _num_poly_terms(dim=n_features, degree=degree)
+        degree_initial: int = degree
+
+        # Effective sample size (robust to near-zero weights)
+        neff: float = float(np.nansum(weights) ** 2) / (np.nansum(weights**2) + np.finfo(float).eps)
+
+        if neff <= p_initial:
+            # Auto downgrade degree (robust default), in future versions consider if there is a better way or perhaps
+            # add as a configurable option.
+            while degree > 0 and neff <= _num_poly_terms(dim=x.shape[1], degree=degree):
+                degree -= 1
+
+            if not self._suppress_warnings:
+                warnings.warn(
+                    f"Local system for point {x_0.tolist()} underdetermined/ill-conditioned: initial degree="
+                    f"{degree_initial}, d={n_features}, P={p_initial}, N_eff≈{neff:.1f}. Auto reduced local degree to: "
+                    f"degree={degree}. To prevent increase neighborhood or reduce degree.",
+                    RuntimeWarning,
+                )
+
+        y = y.reshape((x.shape[0]), 1)
+        weights = weights.reshape(y.shape)
+
+        if np.sum(weights) <= np.finfo(weights.dtype).eps:
+            return float("nan"), (float("nan") if calculate_r_squared else None)
+
+        x_mat: np.ndarray = self._create_design_matrix(x=x, x_0=x_0, degree=degree)
+        w_sqrt: np.ndarray = np.sqrt(weights)
+        y_w: np.ndarray = w_sqrt * y
+        x_mat_w: np.ndarray = w_sqrt * x_mat
+        del x_mat
+
+        beta: np.ndarray
+
+        try:
+            beta, _, _, _ = np.linalg.lstsq(x_mat_w, y_w, rcond=None)
+        except np.linalg.LinAlgError:
+            # This can still fail in extreme cases, though unlikely
+            return float("nan"), (float("nan") if calculate_r_squared else None)
+
+        r_squared: Optional[float] = None
+
+        if calculate_r_squared:
+            r_squared = _r_squared(
+                beta=beta, x_w=x_mat_w, y_w=y_w, y=y, weights=weights, suppress_warnings=self._suppress_warnings
+            )
+
+        return float(beta[0].item()), r_squared
 
     def _estimate(
         self,
         x: Union[np.ndarray, Sequence[Number], Sequence[Sequence[Number]], float],
-        metrics: Optional[Union[str, Sequence[str]]] = None,
+        metrics: Optional[Union[str, Iterable[str]]] = None,
     ) -> np.ndarray:
         """
         Estimates the value of m(x) at the locations.
@@ -506,14 +804,15 @@ class Rsklpr:
             The estimated values of m(x) at the locations.
         """
         x_arr: np.ndarray
-        x_arr, _ = self._check_and_reshape_inputs(x=x)
+        x_arr, _ = self._check_and_reshape_inputs(x=x, enforce_min_x_size=False)
         n: int = x_arr.shape[0]
         y_hat: np.ndarray = np.empty((n))
         bw1_global: Optional[Sequence[float]]
         bw2_global: Optional[Sequence[float]]
-        bw1_global, bw2_global = self._get_bandwidth_global(k2=self._k2)
+
+        bw1_global, bw2_global = self._get_bandwidth_global(kr=self._kr)
+
         calculate_r_squared: bool = False
-        mean_r_squared_total: float = 0.0
 
         if metrics is not None:
             if isinstance(metrics, str):
@@ -527,21 +826,24 @@ class Rsklpr:
             if "r_squared" in metrics:  # type: ignore[operator]
                 self._r_squared = np.empty(shape=(n,))
 
+        mean_r_squared_total: float = 0.0
+        mean_r_squared_num_terms: int = 0
         i: int
 
         for i in range(n):
             weights: np.ndarray
-            x_neighbors: np.ndarray
             indices: np.ndarray
+            x_neighbors: np.ndarray
+            x_0: np.ndarray = x_arr[i].reshape(1, -1)
 
             weights, indices, x_neighbors = self._calculate_weights(
-                x_0=x_arr[i], bw1_global=bw1_global, bw2_global=bw1_global
+                x_0=x_0, index_x_0=i, bw1_global=bw1_global, bw2_global=bw2_global
             )
 
             r_squared: Optional[float]
 
-            y_hat[i], r_squared = _weighted_local_regression(
-                x_0=x_arr[i].reshape(1, -1),
+            y_hat[i], r_squared = self._weighted_local_regression(
+                x_0=x_0,
                 x=x_neighbors,
                 y=self._y[indices].T,
                 weights=weights,
@@ -553,24 +855,29 @@ class Rsklpr:
                 if "r_squared" in metrics:  # type: ignore[operator]
                     self._r_squared[i] = r_squared
 
-                if "mean_r_squared" in metrics:  # type: ignore[operator]
-                    mean_r_squared_total += r_squared  # type: ignore[operator]
+                if "mean_r_squared" in metrics and (r_squared is not None) and math.isfinite(r_squared):  # type: ignore[operator]
+                    mean_r_squared_total += r_squared
+                    mean_r_squared_num_terms += 1
 
         if metrics is not None and metrics != ["r_squared"]:
-            self.calculate_global_metrics(metrics=metrics, y_hat=y_hat, mean_r_squared_total=mean_r_squared_total)
+            mean_r_squared: float = (
+                mean_r_squared_total / mean_r_squared_num_terms if mean_r_squared_num_terms > 0 else float("nan")
+            )
+
+            self.calculate_global_metrics(metrics=metrics, y_hat=y_hat, mean_r_squared=mean_r_squared)
 
         return y_hat
 
-    def calculate_global_metrics(self, metrics: Sequence[str], y_hat: np.ndarray, mean_r_squared_total) -> None:
+    def calculate_global_metrics(self, metrics: Sequence[str], y_hat: np.ndarray, mean_r_squared: float) -> None:
         """
-        Calculates the requested global metrics.
+        Calculates the requested global metrics. This function ignores predictions with nan values.
 
         Args:
             metrics: The requested global metrics. It is assumed that _check_and_format_specified_metrics was already
                 called.
             y_hat: The predictions at all locations. It is assumed that these correspond to all data points provided to
                 fit.
-            mean_r_squared_total: The accumulated r_squared values for all local regressions.
+            mean_r_squared: The mean r_squared value for all local regressions.
         """
         residuals: np.ndarray = y_hat - self._y
 
@@ -593,16 +900,21 @@ class Rsklpr:
             self._std_error = float(_std_error(residuals=residuals))
 
         if "mean_r_squared" in metrics:
-            self._mean_r_squared = mean_r_squared_total / y_hat.shape[0]
+            self._mean_r_squared = mean_r_squared
 
     def _calculate_weights(
-        self, x_0: np.ndarray, bw1_global: Optional[Sequence[float]], bw2_global: Optional[Sequence[float]]
+        self,
+        x_0: np.ndarray,
+        index_x_0: int,
+        bw1_global: Optional[Sequence[float]],
+        bw2_global: Optional[Sequence[float]],
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Calculates the regression weights.
 
         Args:
-            x_0: The local regression location.
+            x_0: The local regression location, a 2D array.
+            index_x_0: An integer denoting the index of x_0 in the predicted data.
             bw1_global: The bw1 calculated from the global data, if None a local bandwidth estimation will be used.
             bw2_global: The bw2 calculated from the global data, if None a local bandwidth estimation will be used.
 
@@ -610,34 +922,42 @@ class Rsklpr:
             The weights, the indices and values of the nearest neighbors.
         """
         dist_x_neighbors: np.ndarray
-        indices: np.ndarray
-        dist_x_neighbors, indices = self._nearest_neighbors.kneighbors(X=x_0.reshape(1, -1))
-        weights: np.ndarray = self._k1_func(dist_x_neighbors)
-        x_neighbors: np.ndarray = self._x[indices].squeeze(axis=0)
-        if self._k2 == "conden":
-            weights *= self._k2_conden(
+        indices_neighbors: np.ndarray
+        dist_x_neighbors, indices_neighbors = self._nearest_neighbors.kneighbors(X=x_0)
+        x_neighbors: np.ndarray = self._x[indices_neighbors].squeeze(axis=0)
+        weights_list: List[np.ndarray] = []
+        kfun: Callable[[np.ndarray, np.ndarray, np.ndarray, int, np.ndarray], np.ndarray]
+
+        for kfun in self._kp:
+            w: np.ndarray = kfun(x_0, x_neighbors, dist_x_neighbors, index_x_0, indices_neighbors)
+            w = np.ravel(w)[None, :]  # row of shape (1, K)
+            weights_list.append(w)
+
+        weights: np.ndarray = np.concatenate(weights_list, axis=0)
+        weights = np.prod(weights, axis=0)
+
+        if self._kr == "conden":
+            weights *= self._kr_conden(
                 x_neighbors=x_neighbors,
-                y_neighbors=self._y[indices].T,
+                y_neighbors=self._y[indices_neighbors].T,
                 bw1_global=bw1_global,
                 bw2_global=bw2_global,
             )
-        elif self._k2 == "joint":
-            weights *= self._k2_joint(
+        elif self._kr == "joint":
+            weights *= self._kr_joint(
                 x_neighbors=x_neighbors,
-                y_neighbors=self._y[indices].T,
-                dist_x_neighbors=dist_x_neighbors,
-                bw1_global=bw1_global,
+                y_neighbors=self._y[indices_neighbors].T,
                 bw2_global=bw2_global,
             )
 
-        return weights, indices, x_neighbors
+        return weights, indices_neighbors, x_neighbors
 
     def _check_and_format_specified_metrics(
-        self, metrics: Optional[Sequence[str]], x_arr: np.ndarray
+        self, metrics: Optional[Iterable[str]], x_arr: np.ndarray
     ) -> Optional[List[str]]:
         """
         Check the metrics provided are supported and convert them to lower case. Check that the regression locations are
-        identical to the fitted locations. If 'all' is provided then the metrics are overridden  with the complete list
+        identical to the fitted locations. If 'all' is provided then the metrics are overridden with the complete list
         of supported metrics.
 
         Args:
@@ -645,12 +965,12 @@ class Rsklpr:
             x_arr: The predictors.
 
         Returns:
-
+            The formatted metrics. If None is provided then None is returned.
         """
         if metrics is not None:
-            if not np.allclose(a=x_arr, b=self._x):
+            if x_arr.shape != self._x.shape or not np.allclose(a=x_arr, b=self._x):
                 raise ValueError(
-                    "When specifying metrics the provided predictor values must be the same as the values "
+                    "When specifying metrics the provided predictor shape and values must be the same as the values "
                     "provided to 'fit'."
                 )
 
@@ -659,7 +979,7 @@ class Rsklpr:
 
             for metric in metrics:
                 if metric not in all_metrics:
-                    raise ValueError(f"Unknown error metric {metric}. Available metrics are {all_metrics}")
+                    raise ValueError(f"Unknown metric {metric}. Available metrics are {all_metrics}")
 
             if "all" in metrics:
                 metrics = all_metrics
@@ -682,7 +1002,7 @@ class Rsklpr:
             All bootstrap prediction values at the locations.
         """
         x_arr: np.ndarray
-        x_arr, _ = self._check_and_reshape_inputs(x=x)
+        x_arr, _ = self._check_and_reshape_inputs(x=x, enforce_min_x_size=False)
         y_hat: np.ndarray = np.empty((x_arr.shape[0], bootstrap_iterations))
         i: int
 
@@ -699,12 +1019,14 @@ class Rsklpr:
                 degree=self._degree,
                 metric_x=self._metric_x,
                 metric_x_params=self._metric_x_params,
-                k1=self._k1,
-                k2=self._k2,
+                kp=self._kp,
+                kr=self._kr,
                 bw1=self._bw1,
                 bw2=self._bw2,
                 bw_global_subsample_size=self._bw_global_subsample_size,
+                var_type_x=self._var_type_x,
                 seed=self._seed,
+                suppress_warnings=self._suppress_warnings,
             )
 
             model.fit(x=x_resample, y=y_resample)
@@ -712,37 +1034,44 @@ class Rsklpr:
 
         return y_hat
 
-    def _get_bandwidth_global(self, k2: str) -> Tuple[Optional[Sequence[float]], Optional[Sequence[float]]]:
+    def _get_bandwidth_global(self, kr: str) -> Tuple[Optional[Sequence[float]], Optional[Sequence[float]]]:
         """
         Calculates bandwidth estimates from the global data if configured to do so.
 
         Args:
-            k2: The k2 used.
+            kr: The kr used.
 
         Returns:
             A tuple representing the global bw1 and bw2 estimates if applicable or None if the estimator is configured
             to use local bandwidth estimates.
         """
+        if kr not in ("none", "conden", "joint"):
+            raise ValueError(f"kr {kr} is unsupported and must be one of 'none', 'conden' or 'joint'")
+
+        if kr == "none":
+            return None, None
+
         bw1_global: Optional[Sequence[float]] = None
 
         if self._bw1 == "cv_ls_global":
             bw1_global = self._calculate_bandwidth(
-                bandwidth=self._bw1,  # type: ignore [arg-type]
-                data=self._x,
+                bandwidth=self._bw1, data=self._x, var_type=self._var_type_x_resolved  # type: ignore [arg-type]
             )
 
         bw2_global: Optional[Sequence[float]] = None
 
         if self._bw2 == "cv_ls_global":
-            if k2 == "conden":
+            if kr == "conden":
                 bw2_global = self._calculate_bandwidth(
                     bandwidth=self._bw2,  # type: ignore [arg-type]
                     data=np.concatenate([self._x, np.expand_dims(a=self._y, axis=-1)], axis=1),
+                    var_type=self._var_type_xy_resolved,
                 )
-            elif k2 == "joint":
+            elif kr == "joint":
                 bw2_global = self._calculate_bandwidth(
                     bandwidth=self._bw2,  # type: ignore [arg-type]
                     data=np.expand_dims(a=self._y, axis=-1),
+                    var_type=self._var_type_y_resolved,
                 )
 
         return bw1_global, bw2_global
@@ -763,7 +1092,7 @@ class Rsklpr:
 
         if self._metric_x == "mahalanobis" and "VI" not in metric_params.keys():
             cov: np.ndarray = np.atleast_2d(np.cov(m=self._x, rowvar=False))
-            metric_params["VI"] = np.linalg.inv(cov)
+            metric_params["VI"] = np.linalg.pinv(a=cov)
 
         return metric_params, p
 
@@ -771,17 +1100,19 @@ class Rsklpr:
         self,
         x: Union[np.ndarray, Sequence[Number], Sequence[Sequence[Number]], float],
         y: Optional[Union[np.ndarray, Sequence[Number]]] = None,
+        enforce_min_x_size: bool = False,
     ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
         """
         Checks and reshapes the input so that x is a 2D numpy array of dimensions [N,K] where N is the observations and
         K is the dimensionality of the observations. if y is provided it is reshaped into a 1D ndarray.
 
         Args:
-           x: The predictor values. Must be compatible with a numpy array of dimension two at most. The first axis
+            x: The predictor values. Must be compatible with a numpy array of dimension two at most. The first axis
                 denotes the observation and the second axis the vector components of each observation, i.e. the
                 coordinates of data point i are given by x[i,:].
-           y: Optional response values at the corresponding predictor locations. Must be compatible with a 1 dimensional
+            y: Optional response values at the corresponding predictor locations. Must be compatible with a 1 dimensional
                 numpy array.
+            enforce_min_x_size: If True an exception is raised if the x is smaller than the neighbourhood size.
 
         Returns:
             The reshaped x array and reshaped y values if provided.
@@ -792,21 +1123,29 @@ class Rsklpr:
             ValueError: When y dimension is larger than one.
             ValueError: when x and y has incompatible shapes
         """
-        if isinstance(x, np.ndarray):
+        if np.isscalar(x):
+            x = np.array([[float(x)]], dtype=float)  # type: ignore[arg-type]
+        elif isinstance(x, np.ndarray):
             x = x.copy().astype(float)
         else:
             x = np.asarray(x, dtype=float)
 
-        if x.ndim == 1:
+        if x.ndim == 0:
+            x = x.reshape((1, 1))
+        elif x.ndim == 1:
             x = x.reshape((-1, 1))
         elif x.ndim > 2:
             raise ValueError("x dimension must be at most 2")
 
-        if x.shape[0] < x.shape[1]:
-            warnings.warn("There are less observations than the number of dimensions, is this intended?")
+        if (x.shape[0] < x.shape[1]) and not self._suppress_warnings:
+            warnings.warn(
+                message="There are fewer observations than the number of dimensions, is this intended?",
+                category=RuntimeWarning,
+                stacklevel=2,
+            )
 
-        if x.shape[0] < self._size_neighborhood:
-            ValueError(
+        if enforce_min_x_size and x.shape[0] < self._size_neighborhood:
+            raise ValueError(
                 f"Provided inputs have {x.shape[0]} observations which is less than specified "
                 f"neighborhood size {self._size_neighborhood}"
             )
@@ -827,6 +1166,37 @@ class Rsklpr:
 
         return x, y
 
+    def _resolve_var_types(self) -> None:
+        """
+        Resolves and validates the variable types for x, y and xy based on user input and data dimensions.
+        If user did not provide var_type_x, it defaults to 'c' for all features in x.
+        """
+        n_features_x: int = _dim_data(data=self._x)
+        n_features_y: int = _dim_data(data=self._y)  # This should be 1
+
+        if self._var_type_x is None:
+            # Fallback to default behavior
+            self._var_type_x_resolved = "c" * n_features_x
+        else:
+            # User provided it, so validate it
+            if len(self._var_type_x) != n_features_x:
+                raise ValueError(
+                    f"Length of var_type_x ('{self._var_type_x}', len={len(self._var_type_x)}) "
+                    f"does not match the number of features in x ({n_features_x})."
+                )
+            #  check for 'c', 'u', 'o'
+            for char in self._var_type_x:
+                if char not in ("c", "u", "o"):
+                    raise ValueError(
+                        f"Invalid character '{char}' in var_type_x. Supported types are 'c', 'u', and 'o'."
+                    )
+
+            self._var_type_x_resolved = self._var_type_x
+
+        # Set the y and xy resolved types (y is always 'c' for regression)
+        self._var_type_y_resolved = "c" * n_features_y
+        self._var_type_xy_resolved = self._var_type_x_resolved + self._var_type_y_resolved
+
     def fit(
         self,
         x: Union[np.ndarray, Sequence[Number], Sequence[Sequence[Number]]],
@@ -843,14 +1213,17 @@ class Rsklpr:
             y: The response values at the corresponding predictor locations. Must be compatible with a 1 dimensional
                 numpy array.
         """
-        if self._fit:
+        if self._is_fit:
             raise ValueError("Fit already called, use a new instance if you need to fit new data.")
 
         x_arr: np.ndarray
         y_arr: np.ndarray
-        x_arr, y_arr = self._check_and_reshape_inputs(x=x, y=y)  # type: ignore [assignment]
+        x_arr, y_arr = self._check_and_reshape_inputs(x=x, y=y, enforce_min_x_size=True)  # type: ignore [assignment]
         self._x = x_arr
         self._y = y_arr
+
+        self._resolve_var_types()
+
         metric_params: Dict[str, Any]
         p: float
         metric_params, p = self._get_metric_params()
@@ -864,12 +1237,12 @@ class Rsklpr:
         )
 
         self._nearest_neighbors.fit(self._x)
-        self._fit = True
+        self._is_fit = True
 
     def predict(
         self,
         x: Union[np.ndarray, Sequence[Number], Sequence[Sequence[Number]], float],
-        metrics: Optional[Union[str, Sequence[str]]] = None,
+        metrics: Optional[Union[str, Iterable[str]]] = None,
     ) -> np.ndarray:
         """
         Predicts estimates of m(x) at the specified locations. Must call fit with the training data first.
@@ -878,14 +1251,16 @@ class Rsklpr:
             x: The locations to predict for.
             metrics: Optional error metrics to calculate. Options are 'residuals', 'mean_square', 'mean_abs',
                 'root_mean_square', 'bias', 'std', 'r_squared', 'mean_r_squared' and 'all'. Multiple metrics can be
-                specified as a Sequence, e.g a List. The metrics are made available through attributes on the model
+                specified as an Iterable, e.g a List. The metrics are made available through attributes on the model
                 object having similar corresponding names. Note that x must be exactly the same as the training data
-                provided to 'fit' if any metrics are specified.
-
+                provided to 'fit' if any metrics are specified, an error is raised otherwise.
 
         Returns:
-            The estimated responses at the corresponding locations.x
+            The estimated responses at the corresponding locations.
         """
+        if not self._is_fit:
+            raise ValueError("Model must be fitted by calling 'fit' before calling 'predict'")
+
         return self._estimate(x=x, metrics=metrics)
 
     def predict_bootstrap(
@@ -898,7 +1273,7 @@ class Rsklpr:
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[np.ndarray]]:
         """
         Predicts estimates of m(x) at the specified locations multiple times. The method then uses all estimates to
-        calculate the mean and quantiles of the bootstrap distribution that are intrpreted as confidence intervals (
+        calculate the mean and quantiles of the bootstrap distribution that are interpreted as confidence intervals (
         basic quantiles method). Note that calling fit with the training data must be done first.
 
         Args:
@@ -913,12 +1288,13 @@ class Rsklpr:
             confidence estimates.
         """
         if num_bootstrap_resamples <= 0:
-            raise ValueError("At least one bootstrap iteration need to be specified")
+            raise ValueError("At least one bootstrap iteration needs to be specified.")
 
         y_hat: np.ndarray = self._estimate_bootstrap(x=x, bootstrap_iterations=num_bootstrap_resamples)
-        y_conf_low: np.ndarray = np.quantile(a=y_hat, q=q_low, axis=1)
-        y_conf_high: np.ndarray = np.quantile(a=y_hat, q=q_high, axis=1)
-        return y_hat.mean(axis=1), y_conf_low, y_conf_high, y_hat if return_all_bootstraps else None
+        y_conf_low: np.ndarray = np.nanquantile(y_hat, q=q_low, axis=1)
+        y_conf_high: np.ndarray = np.nanquantile(y_hat, q=q_high, axis=1)
+        y_mean: np.ndarray = np.nanmean(y_hat, axis=1)
+        return y_mean, y_conf_low, y_conf_high, y_hat if return_all_bootstraps else None
 
     def fit_and_predict(
         self,
@@ -950,7 +1326,8 @@ class Rsklpr:
     def residuals(self) -> np.ndarray:
         """
         Returns:
-            The regression residuals if available, otherwise an empty array.
+            The regression residuals if available, otherwise an empty array. NaN values are included for observations
+            where predictions could not be made.
         """
         return self._residuals
 
@@ -958,8 +1335,8 @@ class Rsklpr:
     def mean_square_error(self) -> Optional[float]:
         """
         Returns:
-            The mean squared error if available, otherwise None. Note this metric can be lazily evaluated if residuals
-            are stored.
+            The mean squared error if available ignoring nan values, otherwise None. Note this metric can be lazily
+            evaluated if residuals are stored.
         """
         if self._mean_square_error is None and self._residuals.shape[0] > 0:
             self._mean_square_error = _mean_square_error(self.residuals)
@@ -970,11 +1347,13 @@ class Rsklpr:
     def root_mean_square_error(self) -> Optional[float]:
         """
         Returns:
-            The root mean squared error if available, otherwise None. Note this metric can be lazily evaluated if
-            residuals are stored.
+            The root mean squared error if available ignoring nan values, otherwise None. Note this metric can be lazily
+            evaluated if residuals or mean_square_error are stored.
         """
-        if self._root_mean_square_error is None and self._residuals.shape[0] > 0:
-            mse: Optional[float] = self._mean_square_error
+        if self._root_mean_square_error is None:
+            # Try to get mse. This will either return the cached value or try to calculate it from residuals
+            # (if they exist) by calling the .mean_square_error property.
+            mse: Optional[float] = self.mean_square_error
 
             if mse is not None:
                 self._root_mean_square_error = math.sqrt(mse)
@@ -985,8 +1364,8 @@ class Rsklpr:
     def mean_abs_error(self) -> Optional[float]:
         """
         Returns:
-            The mean absolute error if available, otherwise None. Note this metric can be lazily evaluated if residuals
-            are stored.
+            The mean absolute error if available ignoring nan values, otherwise None. Note this metric can be lazily
+            evaluated if residuals are stored.
         """
         if self._mean_abs_error is None and self._residuals.shape[0] > 0:
             self._mean_abs_error = _mean_abs_error(self.residuals)
@@ -997,8 +1376,8 @@ class Rsklpr:
     def bias_error(self) -> Optional[float]:
         """
         Returns:
-            The error bias if available, otherwise None. Note this metric can be lazily evaluated if residuals are
-            stored.
+            The error bias if available ignoring nan values, otherwise None. Note this metric can be lazily evaluated
+            if residuals are stored.
         """
         if self._bias_error is None and self._residuals.shape[0] > 0:
             self._bias_error = _bias_error(self.residuals)
@@ -1009,8 +1388,8 @@ class Rsklpr:
     def std_error(self) -> Optional[float]:
         """
         Returns:
-            The error standard deviation if available, otherwise None. Note this metric can be lazily evaluated if
-            residuals are stored.
+            The error standard deviation if available ignoring nan values, otherwise None. Note this metric can be
+            lazily evaluated if residuals are stored.
         """
         if self._std_error is None and self._residuals.shape[0] > 0:
             self._std_error = _std_error(self.residuals)
@@ -1021,12 +1400,14 @@ class Rsklpr:
     def r_squared(self) -> np.ndarray:
         """
         An array of all local WLS R-Square statistics where each entry corresponds to the fit datum at the same index.
-        The calculation is the same as in the statsmodels package for compatibility. These metrics can assist in
-        interpreting the results of the model but need to be interpreted correctly, see Willett and Singer (1988)
-        Another Cautionary Note about R-squared: It's use in weighted least squares regression analysis.
+        If a local regression could not be calculated or if the R-Squared statistic could not be calculated NaN is
+        returned for that location. The calculation is the same as in the statsmodels package for compatibility.
+        These metrics can assist in interpreting the results of the model but need to be interpreted correctly,
+        see Willett and Singer (1988) 'Another Cautionary Note about R-squared: It's use in weighted least squares
+        regression analysis'.
 
         Returns:
-            All local WLS R-Square statistics.
+            All local WLS R-Square statistics, where nan indicate failed calculations.
         """
         return self._r_squared
 
@@ -1034,8 +1415,21 @@ class Rsklpr:
     def mean_r_squared(self) -> Optional[float]:
         """
         The mean of all local WLS R-Square statistics. See docstring for the r_squared property for more details.
+        The calculation is the same as in the statsmodels package for compatibility. If a local regression could not be
+        calculated or if the R-Squared statistic could not be calculated then it is ignored in the mean calculation.
 
         Returns:
-            Mean of all local WLS R-Square statistics.
+            Mean of all successfully calculated local WLS R-Square statistics.
         """
         return self._mean_r_squared
+
+    @property
+    def num_poly_terms(self) -> Optional[int]:
+        """
+        Returns:
+            The number of terms in the design matrix
+        """
+        if not self._is_fit:
+            return None
+
+        return _num_poly_terms(dim=self._x.shape[1], degree=self._degree)

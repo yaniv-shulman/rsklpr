@@ -11,7 +11,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Scientific/Engineering :: Mathematics",
 ]
-description = "Implementation of the Robust Local Polynomial Regression with Similarity Kernel draft paper"
+description = "Implementation of the Robust Local Polynomial Regression with Similarity Kernel method"
 homepage = "https://github.com/yaniv-shulman/rsklpr"
 keywords = [
     "statistics", "robust statistics", "regression", "robust regression", "local polynomial regression", "machine learning", "locally weighted regression",
@@ -22,7 +22,7 @@ packages = [
 ]
 readme = "README.md"
 repository = "https://github.com/yaniv-shulman/rsklpr"
-version = "1.3.0"
+version = "2.0.0"
 
 [tool.poetry.group.experiments]
 optional = true
