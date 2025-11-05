@@ -8,6 +8,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Scientific/Engineering :: Mathematics",
 ]
@@ -22,7 +23,7 @@ packages = [
 ]
 readme = "README.md"
 repository = "https://github.com/yaniv-shulman/rsklpr"
-version = "2.0.0"
+version = "2.1.0"
 
 [tool.poetry.group.experiments]
 optional = true
