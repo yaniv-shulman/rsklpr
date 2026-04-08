@@ -23,7 +23,7 @@ packages = [
 ]
 readme = "README.md"
 repository = "https://github.com/yaniv-shulman/rsklpr"
-version = "2.1.0"
+version = "2.2.0"
 
 [tool.poetry.group.experiments]
 optional = true
