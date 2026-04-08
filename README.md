@@ -32,7 +32,7 @@ pip install rsklpr
 ### What's new? ###
 - Version 2.0.0: 
   - Improved numerical stability.
-  - Generalise the API for arbitrary kernels.
+  - Generalize the API for arbitrary kernels.
   - Support for disabling the robust KDE based kernel. This allows using the library as a standard local polynomial
     regression implementation with various kernels.
   - Implementation of additional of the shelf kernels.
