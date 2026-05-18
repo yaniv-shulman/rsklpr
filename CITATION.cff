@@ -1,0 +1,38 @@
+cff-version: 1.2.0
+message: "If you use rsklpr in academic work, please cite the software package and the relevant method paper(s)."
+type: software
+title: "rsklpr: Robust and Generalized Local Polynomial Regression in Python"
+authors:
+  - family-names: Shulman
+    given-names: Yaniv
+year: 2026
+version: "2.2.0"
+license: MIT
+repository-code: "https://github.com/yaniv-shulman/rsklpr"
+url: "https://pypi.org/project/rsklpr/"
+abstract: "Python package for robust and generalized local polynomial regression, including similarity kernels, arbitrary kernels, and compound product kernels."
+keywords:
+  - local polynomial regression
+  - robust regression
+  - kernel regression
+  - nonparametric regression
+  - context-aware kernels
+  - compound kernels
+  - GC-LPR
+  - RSKLPR
+references:
+  - type: article
+    title: "Robust Local Polynomial Regression with Similarity Kernels"
+    authors:
+      - family-names: Shulman
+        given-names: Yaniv
+    year: 2025
+    url: "https://arxiv.org/abs/2501.10729"
+  - type: article
+    title: "Generalized Local Polynomial Regression with Decomposed Context-Aware Kernels"
+    authors:
+      - family-names: Shulman
+        given-names: Yaniv
+    year: 2026
+    doi: "10.48550/arXiv.2604.25237"
+    url: "https://arxiv.org/abs/2604.25237"

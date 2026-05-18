@@ -1,5 +1,12 @@
 #!/bin/bash
 
+set -e
+
+if [ -z "$REPO_DIR" ]; then
+    REPO_DIR=$(git rev-parse --show-toplevel)
+    export REPO_DIR
+fi
+
 while getopts ":f" option; do
    case $option in
       f) # display Help

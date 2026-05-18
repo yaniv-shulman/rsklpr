@@ -53,6 +53,7 @@ tqdm = "^4.66.5"
 black = {extras = ["jupyter"], version = "^24.8.0"}
 coverage = {extras = ["toml"], version = "^7.6.1"}
 mypy = "^1.11.2"
+pyrefly = "^1.0.0"
 pytest = "^8.3.3"
 pytest-cov = "^5.0.0"
 pytest-mock = "^3.14.0"
