@@ -1,146 +1,99 @@
-# Robust Local Polynomial Regression with Similarity Kernels #
+# Contributing to rsklpr #
 
-This repository is intended to share and facilitate community contribution for extending the research and implementation 
-presented in the [Robust Local Polynomial Regression with Similarity Kernels paper](https://arxiv.org/abs/2501.10729).
-The repository contains the source for the paper and an implementation of the proposed method including several
-experimental results.
+`rsklpr` is a Python package for robust and generalized local polynomial regression. Contributions are welcome for the package implementation, documentation, examples, tests, and related research material.
 
-### Contribution and feedback ###
+The repository now supports both:
 
-Contributions and feedback are most welcome to the paper and code in any area related to:
-- Further development of the method and extending the paper:
-  - Asymptotic analysis of the estimator
-  - Improving related work coverage
-  - Improving or adding experiments and the presentation of experiments including comparison to other robust LPR methods
-  - Experimenting with robust estimators e.g. robust losses, robust bandwidth estimators and robust KDEs
-  - Proposing and experimenting with different similarity kernels
-  - Fixing issues if found
-- Adding and improving functions in the implementation:
-  - Proposing and experimenting with additional kernels
-  - Improving numerical stability
-  - Implementing in other languages
-  - Speed and multiprocessing
-  - Multivariate regression
-- Productionzing the code:
-  - Improving input checks and error handling
-  - Tests
-  - Logging
-  - Automation
-- And more...
+- the robust similarity-kernel method described in ["Robust Local Polynomial Regression with Similarity Kernels"](https://arxiv.org/abs/2501.10729);
+- the generalized arbitrary-kernel and compound-kernel capabilities used by the GC-LPR framework described in ["Generalized Local Polynomial Regression with Decomposed Context-Aware Kernels"](https://arxiv.org/abs/2604.25237).
 
-To contribute please submit a pull request, create an issue or get in touch by email to the address specified in the
-paper.
+## Contribution and feedback ##
 
-### How do I get set up? ###
-The easiest way to setup for development or explore the code is to create or activate a Poetry virtual environment by
-executing configure.sh. The included development environment uses Python 3.9 or higher, and Poetry 1.6.1 or higher is recommended.
-If you require any help getting setup please get in touch by email to the address specified in the paper.
+Useful contribution areas include:
 
-### Example usage for developers ###
+- Improving the local polynomial regression implementation, including numerical stability, input validation, performance, and multiprocessing.
+- Adding or improving kernels, including standard kernels, custom-kernel examples, and compound / product kernel workflows.
+- Improving robust similarity-kernel behavior, including robust bandwidth estimators, KDE choices, and robustness experiments.
+- Adding tests for edge cases, metrics, bootstrap inference, multivariate inputs, arbitrary polynomial degrees, and custom kernels.
+- Improving documentation, examples, notebooks, and comparison experiments.
+- Fixing issues in the paper source, references, figures, or explanations.
+- Porting ideas to other languages or providing interoperability examples.
 
-```python
-import numpy as np
-import pandas as pd
+To contribute, please open a pull request, create an issue, or get in touch by email using the address specified in the paper.
 
-from experiments.common import plot_results, ExperimentConfig
-from experiments.data.synthetic_normal_benchmarks import benchmark_curve_1
-from rsklpr.rsklpr import Rsklpr
+## Development setup ##
 
-experiment_config: ExperimentConfig = ExperimentConfig(
-    data_provider=benchmark_curve_1,
-    size_neighborhood=20,
-    noise_ratio=0.3,
-    hetero=True,
-    num_points=150,
-    bw1=[0.4],
-    bw2="normal_reference",
-    kr="joint",
-)
+Install the package dependencies with Poetry:
 
-x: np.ndarray
-y: np.ndarray
-y_true: np.ndarray
-
-x, y, y_true = experiment_config.data_provider(
-    experiment_config.noise_ratio,
-    experiment_config.hetero,
-    experiment_config.num_points,
-)
-
-rsklpr: Rsklpr = Rsklpr(
-    size_neighborhood=experiment_config.size_neighborhood,
-    bw1=experiment_config.bw1,
-    bw2=experiment_config.bw2,
-)
-
-y_hat: np.ndarray = rsklpr(
-    x=x,
-    y=y,
-)
-
-estimates: pd.DataFrame = pd.DataFrame(data=y_hat, columns=["y_hat"])
-
-plot_results(
-    x=x,
-    y=y,
-    y_true=y_true,
-    estimates=estimates,
-    title="Example usage",
-)
+```bash
+poetry install
 ```
-![Example usage curve_plot](./example_usage_curve.png)
 
-```python
-import numpy as np
-import pandas as pd
+For development tools such as Black, Ruff, mypy, pytest, and coverage:
 
-from experiments.common import plot_results, ExperimentConfig
-from experiments.data.synthetic_normal_benchmarks import benchmark_plane_2
-from rsklpr.rsklpr import Rsklpr
-
-experiment_config: ExperimentConfig = ExperimentConfig(
-    data_provider=benchmark_plane_2,
-    size_neighborhood=20,
-    noise_ratio=0.1,
-    hetero=True,
-    num_points=100,
-    bw1=[0.4],
-    bw2="normal_reference",
-    kr="joint",
-)
-
-x: np.ndarray
-y: np.ndarray
-y_true: np.ndarray
-
-x, y, y_true = experiment_config.data_provider(
-    experiment_config.noise_ratio,
-    experiment_config.hetero,
-    experiment_config.num_points,
-)
-
-rsklpr: Rsklpr = Rsklpr(
-    size_neighborhood=experiment_config.size_neighborhood,
-    bw1=experiment_config.bw1,
-    bw2=experiment_config.bw2,
-)
-
-y_hat: np.ndarray = rsklpr(
-    x=x,
-    y=y,
-)
-
-estimates: pd.DataFrame = pd.DataFrame(data=y_hat, columns=["y_hat"])
-
-plot_results(
-    x=x,
-    y=y,
-    y_true=y_true,
-    estimates=estimates,
-    title="Example usage",
-)
+```bash
+poetry install --with dev
 ```
-![Example usage plane_plot](./example_usage_plane.png)
-### Experimental results ###
-The experimental results are available as interactive Jupyter notebooks at 
+
+For normal package development, do not use `--no-root`: installing the package itself helps catch packaging and import issues. Use `--no-root` only when you intentionally want dependencies without installing `rsklpr`, for example in a notebook environment where `PYTHONPATH` is configured separately.
+
+For experiment notebooks and plotting dependencies:
+
+```bash
+poetry install --with experiments
+```
+
+The helper script `configure.sh` installs both the `dev` and `experiments` groups and starts a Poetry shell:
+
+```bash
+./configure.sh
+```
+
+## Checks before submitting ##
+
+Please run the same checks used by CI before opening a pull request:
+
+```bash
+poetry run tests/lint.sh
+poetry run pytest -n auto
+```
+
+To apply fixable Black/Ruff changes, run:
+
+```bash
+poetry run tests/lint.sh -f
+```
+
+If you changed documentation or citation metadata, also check Markdown/CFF formatting where possible:
+
+```bash
+git diff --check
+cffconvert --validate --infile CITATION.cff
+```
+
+`cffconvert` is optional and can be installed in a separate virtual environment if it conflicts with local development dependencies.
+
+## Experiments ##
+
+Experiments and demonstrations for `rsklpr` are available as interactive Jupyter notebooks:
 https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments/
+
+Experiments for the GC-LPR paper are maintained separately in the `gclpr` repository:
+https://github.com/yaniv-shulman/gclpr
+
+## Example usage for developers ##
+
+```python
+import numpy as np
+
+from rsklpr.rsklpr import Rsklpr
+
+x: np.ndarray = np.linspace(0, 1, 100)
+y: np.ndarray = np.sin(2 * np.pi * x)
+
+model = Rsklpr(size_neighborhood=20)
+y_hat: np.ndarray = model.fit_and_predict(x=x, y=y)
+```
+
+For more complete examples, see the usage notebook:
+https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/docs/usage.ipynb
