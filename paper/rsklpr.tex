@@ -360,71 +360,76 @@ This expression shows that the KDE measures how closely the feature representati
 
 \section{Experiments and Implementation Notes}
 \label{S:Experiments and Implementation Notes}
-This section presents an evaluation of the proposed method (RSKLPR), implemented in Python and published as an open source package \href{https://github.com/yaniv-shulman/rsklpr}{https://github.com/yaniv-shulman/rsklpr}. The experiments focus on comparing the performance of RSKLPR against existing local regression techniques under synthetic settings with different noise characteristics.
+The proposed method (RSKLPR) is implemented in Python and published as an open source package \href{https://github.com/yaniv-shulman/rsklpr}{https://github.com/yaniv-shulman/rsklpr}. This section reports two complementary empirical studies. First, a public regression benchmark evaluates predictive performance under cross-validated hyperparameter selection. Second, a synthetic target-validation experiment tests whether the empirical behaviour agrees with the population-target analysis in Section~\ref{S:Properties}.
 
-\subsection*{Implementation Details}
-The implementation normalizes distances in each neighborhood to the range $[0, 1]$, consistent with the approach in \cite{cleveland79}, effectively making the bandwidth for $K_1$ adaptive. For the kernel $K_1(x, x')$, a Laplacian kernel $e^{-\|x - x'\|}$ was selected. Note that this is an un-normalized kernel; since weights within a neighborhood are scaled, the normalization constant does not affect the final estimate. For density estimation in $K_2$, a factorized multidimensional Kernel Density Estimator (KDE) with scaled Gaussian kernels was used. This factorization is a simplification that ignores potential covariance between predictors and response but is computationally efficient. This approximation may under-down-weight observations where the predictors and response are strongly correlated; a full joint bandwidth matrix could be used to address this without changing the underlying theory. Bandwidth selection for density estimation was explored using several standard methods. Scaling constants within neighborhoods, such as those in $\hat{f}(y \mid x)$ and $\hat{f}(x, y)$, were excluded for computational efficiency, as they do not impact the local regression results. The experiments were done only with the local linear estimator i.e. $p=1$ as it is well known to be superior.
+\subsection{Implementation Notes}
+The implementation normalizes distances in each neighborhood to the range $[0, 1]$, consistent with the approach in \cite{cleveland79}, effectively making the bandwidth for $K_1$ adaptive. The predictor-distance kernel is specified separately for each experiment. For density estimation in $K_2$, a factorized multidimensional Kernel Density Estimator (KDE) with scaled Gaussian kernels was used. The implementation supports multiple KDE bandwidth-selection rules, and the bandwidth rule is therefore treated as an experiment-level specification; the rules used in the reported experiments are given in the corresponding appendix sections. This factorization is a simplification that ignores potential covariance between predictors and response but is computationally efficient.
 
-\subsection*{Experimental Design}
-Synthetic datasets were generated with both additive Gaussian noise and asymmetric data distributions to simulate various regression scenarios. The following characteristics were varied: noise types, including homoscedastic and heteroscedastic Gaussian noise as well as asymmetric noise distributions (Exponential, Log-normal, Gamma, and Weibull); data density, encompassing both sparse and dense data regimes; and regression complexity, modeling non-linear curves and surfaces. Performance was evaluated using Root Mean Square Error (RMSE) and sensitivity to neighborhood size.
+\subsection{Public Regression Benchmark}
+We evaluated the methods on the UCI Appliances Energy Prediction dataset. This dataset contains sensor and weather measurements from a residential building, with the appliance energy use as the response. The benchmark is not intended to exhaustively compare all possible local-regression variants; rather, it tests whether the proposed single-step density weighting remains competitive under a practical cross-validated protocol.
 
-\subsection*{Results and Observations}
-Under Gaussian noise settings, the proposed method performed competitively. Unlike iterative robust variants, RSKLPR achieved these results with a single iteration. A regression example with heteroscedastic Gaussian noise is shown in Figure~\ref{fig:gaussian_noise}. The proposed method aligns with the true regression function while effectively mitigating the influence of noise and outliers.
+The compared methods were standard LOWESS, robust LOWESS, and RSKLPR with the conditional-density kernel. All methods used local linear fits and tricube predictor-distance weights. Hyperparameters were selected by inner cross-validation within each training split. The final focused grid was chosen after an initial coarse sweep: standard LOWESS and RSKLPR used the Minkowski metric with $p=1$, while robust LOWESS used the Mahalanobis metric after a separate metric check. The neighborhood size was selected from $\{35,41,\ldots,119\}$ for each method and split. The full preprocessing, splitting, and hyperparameter protocol is given in~\ref{appendix:public_benchmark_protocol}.
+
+\begin{table}[t]
+\caption{Focused public benchmark results on the UCI Appliances Energy Prediction dataset. Values summarize five repeated 80/20 holdout splits after inner four-fold cross-validation. Lower RMSE, MAE, and median absolute error are better.}
+\centering
+\scriptsize
+\begin{tabular}{lrrrrrr}
+\toprule
+Method & Mean RMSE & Med. RMSE & RMSE SD & Mean MAE & Med. AE & Win \\
+\midrule
+RSKLPR & 74.878 & 75.298 & 1.553 & 36.968 & 12.945 & 0.60 \\
+LOWESS & 75.137 & 74.943 & 1.793 & 37.530 & 13.398 & 0.40 \\
+Robust LOWESS & 84.376 & 84.594 & 1.285 & 35.981 & 10.411 & 0.00 \\
+\bottomrule
+\end{tabular}
+\label{tab:appliances_benchmark}
+\end{table}
+
+The results are shown in Table~\ref{tab:appliances_benchmark} and Figure~\ref{fig:appliances_benchmark}. RSKLPR achieved the lowest mean RMSE and won three of the five held-out splits, although the mean-RMSE margin over standard LOWESS was modest. Robust LOWESS behaved differently: it had substantially worse RMSE and lower $R^2$, but the best MAE and median absolute error. This suggests that the iterative residual reweighting strongly down-weighted high-energy tail observations, improving typical absolute deviations while degrading squared-error performance. In contrast, RSKLPR improved RMSE relative to standard LOWESS without the large negative bias observed for robust LOWESS.
 
 \begin{figure}[t]
-\caption{Performance of RSKLPR on 1D synthetic data with heteroscedastic Gaussian noise. The proposed method effectively aligns with the true regression function while mitigating the influence of outliers and noise.}
+\caption{Focused public benchmark on the UCI Appliances Energy Prediction dataset. Left: mean held-out RMSE with one standard deviation over five repeated holdout splits. Right: split-wise held-out RMSE distribution. Hyperparameters were selected by inner four-fold cross-validation within each split.}
 \centering
-\includegraphics[width=1.0\textwidth]{gaussian_example_regression_1d.png}
-\label{fig:gaussian_noise}
+\begin{subfigure}[t]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{appliances_test_rmse.png}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{appliances_test_rmse_boxplot.png}
+\end{subfigure}
+\label{fig:appliances_benchmark}
 \end{figure}
 
+\subsection{Synthetic Target-Validation Experiment}
+The second experiment validates the theoretical target discussed in Section~\ref{S:Properties}. The purpose is not to claim broad benchmark superiority, but to test whether the empirical behaviour agrees with the population-target analysis: under symmetric conditional response distributions RSKLPR should target the conditional mean, while under asymmetric conditional response distributions it should exhibit the density-tilted bias described in Corollary~\ref{cor:population_target}.
 
-\begin{figure}[h!]
-    \centering
-    \begin{subfigure}[b]{0.48\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{exponential_asymmetrical_increasing_numpoints.png}
-        \caption{Exponential.}
-        \label{fig:plot1}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}[b]{0.48\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{gamma_asymmetrical_increasing_numpoints.png}
-        \caption{Gamma.}
-        \label{fig:plot2}
-    \end{subfigure}
-    
-    \vspace{1em} % Vertical space between rows
-    
-    \begin{subfigure}[b]{0.48\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{log_normal_asymmetrical_increasing_numpoints.png}
-        \caption{Log-normal.}
-        \label{fig:plot3}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}[b]{0.48\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{weibull_asymmetrical_increasing_numpoints.png}
-        \caption{Weibull.}
-        \label{fig:plot4}
-    \end{subfigure}
-    
-    \begin{subfigure}[b]{0.48\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{gaussian_increasing_numpoints.png}
-        \caption{Gaussian.}
-        \label{fig:plot5}
-    \end{subfigure}    
-    
-    \caption{These subplots compare RMSE as a function of data density for the proposed method (RSKLPR), standard LOWESS, and Robust LOWESS (5 iterations) across various noise distributions: (a) Exponential, (b) Gamma, (c) Log-normal, (d) Weibull, and (e) Gaussian. The results demonstrate the effectiveness of RSKLPR in low-density data and align well with theoretical expectations for denser data.}
-    \label{fig:asymmetric_results}
+Synthetic datasets were generated from a smooth one-dimensional regression function $m(x)$ with known ground truth. Six conditional response distributions were considered: two symmetric distributions (Gaussian and a symmetric bimodal Gaussian mixture) and four asymmetric positive distributions (Exponential, Gamma, Log-normal, and Weibull). The symmetric bimodal distribution is included to test a non-Gaussian case where the conditional distribution remains symmetric about $m(x)$ but is not unimodal. Representative low- and high-density samples from selected distributions are shown in Appendix~\ref{appendix:experimental_hyperparameters}.
+
+For each distribution and each training-set size $N \in \{50, 75, 100, 150, 250, 500, 1000, 2000\}$, 50 Monte Carlo trials were generated. Each method was fitted on the sampled noisy training data and evaluated on a fixed clean grid of 300 points using RMSE against the true conditional mean $m(x)$. The plotted curves report the mean RMSE across trials, with shaded 95\% Monte Carlo intervals. The $x$-axis is shown on a logarithmic scale to make the low-density regime visible.
+
+The methods compared are standard LOWESS, robust LOWESS (five robustness iterations), RSKLPR using the conditional-density kernel, and the joint-density RSKLPR variant described in~\ref{appendix:joint_density_kernel}. LOWESS is included primarily as a theoretical baseline for the conditional mean under clean zero-mean sampling. Robust LOWESS provides an iterative robust local-regression baseline.
+
+All methods used the same local neighborhood size at each training-set size. Specifically, the number of neighbors was set to
+\[
+N_{\mathrm{loc}}=\min\{T,\max(15,\min(200,\mathrm{round}(0.25T)))\},
+\]
+where $T$ is the number of training observations. For the LOWESS baselines this was converted to the Statsmodels span parameter $\mathrm{frac}=N_{\mathrm{loc}}/T$; robust LOWESS used five residual reweighting iterations. Thus, the robust LOWESS baseline was not run with the Statsmodels default span $\mathrm{frac}=2/3$. Additional implementation details are provided in~\ref{appendix:experimental_hyperparameters}.
+
+Figure~\ref{fig:density_target_validation} shows the results. The symmetric cases behave as predicted. Under Gaussian noise, all methods converge toward the true conditional mean as the number of points increases. The symmetric bimodal case is more challenging at low data density, but remains a clean test of the symmetry condition: the response distribution is multimodal, yet centered on $m(x)$.
+
+For the asymmetric distributions, standard LOWESS generally has the lowest RMSE against $m(x)$, which is expected because it directly targets the conditional mean under clean sampling. This result should therefore be interpreted as a theoretical reference rather than as a robustness comparison. The important observation is that the RSKLPR estimators exhibit the predicted density-tilted bias in asymmetric settings: their error curves do not converge to the same conditional-mean target as LOWESS. This empirically supports the population-target analysis in Corollary~\ref{cor:population_target} and the exponential example in~\ref{appendix:asym_bias_example}.
+
+The comparison with robust LOWESS is also informative. In the clean asymmetric settings, RSKLPR achieves lower RMSE than robust LOWESS in most density regimes. This suggests that iterative residual reweighting can introduce unnecessary bias when the asymmetry in the response distribution is genuine structure rather than contamination. RSKLPR performs the robust reweighting in a single non-iterative step using local density information, making the associated bias more explicit and theoretically analyzable.
+
+\begin{figure}[t]
+\caption{Empirical target validation under clean synthetic sampling. Each panel shows mean RMSE against the true conditional mean as a function of training-set size over 50 Monte Carlo trials; shaded bands show 95\% Monte Carlo intervals. The dashed horizontal line shows the theoretical asymptotic RMSE implied by the density-tilted population target. LOWESS is a conditional-mean reference baseline. Under symmetric conditional response distributions, the methods converge toward the same target. Under asymmetric response distributions, RSKLPR exhibits at most the density-tilted bias predicted by the population analysis.}
+\centering
+\includegraphics[width=1.0\textwidth]{density_emse_clean_target_bias.png}
+\label{fig:density_target_validation}
 \end{figure}
-
-Under asymmetric data distributions, RSKLPR exhibited robust performance in low density settings, often matching or outperforming standard LPR and the iterative robust variant. In high-density settings, the proposed method diverged from the true mean, confirming the theoretical results on asymptotic bias. However, it consistently outperformed the iterative robust LPR. Figure~\ref{fig:asymmetric_results} presents RMSE trends for asymmetric noise distributions for the three methods.
-
-The method was also significantly less sensitive to the neighborhood size making it an an attractive option for applications where robust regression is critical. Complete experimental results, including multivariate settings and bootstrap-based confidence intervals, are available at \href{https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments/}{https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments} as interactive Jupyter notebooks \cite{jupyter}.
 
 \section{Future Work and Research Directions}
 \label{S:Future work and research directions}
@@ -441,6 +446,41 @@ Additionally, further development of this framework may involve exploring differ
 
 \newpage
 \appendix
+\section{Public Benchmark Protocol}
+\label{appendix:public_benchmark_protocol}
+The public benchmark in Section~\ref{S:Experiments and Implementation Notes} used the UCI Appliances Energy Prediction dataset, available from the \href{https://archive.ics.uci.edu/dataset/374/appliances+energy+prediction}{UCI Machine Learning Repository}. The response was appliance energy use. The timestamp was converted to cyclic hour-of-day and day-of-week features, after which the original timestamp was dropped. The two random variables included in the dataset (\texttt{rv1} and \texttt{rv2}) were also dropped. Within each outer training split, the eight predictors with largest absolute Pearson correlation with the response were selected using training data only; this avoids test-set leakage. The selected features were stable across splits and consisted of the hour features, lights, outdoor humidity, selected indoor/outdoor temperatures, and indoor humidity.
+
+The evaluation used five repeated holdout splits with an 80/20 train/test split. Each split contained 15,788 training observations and 3,947 test observations. Hyperparameters were selected by four-fold cross-validation on the training portion of each split, using RMSE as the selection criterion. The selected estimator was then refit on the full outer training split before held-out test evaluation. All numerical predictors were standardized using training-split statistics before fitting.
+
+The benchmark proceeded in two stages. A coarse grid first searched over predictor kernels, distance metrics, response-kernel choices, and a broad set of neighborhood sizes. This selected the tricube predictor-distance kernel, Minkowski distance with $p=1$ for standard LOWESS and RSKLPR, and the conditional-density kernel (\texttt{kr=conden}) for RSKLPR. Robust LOWESS was then checked over the same focused neighborhood grid with Minkowski $p=1$, Minkowski $p=2$, and Mahalanobis distance; Mahalanobis was selected consistently in the observed splits. The final focused benchmark therefore used tricube predictor-distance weights for all methods; Minkowski $p=1$ for LOWESS and RSKLPR; Mahalanobis distance for robust LOWESS; no residual reweighting for LOWESS; three bisquare residual-reweighting iterations for robust LOWESS; and the conditional-density kernel for RSKLPR. For all three methods, the final neighborhood grid was $35,41,\ldots,119$ with step size 6.
+
+The LOWESS baseline is a multivariate local linear regression baseline with tricube distance weights and no residual or response-density reweighting. Robust LOWESS uses the same local linear model and tricube distance weighting, followed by iterative bisquare residual reweighting. The RSKLPR model instead performs a single non-iterative response-density reweighting step using the conditional-density kernel, with normal-reference bandwidths for the response-density KDE. No compound kernel was used in this benchmark.
+
+\section{Experimental Hyperparameters}
+\label{appendix:experimental_hyperparameters}
+The synthetic target-validation experiment in Section~\ref{S:Experiments and Implementation Notes} was run with fixed hyperparameters chosen to make the comparison interpretable rather than to tune each method separately. All methods used local linear fits ($p=1$) and the same neighborhood size $N_{\mathrm{loc}}$ for a given training-set size. The resulting neighborhood sizes were
+\[
+\begin{array}{c|cccccccc}
+T & 50 & 75 & 100 & 150 & 250 & 500 & 1000 & 2000 \\
+\hline
+N_{\mathrm{loc}} & 15 & 19 & 25 & 38 & 62 & 125 & 200 & 200
+\end{array}
+\]
+where the final two entries reflect the maximum-neighborhood cap.
+
+The LOWESS and robust LOWESS baselines were computed using the Statsmodels implementation in one dimension. Standard LOWESS used the tricube distance kernel with no residual reweighting (\texttt{it=0}); robust LOWESS used the same span with five bisquare residual-reweighting iterations (\texttt{it=5}). For both LOWESS variants the span was set to $\mathrm{frac}=N_{\mathrm{loc}}/T$, so the comparison used the same effective local sample size as RSKLPR.
+
+The RSKLPR variants used the same $N_{\mathrm{loc}}$ and local linear degree. The predictor-distance kernel $K_1$ was the normalized Laplacian kernel applied after scaling neighborhood distances to $[0,1]$. The conditional-density and joint-density response kernels used the normal-reference bandwidth rule in the local KDE. No cross-validation or distribution-specific hyperparameter tuning was used in this synthetic validation experiment.
+
+The dashed reference line in Figure~\ref{fig:density_target_validation} is the asymptotic RMSE against the true conditional mean implied by Corollary~\ref{cor:population_target}. For each response distribution, the squared-density target can be written as $\rho m(x)$, where $m(x)$ is the clean conditional mean. The plotted value is therefore $|1-\rho|\{\int m(x)^2 dx\}^{1/2}$, evaluated on the same clean grid as the experiment. The ratios are $\rho=1$ for the Gaussian and symmetric bimodal cases, $\rho=1/2$ for the Exponential case, $\rho=3/4$ for the Gamma case with shape 2, $\rho=\exp(-3\sigma^2/4)$ for the Log-normal case with $\sigma=0.5$, and $\rho=2^{-1/k}/\{\Gamma(2-1/k)\Gamma(1+1/k)\}$ for the Weibull case with shape $k=1.5$.
+
+\begin{figure}[p]
+\caption{Representative synthetic target-validation samples for selected response distributions. The black curve is the true conditional mean $m(x)$ and the points are sampled training responses. The left column shows the low-density regime ($N=50$), while the right column shows the high-density regime ($N=2000$). The Exponential and Log-normal cases illustrate the asymmetric positive response distributions used to test the density-tilted population target.}
+\centering
+\includegraphics[width=1.0\textwidth]{density_emse_example_samples.png}
+\label{fig:density_example_samples}
+\end{figure}
+
 \section{Joint Density Kernel}
 \label{appendix:joint_density_kernel}
 An alternative kernel for $K_2$ can be defined that is proportional to the joint distribution of the random pair. This could be useful, for example, to also down-weight high-leverage points in the predictor space.
