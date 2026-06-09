@@ -360,7 +360,7 @@ This expression shows that the KDE measures how closely the feature representati
 
 \section{Experiments and Implementation Notes}
 \label{S:Experiments and Implementation Notes}
-The proposed method (RSKLPR) is implemented in Python and published as an open source package \href{https://github.com/yaniv-shulman/rsklpr}{https://github.com/yaniv-shulman/rsklpr}. This section reports two complementary empirical studies. First, a public regression benchmark evaluates predictive performance under cross-validated hyperparameter selection. Second, a synthetic target-validation experiment tests whether the empirical behaviour agrees with the population-target analysis in Section~\ref{S:Properties}.
+The proposed method (RSKLPR) is implemented in Python and published as an open source package \href{https://github.com/yaniv-shulman/rsklpr}{https://github.com/yaniv-shulman/rsklpr}. This section reports three complementary empirical studies. First, a public regression benchmark evaluates predictive performance under cross-validated hyperparameter selection. Second, a synthetic target-validation experiment tests whether the empirical behaviour agrees with the population-target analysis in Section~\ref{S:Properties}. Third, a controlled target-corruption experiment on the public Appliances dataset examines how the methods respond to zero-mean symmetric and asymmetric label corruption.
 
 \subsection{Implementation Notes}
 The implementation normalizes distances in each neighborhood to the range $[0, 1]$, consistent with the approach in \cite{cleveland79}, effectively making the bandwidth for $K_1$ adaptive. The predictor-distance kernel is specified separately for each experiment. For density estimation in $K_2$, a factorized multidimensional Kernel Density Estimator (KDE) with scaled Gaussian kernels was used. The implementation supports multiple KDE bandwidth-selection rules, and the bandwidth rule is therefore treated as an experiment-level specification; the rules used in the reported experiments are given in the corresponding appendix sections. This factorization is a simplification that ignores potential covariance between predictors and response but is computationally efficient.
@@ -406,17 +406,13 @@ The results are shown in Table~\ref{tab:appliances_benchmark} and Figure~\ref{fi
 \subsection{Synthetic Target-Validation Experiment}
 The second experiment validates the theoretical target discussed in Section~\ref{S:Properties}. The purpose is not to claim broad benchmark superiority, but to test whether the empirical behaviour agrees with the population-target analysis: under symmetric conditional response distributions RSKLPR should target the conditional mean, while under asymmetric conditional response distributions it should exhibit the density-tilted bias described in Corollary~\ref{cor:population_target}.
 
-Synthetic datasets were generated from a smooth one-dimensional regression function $m(x)$ with known ground truth. Six conditional response distributions were considered: two symmetric distributions (Gaussian and a symmetric bimodal Gaussian mixture) and four asymmetric positive distributions (Exponential, Gamma, Log-normal, and Weibull). The symmetric bimodal distribution is included to test a non-Gaussian case where the conditional distribution remains symmetric about $m(x)$ but is not unimodal. Representative low- and high-density samples from selected distributions are shown in Appendix~\ref{appendix:experimental_hyperparameters}.
+Synthetic datasets were generated from a smooth one-dimensional regression function $m(x)$ with known ground truth. Six conditional response distributions were considered: two symmetric distributions (Gaussian and a symmetric bimodal Gaussian mixture) and four asymmetric positive distributions (Exponential, Gamma, Log-normal, and Weibull). The symmetric bimodal distribution is included to test a non-Gaussian case where the conditional distribution remains symmetric about $m(x)$ but is not unimodal. Representative low- and high-density samples from selected distributions are shown in~\ref{appendix:experimental_hyperparameters}.
 
 For each distribution and each training-set size $N \in \{50, 75, 100, 150, 250, 500, 1000, 2000\}$, 50 Monte Carlo trials were generated. Each method was fitted on the sampled noisy training data and evaluated on a fixed clean grid of 300 points using RMSE against the true conditional mean $m(x)$. The plotted curves report the mean RMSE across trials, with shaded 95\% Monte Carlo intervals. The $x$-axis is shown on a logarithmic scale to make the low-density regime visible.
 
 The methods compared are standard LOWESS, robust LOWESS (five robustness iterations), RSKLPR using the conditional-density kernel, and the joint-density RSKLPR variant described in~\ref{appendix:joint_density_kernel}. LOWESS is included primarily as a theoretical baseline for the conditional mean under clean zero-mean sampling. Robust LOWESS provides an iterative robust local-regression baseline.
 
-All methods used the same local neighborhood size at each training-set size. Specifically, the number of neighbors was set to
-\[
-N_{\mathrm{loc}}=\min\{T,\max(15,\min(200,\mathrm{round}(0.25T)))\},
-\]
-where $T$ is the number of training observations. For the LOWESS baselines this was converted to the Statsmodels span parameter $\mathrm{frac}=N_{\mathrm{loc}}/T$; robust LOWESS used five residual reweighting iterations. Thus, the robust LOWESS baseline was not run with the Statsmodels default span $\mathrm{frac}=2/3$. Additional implementation details are provided in~\ref{appendix:experimental_hyperparameters}.
+All methods used the same local neighborhood size at each training-set size: approximately one quarter of the training sample, with a minimum of 15 neighbors and a maximum of 200. The LOWESS baselines used the corresponding local span, so each method was fitted with the same effective local sample size; robust LOWESS used five residual reweighting iterations. Additional implementation details are provided in~\ref{appendix:experimental_hyperparameters}.
 
 Figure~\ref{fig:density_target_validation} shows the results. The symmetric cases behave as predicted. Under Gaussian noise, all methods converge toward the true conditional mean as the number of points increases. The symmetric bimodal case is more challenging at low data density, but remains a clean test of the symmetry condition: the response distribution is multimodal, yet centered on $m(x)$.
 
@@ -429,6 +425,22 @@ The comparison with robust LOWESS is also informative. In the clean asymmetric s
 \centering
 \includegraphics[width=1.0\textwidth]{density_emse_clean_target_bias.png}
 \label{fig:density_target_validation}
+\end{figure}
+
+\subsection{Controlled Target-Corruption Experiment}
+The public Appliances benchmark suggested that robust LOWESS and RSKLPR respond differently to high-response observations. To isolate this behaviour from the unknown noise process in the original dataset, we ran a controlled target-corruption experiment on the same UCI Appliances data. The clean response was retained as a reference target. For each outer training split, zero-mean corruption was added only to the training responses, while model selection and held-out evaluation were scored against the clean response. This protocol is therefore a recovery diagnostic rather than a deployment setting with unobserved clean validation labels. Full experimental details are given in~\ref{appendix:corrupted_appliances_protocol}.
+
+Five corruption profiles were considered: Gaussian, Student-\(t(3)\), centered exponential, centered log-normal, and centered sparse one-sided contamination. Each sampled corruption vector was centered and standardized before being scaled by a fraction of the clean training-response standard deviation. Thus the asymmetric profiles are asymmetric in shape but not in mean. This distinction is important because standard LOWESS remains a useful conditional-mean diagnostic under zero-mean target noise.
+
+Figure~\ref{fig:corrupted_appliances_diagnostic} summarizes the nonzero corruption levels from the coarse grid run. LOWESS remained stable under both symmetric and centered asymmetric corruption, indicating that the injected target outliers were largely averaged out by the local neighborhoods and did not create a severe leverage problem. The more informative comparison is therefore with iterative robust LOWESS. Under centered asymmetric corruption, robust LOWESS had substantially larger absolute bias than RSKLPR (19.689 versus 0.262 on average) and substantially worse clean-target RMSE (85.154 versus 78.436). Under symmetric and heavy-tailed corruption the same pattern remained, though the robust LOWESS bias was less severe (11.318 versus 0.576).
+
+These results suggest that, in this setting, iterative residual reweighting overreacts to asymmetric residual tails and down-weights genuine high-energy appliance observations, improving typical absolute errors but shifting the fitted function downward. RSKLPR does not show the same asymmetric residual-feedback bias: it preserves near-zero bias and clean-target RMSE while still providing a residual-density based robust counterpart to LOWESS. This does not contradict the population-target analysis above, which concerns genuinely asymmetric conditional response distributions. Instead, it shows that for centered exogenous target corruption, the density-weighted estimator can behave much closer to the conditional-mean target than the worst-case asymptotic bias discussion might suggest.
+
+\begin{figure}[t]
+\caption{Controlled target corruption on the UCI Appliances Energy Prediction dataset. Results average over nonzero corruption levels and five repeated holdout splits. Symmetric/heavy-tail includes Gaussian and Student-\(t(3)\) corruption; centered asymmetric includes centered exponential, centered log-normal, and centered sparse one-sided contamination.}
+\centering
+\includegraphics[width=0.86\textwidth]{corrupted_appliances_diagnostic.png}
+\label{fig:corrupted_appliances_diagnostic}
 \end{figure}
 
 \section{Future Work and Research Directions}
@@ -456,7 +468,7 @@ The benchmark proceeded in two stages. A coarse grid first searched over predict
 
 The LOWESS baseline is a multivariate local linear regression baseline with tricube distance weights and no residual or response-density reweighting. Robust LOWESS uses the same local linear model and tricube distance weighting, followed by iterative bisquare residual reweighting. The RSKLPR model instead performs a single non-iterative response-density reweighting step using the conditional-density kernel, with normal-reference bandwidths for the response-density KDE. No compound kernel was used in this benchmark.
 
-\section{Experimental Hyperparameters}
+\section{Synthetic Target-Validation Protocol}
 \label{appendix:experimental_hyperparameters}
 The synthetic target-validation experiment in Section~\ref{S:Experiments and Implementation Notes} was run with fixed hyperparameters chosen to make the comparison interpretable rather than to tune each method separately. All methods used local linear fits ($p=1$) and the same neighborhood size $N_{\mathrm{loc}}$ for a given training-set size. The resulting neighborhood sizes were
 \[
@@ -468,7 +480,7 @@ N_{\mathrm{loc}} & 15 & 19 & 25 & 38 & 62 & 125 & 200 & 200
 \]
 where the final two entries reflect the maximum-neighborhood cap.
 
-The LOWESS and robust LOWESS baselines were computed using the Statsmodels implementation in one dimension. Standard LOWESS used the tricube distance kernel with no residual reweighting (\texttt{it=0}); robust LOWESS used the same span with five bisquare residual-reweighting iterations (\texttt{it=5}). For both LOWESS variants the span was set to $\mathrm{frac}=N_{\mathrm{loc}}/T$, so the comparison used the same effective local sample size as RSKLPR.
+The LOWESS and robust LOWESS baselines were computed in one dimension with the same effective local sample size as RSKLPR. Standard LOWESS used the tricube distance kernel with no residual reweighting; robust LOWESS used the same local span with five bisquare residual-reweighting iterations.
 
 The RSKLPR variants used the same $N_{\mathrm{loc}}$ and local linear degree. The predictor-distance kernel $K_1$ was the normalized Laplacian kernel applied after scaling neighborhood distances to $[0,1]$. The conditional-density and joint-density response kernels used the normal-reference bandwidth rule in the local KDE. No cross-validation or distribution-specific hyperparameter tuning was used in this synthetic validation experiment.
 
@@ -480,6 +492,20 @@ The dashed reference line in Figure~\ref{fig:density_target_validation} is the a
 \includegraphics[width=1.0\textwidth]{density_emse_example_samples.png}
 \label{fig:density_example_samples}
 \end{figure}
+
+\section{Controlled Target-Corruption Protocol}
+\label{appendix:corrupted_appliances_protocol}
+The controlled target-corruption experiment used the same UCI Appliances preprocessing as Appendix~\ref{appendix:public_benchmark_protocol}: cyclic time features were added, \texttt{rv1} and \texttt{rv2} were dropped, the eight predictors with largest absolute training-split Pearson correlation with the clean response were selected in each outer split, and predictors were standardized using training-split statistics. The evaluation again used five repeated 80/20 holdout splits with four-fold inner cross-validation.
+
+The corruption was applied only to the outer training response. Let \(y_i\) denote the clean training response and let \(s_y\) be its training-split standard deviation. For each noise profile, an i.i.d. noise vector \(z_i\) was sampled, centered by subtracting its empirical mean, and standardized by its empirical standard deviation. The corrupted training response was then
+\[
+ y_i^{\mathrm{corr}} = y_i + \alpha s_y z_i,
+\]
+where \(\alpha \in \{0,0.1,0.25,0.5,1.0\}\). The noise profiles were Gaussian, Student-\(t(3)\), exponential, log-normal, and sparse one-sided contamination. The contamination profile used small Gaussian background noise and added exponential positive shocks to 5\% of observations before centering and standardization. Consequently, the exponential, log-normal, and contamination settings are centered asymmetric corruption profiles rather than positive-mean corruption processes.
+
+Models were fitted on \(y^{\mathrm{corr}}\), but both inner-CV model selection and outer held-out evaluation were scored against the original clean response. This clean-target scoring is intentionally an oracle-style recovery benchmark: it asks how each method behaves when the training labels are corrupted by a known zero-mean process while the desired target remains the clean conditional mean.
+
+The reported run used a coarse hyperparameter grid. All methods used local linear fits and tricube predictor-distance weights. Standard LOWESS used \(\texttt{kr=none}\); RSKLPR searched over the conditional-density and joint-density kernels, \(\texttt{kr} \in \{\texttt{conden},\texttt{joint}\}\); and robust LOWESS used three bisquare residual-reweighting iterations. For standard LOWESS and RSKLPR, the distance metric was selected from Minkowski \(p=1\), Minkowski \(p=2\), and Mahalanobis distance. Robust LOWESS used the same metric choices. The neighborhood size was selected from \(\{31,63,95,127\}\). For each corruption type, level, split, and method, the selected estimator was refit on the full corrupted outer training response and evaluated against the clean held-out response.
 
 \section{Joint Density Kernel}
 \label{appendix:joint_density_kernel}
