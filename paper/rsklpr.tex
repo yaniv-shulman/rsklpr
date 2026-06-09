@@ -242,61 +242,84 @@ K_{h_1}(x-u)\,
 w(u,v)\,
 f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u,
 \]
-where $g_x(u;\beta)=\sum_{j=0}^{p}\beta_j(x)(u-x)^j$, $K_{h_1}$ is a kernel function (assumed to be radial and symmetric, hence $K_{h_1}(x-u) = K_{h_1}(\|x-u\|)$), and $w(u,v)$ is a population-level non-negative weight function. Let $\beta^{\star}(x)=\arg\!\min_{\beta}\,\mathcal J(x;\beta)$. The first component, $\beta^{\star}_0(x)$, represents the local intercept of the polynomial fit at $x$.
-
-For local constant regression ($p=0$), or for local polynomial regression ($p \ge 1$) under Assumption A1, $\beta^{\star}_0(x)$ is given by:
+where $g_x(u;\beta)$ is the local polynomial, $K_{h_1}$ is a kernel function, and $w(u,v)$ is a population-level non-negative weight function. Let $\beta^{\star}(x)=\arg\!\min_{\beta}\,\mathcal J(x;\beta)$. The first component, $\beta^{\star}_0(x)$, represents the local intercept of the polynomial fit at $x$. Define
+\begin{align}
+M_0(x)
+&=\iint
+K_{h_1}(x-u)\,
+w(u,v)\,
+f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u, \label{eq:M0}\\
+R_0(x)
+&=\iint v\,
+K_{h_1}(x-u)\,
+w(u,v)\,
+f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u. \label{eq:R0}
+\end{align}
+Assume $M_0(x)>0$.
+For local constant regression ($p=0$), with $g_x(u;\beta)=\beta_0$, the population minimizer satisfies
 \begin{equation}
-\beta^{\star}_0(x)=
-\frac{
- \displaystyle
- \iint v\,
- K_{h_1}(x-u)\,
- w(u,v)\,
- f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u}
-{\displaystyle
- \iint
- K_{h_1}(x-u)\,
- w(u,v)\,
- f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u}. \label{eq:pop_intercept}
+\beta^{\star}_0(x)=\frac{R_0(x)}{M_0(x)}. \label{eq:pop_intercept}
 \end{equation}
+For the local-linear case ($p=1$), write
+\[
+g_x(u;\beta)=\beta_0+\beta_1^\top(u-x),
+\]
+and assume that the first centered weighted design moment vanishes:
+\begin{equation}
+M_1(x)
+=\iint
+(u-x)K_{h_1}(x-u)\,
+w(u,v)\,
+f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u
+=0. \label{eq:M1_centering}
+\end{equation}
+This condition is satisfied, for example, when the kernel is symmetric and the effective weighted design density
+\[
+A(u)=\int w(u,v)f_{X,Y}(u,v)\,\mathrm d v
+\]
+is locally symmetric around $x$. More generally, it should be viewed as a local centering/symmetry condition, not as a generic assumption. Under this local-linear centering condition, the population minimizer also satisfies \eqref{eq:pop_intercept}.
 \end{proposition}
 
 \begin{proof}
-Define the kernel-tilted measure aggregate weight at $(u,v)$ as
+For $p=0$, the objective is
 \[
-\omega_x(u,v)=K_{h_1}(x-u)\,w(u,v)\,f_{X,Y}(u,v).
+\mathcal J(x;\beta_0)
+=\iint
+(v-\beta_0)^2
+K_{h_1}(x-u)\,
+w(u,v)\,
+f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u.
 \]
-Let $\mathcal{N}(x)$ denote the denominator of \eqref{eq:pop_intercept}, and write the monomials centered at $x$ as $q_j(u;x)=(u-x)^j$.
-Using the shorthand $\langle H(u,v) \rangle := \iint H(u,v)\,\omega_x(u,v)\,\mathrm d v\,\mathrm d u$, the objective function is:
+Differentiating with respect to $\beta_0$ and setting the derivative to zero gives
 \[
-\mathcal J(x;\beta)
-=\bigl\langle v^{2}\bigr\rangle
--2\sum_{j=0}^{p}\beta_j(x)\bigl\langle v\,q_j(u;x)\bigr\rangle
-+\sum_{j,k=0}^{p}\beta_j(x)\beta_k(x)\bigl\langle q_j(u;x)\,q_k(u;x)\bigr\rangle.
+0
+=-2\iint
+(v-\beta_0^\star)
+K_{h_1}(x-u)\,
+w(u,v)\,
+f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u
+=-2\{R_0(x)-\beta_0^\star(x)M_0(x)\}.
 \]
-Differentiating with respect to each $\beta_\ell(x)$ and setting the gradient to zero gives the system of $p+1$ normal equations:
-\begin{equation}
-\sum_{k=0}^{p}\beta_k^{\star}(x)\,\bigl\langle q_k(u;x)\,q_\ell(u;x)\bigr\rangle = \bigl\langle v\,q_\ell(u;x)\bigr\rangle,
-\qquad \ell=0,\dots ,p. \label{eq:normal_equations}
-\end{equation}
-The first equation (for $\ell=0$), noting $q_0(u;x) \equiv 1$, is:
-\begin{equation}
-\beta_0^{\star}(x)\mathcal{N}(x) + \sum_{k=1}^{p}\beta_k^{\star}(x)\bigl\langle q_k(u;x)\bigr\rangle = \bigl\langle v \bigr\rangle. \label{eq:first_normal_equation}
-\end{equation}
+Thus $\beta_0^\star(x)=R_0(x)/M_0(x)$ whenever $M_0(x)>0$.
 
-\paragraph{Assumption A1 (Symmetry in weighted moments)} For $p \ge 1$, we assume that the weighted moments of odd order are zero, i.e.,
+For $p=1$, write $g_x(u;\beta)=\beta_0+\beta_1^\top(u-x)$. Differentiating with respect to the intercept gives the first normal equation
 \begin{equation}
-\bigl\langle q_j(u;x)\bigr\rangle=\iint (u-x)^j\,K_{h_1}(x-u)\,w(u,v)\,f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u =0,
-\qquad \text{for odd } j \in \{1,\dots,p\}. \label{eq:assumption_A1}
+\beta_0^\star(x)M_0(x)+(\beta_1^\star(x))^\top M_1(x)=R_0(x). \label{eq:first_normal_equation}
 \end{equation}
-This condition is standard in LPR analysis \citep[see, e.g.,][Sec. 3.2]{Fan1993} and holds if the kernel $K_{h_1}$ is symmetric and the effective weight function $W_0(u) = \int_v w(u,v)f_{Y|X}(v|u)f_X(u)dv$ is locally even in a neighborhood of $x$. For local linear regression ($p=1$), this simplifies to requiring $\langle q_1(u;x) \rangle = 0$.
-
-Under Assumption A1, the terms for odd $k$ in Equation \eqref{eq:first_normal_equation} vanish. For local linear regression ($p=1$), this is sufficient to isolate $\beta_0^\star(x)$. For $p \ge 2$, standard LPR results show that this leads to a block-diagonal system, from which the formula for $\beta_0^\star(x)$ holds. For local constant regression ($p=0$), the sum in \eqref{eq:first_normal_equation} is empty, so the result holds without needing Assumption A1.
+When $M_1(x)=0$, Equation \eqref{eq:first_normal_equation} reduces to $\beta_0^\star(x)=R_0(x)/M_0(x)$. When $M_1(x)\neq0$, the local-linear intercept instead contains the correction term
+\[
+\beta_0^\star(x)
+=\frac{R_0(x)-(\beta_1^\star(x))^\top M_1(x)}{M_0(x)}
+=\frac{R_0(x)}{M_0(x)}
+-\frac{(\beta_1^\star(x))^\top M_1(x)}{M_0(x)}.
+\]
 \end{proof}
+
+For higher-order local polynomials ($p \ge 2$), the intercept is generally given by the first component of the weighted normal-equation solution and does not reduce to the simple ratio above without stronger structure. We therefore restrict the explicit ratio characterization to the local constant case and to the locally centered local-linear case.
 
 \begin{corollary}[Population Target with Conditional Density Weights]
 \label{cor:population_target}
-Consider the specific case where the weight function is the true conditional density, $w(u,v) = f_{Y\mid X}(v\mid u)$, and assume $f_{Y \mid X}(v \mid u) > 0$. Under the same conditions as Proposition \ref{prop:population_objective}, the population intercept $\beta_0^\star(x)$ from \eqref{eq:pop_intercept} takes the explicit form:
+Consider the specific case where the weight function is the true conditional density, $w(u,v) = f_{Y\mid X}(v\mid u)$, and assume $f_{Y \mid X}(v \mid u) > 0$. In the cases covered by Proposition \ref{prop:population_objective}, the population intercept $\beta_0^\star(x)$ from \eqref{eq:pop_intercept} takes the explicit form:
 \[
 \beta_0^\star(x) = \frac{\iint v\,K_{h_1}(x-u)\,[f_{Y\mid X}(v\mid u)]^2\,f_X(u)\,\mathrm d v\,\mathrm d u}{\iint K_{h_1}(x-u)\,[f_{Y\mid X}(v\mid u)]^2\,f_X(u)\,\mathrm d v\,\mathrm d u}.
 \]
