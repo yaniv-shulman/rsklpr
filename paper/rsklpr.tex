@@ -360,11 +360,15 @@ This shows that as the bandwidth $h_1 \to 0$ (under standard rate conditions, e.
 \end{corollary}
 
 \subsection{Asymptotic Target and Conditions for Unbiasedness}
-Corollary~\ref{cor:population_target} establishes that the proposed estimator asymptotically targets $\mu'(x)$. A crucial question is under what conditions this target coincides with the true regression function, $m(x) = \mathbb{E}[Y|X=x]$. The two targets are equivalent, $\mu'(x) = m(x)$, if and only if the conditional distribution $f(Y|X)$ is symmetric about its mean $m(x)$.
+Corollary~\ref{cor:population_target} establishes that the proposed estimator asymptotically targets $\mu'(x)$. A crucial question is under what conditions this target coincides with the true regression function, $m(x) = \mathbb{E}[Y|X=x]$. The exact condition is
+\[
+\int (v-m(x))[f_{Y\mid X}(v\mid x)]^2\,\mathrm d v=0,
+\]
+or equivalently $\mu'(x)=m(x)$.
 
-The most important instance of such a symmetric distribution is the normal distribution. However, the property holds for any symmetric conditional density (e.g., Laplace, Student's t). If we assume that for each fixed $x$, the conditional density $f(Y|X=x)$ is symmetric around $m(x)$, then $[f(Y|X)]^2$ is also symmetric around $m(x)$. The expectation with respect to this squared density remains $m(x)$, and therefore $\mu'(x) = m(x)$. Minimizing the expected loss of the proposed method becomes equivalent to minimizing the expected loss of standard LPR. This demonstrates that under the ideal condition of conditional symmetry, the proposed estimator is asymptotically unbiased.
+A simple sufficient condition is conditional symmetry around $m(x)$. This includes the normal distribution, but also any symmetric conditional density (e.g., Laplace, Student's t). If for each fixed $x$, the conditional density $f_{Y\mid X}(v\mid x)$ is symmetric around $m(x)$, then $[f_{Y\mid X}(v\mid x)]^2$ is also symmetric around $m(x)$, so the squared-density expectation remains $m(x)$ and therefore $\mu'(x)=m(x)$. Under this sufficient condition, minimizing the expected loss of the proposed method becomes equivalent to minimizing the expected loss of standard LPR.
 
-Conversely, when the conditional distribution $f(Y \mid X)$ is asymmetric, the mean under the squared density $\mu'(X)$ will differ from the true mean $m(X)$, introducing an asymptotic bias of $\text{Bias}(x) = \mu'(x) - m(x)$. An example quantifying this bias for the asymmetric exponential distribution is provided in \ref{appendix:asym_bias_example}.
+When the centering condition above fails, the mean under the squared density $\mu'(X)$ differs from the true mean $m(X)$, introducing an asymptotic bias of $\text{Bias}(x) = \mu'(x) - m(x)$. An example quantifying this bias for the asymmetric exponential distribution is provided in \ref{appendix:asym_bias_example}.
 
 
 \subsection{Comparison with Standard and Iterative Robust LPR}
