@@ -32,6 +32,8 @@
 \newtheorem{proposition}{Proposition}
 \newtheorem{lemma}{Lemma}
 \newtheorem{corollary}{Corollary}
+\newtheorem{assumption}{Assumption}
+\renewcommand{\theassumption}{A\arabic{assumption}}
 
 \begin{document}
 
@@ -229,7 +231,27 @@ The term in the square brackets is the $i$-th term of the standard LPR loss func
 \end{proof}
 
 \subsection{Asymptotic Properties}
-We now analyze the behavior of the estimator as the sample size $N \to \infty$.
+We now analyze the behavior of the estimator as the sample size $N \to \infty$. Throughout this subsection, $w(u,v)$ denotes the population-level non-negative weight function appearing in the weighted population objective.
+
+\begin{assumption}[Local weighted centering for the local-linear case]
+\label{ass:local_weighted_centering}
+For the local-linear case \(p=1\), assume that the first centered weighted design moment vanishes:
+\[
+M_1(x)
+=
+\iint
+(u-x)K_{h_1}(x-u)w(u,v)f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u
+=
+0.
+\]
+When \(u,x\in\mathbb R^d\), this is understood componentwise. Equivalently, the weighted design density
+\[
+A(u)=\int w(u,v)f_{X,Y}(u,v)\,\mathrm d v
+\]
+is locally centered by the kernel around \(x\). A sufficient condition is that both \(K_{h_1}\) and \(A(u)\) are symmetric about \(x\); kernel symmetry alone, or conditional response-density symmetry alone, is insufficient.
+\end{assumption}
+
+This condition is used only to reduce the \(p=1\) local-linear intercept to the simple ratio form below; no such assumption is required for \(p=0\). It may be plausible at interior points when \(A(u)\) varies slowly over the kernel window, but can fail near boundaries or under strongly asymmetric designs.
 
 \begin{proposition}[Population Objective and the Intercept Term]
 \label{prop:population_objective}
@@ -264,23 +286,29 @@ For the local-linear case ($p=1$), write
 \[
 g_x(u;\beta)=\beta_0+\beta_1^\top(u-x),
 \]
-and assume that the first centered weighted design moment vanishes:
-\begin{equation}
-M_1(x)
-=\iint
-(u-x)K_{h_1}(x-u)\,
-w(u,v)\,
-f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u
-=0. \label{eq:M1_centering}
-\end{equation}
-This condition is satisfied, for example, when the kernel is symmetric and the effective weighted design density
-\[
-A(u)=\int w(u,v)f_{X,Y}(u,v)\,\mathrm d v
-\]
-is locally symmetric around $x$. More generally, it should be viewed as a local centering/symmetry condition, not as a generic assumption. Under this local-linear centering condition, the population minimizer also satisfies \eqref{eq:pop_intercept}.
+and suppose Assumption~\ref{ass:local_weighted_centering} holds. Then the population minimizer also satisfies \eqref{eq:pop_intercept}. The ratio characterization is restricted to the local constant case and to the local-linear case under Assumption~\ref{ass:local_weighted_centering}.
 \end{proposition}
 
 \begin{proof}
+The weighted moments used in the normal-equation calculation are
+\begin{align}
+M_0(x)
+&=\iint
+K_{h_1}(x-u)\,
+w(u,v)\,
+f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u, \label{eq:proof_M0}\\
+M_1(x)
+&=\iint
+(u-x)K_{h_1}(x-u)\,
+w(u,v)\,
+f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u, \label{eq:M1_centering}\\
+R_0(x)
+&=\iint v\,
+K_{h_1}(x-u)\,
+w(u,v)\,
+f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u. \label{eq:proof_R0}
+\end{align}
+
 For $p=0$, the objective is
 \[
 \mathcal J(x;\beta_0)
@@ -315,7 +343,7 @@ When $M_1(x)=0$, Equation \eqref{eq:first_normal_equation} reduces to $\beta_0^\
 \]
 \end{proof}
 
-For higher-order local polynomials ($p \ge 2$), the intercept is generally given by the first component of the weighted normal-equation solution and does not reduce to the simple ratio above without stronger structure. We therefore restrict the explicit ratio characterization to the local constant case and to the locally centered local-linear case.
+For higher-order local polynomials ($p \ge 2$), the simple ratio formula is generally not valid. The intercept should instead be obtained as the first component of the full weighted normal-equation solution. We therefore restrict the explicit ratio characterization to the local constant case and to the locally centered local-linear case.
 
 \begin{corollary}[Population Target with Conditional Density Weights]
 \label{cor:population_target}
