@@ -186,7 +186,7 @@ Assuming $\hat f_{Y\mid X}(y\mid x; \mathcal{H}_2) > 0$, Lemma~\ref{lemma:invari
 \Bigl(Y_i-\sum_{j=0}^{p}\beta_j(x)(X_i - x)^j\Bigr)^2
 K_{h_1}(x-X_i)\,\hat f_{Y\mid X}(Y_i\mid X_i; \mathcal{H}_2),
 \]
-which is the empirical objective function whose properties are analysed in the next section.
+which is the empirical objective function used by the finite-sample implementation. The next section analyzes the corresponding oracle population objective.
 \end{corollary}
 
 \begin{figure}[H]
@@ -234,6 +234,12 @@ The term in the square brackets is the $i$-th term of the standard LPR loss func
 We now analyze the corresponding population objective. Throughout this subsection, $w(u,v)$ denotes the population-level non-negative weight function appearing in the weighted population objective.
 
 We analyze the population target associated with the proposed density-weighted loss. This analysis is independent of the finite-sample nearest-neighbor implementation used in the experiments. The population objective below should be interpreted as an idealized kernel-weighted target for a given bandwidth \(h_1\), with localization understood through the limit \(h_1\to0\).
+
+The population analysis in this section is written for the oracle weight
+\[
+w(u,v)=f_{Y\mid X}(v\mid u).
+\]
+Thus, the results below characterize the idealized population target of the density-weighted objective. In the finite-sample implementation, this oracle weight is replaced by a kernel conditional-density estimate \(\hat f_{Y\mid X}(v\mid u)\). A full analysis of the resulting plug-in estimator, including bandwidth conditions for conditional-density estimation, is left for future work.
 
 \begin{assumption}[Local weighted centering for the local-linear case]
 \label{ass:local_weighted_centering}
@@ -362,7 +368,7 @@ As \(h_1\to0\), under standard smoothness and interior-point conditions, the loc
 \end{corollary}
 
 \subsection{Asymptotic Target and Conditions for Unbiasedness}
-Corollary~\ref{cor:population_target} establishes that the proposed estimator asymptotically targets $\mu'(x)$. A crucial question is under what conditions this target coincides with the true regression function, $m(x) = \mathbb{E}[Y|X=x]$. The exact condition is
+Corollary~\ref{cor:population_target} establishes that the oracle population objective has pointwise target $\mu'(x)$. A crucial question is under what conditions this target coincides with the true regression function, $m(x) = \mathbb{E}[Y|X=x]$. The exact condition is
 \[
 \int (v-m(x))[f_{Y\mid X}(v\mid x)]^2\,\mathrm d v=0,
 \]
@@ -424,7 +430,7 @@ This expression shows that the KDE measures how closely the feature representati
 The proposed method (RSKLPR) is implemented in Python and published as an open source package \href{https://github.com/yaniv-shulman/rsklpr}{https://github.com/yaniv-shulman/rsklpr}. This section reports three complementary empirical studies. First, a public regression benchmark evaluates predictive performance under cross-validated hyperparameter selection. Second, a synthetic target-validation experiment tests whether the empirical behaviour agrees with the population-target analysis in Section~\ref{S:Properties}. Third, a controlled target-corruption experiment on the public Appliances dataset examines how the methods respond to zero-mean symmetric and asymmetric label corruption.
 
 \subsection{Implementation Notes}
-The implementation normalizes distances in each neighborhood to the range $[0, 1]$, consistent with the approach in \cite{cleveland79}, effectively making the bandwidth for $K_1$ adaptive. The population analysis above is formulated for an idealized kernel-weighted objective; the implementation uses a fixed-size nearest-neighbor neighborhood, together with distance normalization and kernel weighting, as a practical adaptive localization scheme. A full asymptotic analysis of this nearest-neighbor implementation is left for future work. The predictor-distance kernel is specified separately for each experiment. For density estimation in $K_2$, a factorized multidimensional Kernel Density Estimator (KDE) with scaled Gaussian kernels was used. The implementation supports multiple KDE bandwidth-selection rules, and the bandwidth rule is therefore treated as an experiment-level specification; the rules used in the reported experiments are given in the corresponding appendix sections. This factorization is a simplification that ignores potential covariance between predictors and response but is computationally efficient.
+The implementation normalizes distances in each neighborhood to the range $[0, 1]$, consistent with the approach in \cite{cleveland79}, effectively making the bandwidth for $K_1$ adaptive. The population analysis above is formulated for an idealized kernel-weighted objective; the implementation uses a fixed-size nearest-neighbor neighborhood, together with distance normalization and kernel weighting, as a practical adaptive localization scheme. A full asymptotic analysis of this nearest-neighbor implementation is left for future work. The predictor-distance kernel is specified separately for each experiment. For density estimation in $K_2$, a factorized multidimensional Kernel Density Estimator (KDE) with scaled Gaussian kernels was used. This plug-in KDE is used in place of the oracle weight studied in the population analysis; the finite-sample and asymptotic behavior of the plug-in estimator is left for future work. The implementation supports multiple KDE bandwidth-selection rules, and the bandwidth rule is therefore treated as an experiment-level specification; the rules used in the reported experiments are given in the corresponding appendix sections. This factorization is a simplification that ignores potential covariance between predictors and response but is computationally efficient.
 
 The experiments reported below are a curated subset of a broader exploratory study. Additional synthetic experiments, including homoscedastic and heteroscedastic Gaussian noise, asymmetric response distributions, sparse and dense sampling regimes, multivariate regression surfaces, neighborhood-sensitivity checks, and bootstrap-based uncertainty estimates, are available as notebooks in the \href{https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/src/experiments}{project experiments directory}. These notebooks were used to guide the reported benchmark design, while the following sections focus on the experiments most directly tied to the estimator's empirical performance and population-target analysis.
 
