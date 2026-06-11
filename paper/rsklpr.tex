@@ -93,7 +93,7 @@ where $\beta(x) \in \mathbb{R}^{p+1}$ are the polynomial coefficients to be esti
 Where $K_h(\cdot) = h^{-d}K(\cdot/h)$ is a scaled kernel, $h \in \mathbb{R}_{> 0}$ is the bandwidth parameter and $\mathcal{D}_N \subseteq \mathcal{D}_T$ is the subset of $N$ nearest neighbors of $x$ in the training set where the distance is measured on the predictors only. Having computed $\hat{\beta}(x)$ the estimate of $m(x)$ is taken as $\hat{m}(x) = \hat{\beta}_0(x)$. The term kernel carries here the meaning typically used in the context of nonparametric regression i.e. a non-negative real-valued weighting function that is typically symmetric, unimodal at zero, and integrates to one. Higher degree polynomials and smaller $N$ generally increase the variance and decrease the bias of the estimator and vice versa \citep{Avery2010LiteratureRF}. For derivation of the local constant and local linear estimators for the multidimensional case see \citep{Garcia-Portugues2023}.
 
 \paragraph{Remark on Nearest Neighbors and Bandwidth.}
-In the following, the local neighborhood is defined by taking the \(N\) nearest neighbors to \(x\). Thus, \(\mathcal{D}_N \subseteq \mathcal{D}_T\) contains exactly \(N\) points. A distance-based kernel \(K_h\) is then used to weight those neighbors. In our implementation, we follow a common practical approach where distances within the neighborhood are first normalized to the interval $[0,1]$, and then a kernel (e.g., Laplacian) is applied. This effectively makes the bandwidth adaptive to the local density of predictors, combining a fixed-size local subset (via \(N\)) with a variable kernel scaling to ensure stable local fits. The population-target analysis later abstracts from this nearest-neighbor selection.
+In the following, the local neighborhood is defined by taking the \(N\) nearest neighbors to \(x\). Thus, \(\mathcal{D}_N \subseteq \mathcal{D}_T\) contains exactly \(N\) points. A distance-based kernel \(K_h\) is then used to weight those neighbors. In our implementation, we follow a common practical approach where distances within the neighborhood are first normalized to the interval $[0,1]$, and then a kernel (e.g., Laplacian) is applied. This effectively makes the bandwidth adaptive to the local density of predictors, combining a fixed-size local subset (via \(N\)) with a variable kernel scaling to ensure stable local fits.
 
 \section{Robust Weights with Similarity Kernels}
 \label{S:Robust Weights with Similarity kernels}
@@ -149,20 +149,26 @@ K_1(x,X_i;\mathcal{H}_1)\,w(X_i,Y_i),
 \]
 so the minimiser $\hat\beta(x,y)$ with respect to $\beta_j$ is independent of $y$ and will be denoted $\hat\beta(x) = (\hat\beta_0(x), \dots, \hat\beta_p(x))^T$. For $\mathcal{K}_{\mathcal{D}}$ to be symmetric (a requirement for a Mercer kernel), we must have $c(x,y) = w(x,y)$. However, symmetry is not required for the minimization problem itself.
 \end{lemma}
-\begin{proof}
-The term \( c(x,y) \), which is positive and constant with respect to the summation index \(i\), is a scalar factor multiplying the entire sum. Since scaling an objective by a positive constant does not affect its minimizer, the vector minimizer \(\hat\beta(x,y)\) is independent of \(y\) and thus can be simply denoted as \(\hat\beta(x)\).
-\end{proof}
+The proof is given in~\ref{appendix:proof_invariance}.
 
 \subsection*{Conditional Density Kernel}
-The primary method proposed for $K_2$ is proportional to the estimated localized conditional marginal distribution of the response variable at the location.
-This corresponds to choosing the components of a separable $K_2$ as follows:
+The primary method proposed for $K_2$ is proportional to the conditional density of the response.
+The ideal conditional-density kernel is defined using the oracle conditional density of the response:
+\[
+K_2\!\bigl((x,y),(x',y')\bigr)
+=
+f_{Y\mid X}(y\mid x)\,
+f_{Y\mid X}(y'\mid x').
+\]
+
+In finite samples, the unknown conditional density is replaced by a plug-in estimate \(\hat f_{Y\mid X}\), yielding
 \[
 K_2\!\bigl((x,y),(x',y');\mathcal{H}_2\bigr)
 =\hat f_{Y\mid X}(y\mid x; \mathcal{H}_2)\,
 \hat f_{Y\mid X}(y'\mid x'; \mathcal{H}_2),
 \]
-where $\hat f_{Y\mid X}(\cdot\mid\cdot; \mathcal{H}_2)$ is a kernel conditional-density estimator with bandwidth(s) $\mathcal{H}_2$.
-The nonparametric conditional density estimation is performed using the Parzen–Rosenblatt window (kernel density estimator):
+where $\hat f_{Y\mid X}(\cdot\mid\cdot; \mathcal{H}_2)$ is an estimated conditional density of the response with bandwidth(s) $\mathcal{H}_2$.
+In the implementation used in this paper, \(\hat f_{Y\mid X}\) is computed using a kernel conditional-density estimator:
 \begin{align}
 \hat{f}(y \mid x; \mathcal{H}_2) &= \hat{f} (x, y ; \mathcal{H}_2) / \hat{f} (x; \mathcal{H}_2) \\
 &= \frac{|\mathbf{H}_v|^{-1/2} \sum_{i=1}^N K_v \left( \mathbf{H}_v^{-1/2} (v - V_i) \right)} {|\mathbf{H}_x|^{-1/2} \sum_{i=1}^N K_x \left( \mathbf{H}_x^{-1/2} (x - X_i) \right)}
@@ -172,7 +178,7 @@ Where $v=[x,y] \in \mathbb{R}^{d+1}$ is the concatenated vector of the predictor
 
 \begin{corollary}[Conditional–density kernel objective]
 \label{cor:cond_density_obj}
-Choose $K_1(x,x';\mathcal{H}_1)$ to be a standard kernel for local polynomial regression, such as $K_{h_1}(x-x')$, and let $K_2$ be the conditional density kernel defined above.
+Choose $K_1(x,x';\mathcal{H}_1)$ to be a standard kernel for local polynomial regression, such as $K_{h_1}(x-x')$, and let $K_2$ be the finite-sample plug-in conditional density kernel defined above.
 Then, we can identify
 \[
 c(x,y)=\hat f_{Y\mid X}(y\mid x; \mathcal{H}_2),
@@ -186,7 +192,7 @@ Assuming $\hat f_{Y\mid X}(y\mid x; \mathcal{H}_2) > 0$, Lemma~\ref{lemma:invari
 \Bigl(Y_i-\sum_{j=0}^{p}\beta_j(x)(X_i - x)^j\Bigr)^2
 K_{h_1}(x-X_i)\,\hat f_{Y\mid X}(Y_i\mid X_i; \mathcal{H}_2),
 \]
-which is the empirical objective function used by the finite-sample implementation. The next section analyzes the corresponding oracle population objective.
+which is the empirical objective function used by the finite-sample implementation.
 \end{corollary}
 
 \begin{figure}[H]
@@ -201,7 +207,7 @@ which is the empirical objective function used by the finite-sample implementati
 \includegraphics[width=1.0\textwidth]{losses_1d.png}
 \end{figure} 
 
-Regardless of the choice of kernel, the hyperparameters of this model are similar in essence to the standard local polynomial regression and comprise the span of included points, the kernels and their associated bandwidths. Note that this estimator can be replaced with other robust density estimators and better results are anticipated by doing so however exploring this option is left for future work. 
+Regardless of the choice of kernel, the hyperparameters of this model are similar in essence to the standard local polynomial regression and comprise the span of included points, the kernels and their associated bandwidths. Note that the density estimator can be replaced with other robust density estimators however exploring this option is left for future work.
 
 \section{Properties}
 \label{S:Properties}
@@ -222,13 +228,7 @@ K_{h_1}(x-X_i)\,\hat f_{Y\mid X}(Y_i\mid X_i),
 \]
 is equivalent to minimizing a weighted average of the standard LPR loss terms, where each term's contribution is scaled by its estimated conditional density $\hat f_{Y\mid X}(Y_i\mid X_i)$.
 \end{proposition}
-\begin{proof}
-Let $w_i = \hat f_{Y\mid X}(Y_i\mid X_i)$. Assuming that not all weights are zero (i.e., $\sum_{i=1}^N w_i > 0$, which holds if the conditional density estimate is non-zero for at least one neighbor), we can divide the objective by this sum without changing the resulting $\hat{\beta}(x)$:
-\begin{align}
-\hat{\beta}(x) &= \arg\min_{\beta(x)} \frac{1}{\sum_{k=1}^N w_k} \sum_{i=1}^N w_i \left[ \left(Y_i-\sum_{j=0}^{p}\beta_j(x)(X_i - x)^j\right)^2 K_{h_1}(x-X_i) \right].
-\end{align}
-The term in the square brackets is the $i$-th term of the standard LPR loss function from Equation \eqref{loss_lpr}. The expression is therefore a weighted arithmetic mean of these standard LPR terms. This interpretation makes it clear that points with a low estimated conditional density (i.e., response outliers) are down-weighted in a single, non-iterative step. Note that if a kernel with bounded support (e.g., Epanechnikov) is used for density estimation, it is theoretically possible for all weights $w_i$ in a neighborhood to be zero, although this is not an issue with unbounded kernels like the Gaussian.
-\end{proof}
+The proof is given in~\ref{appendix:proof_reweighting}.
 
 \subsection{Asymptotic Properties}
 We now analyze the corresponding population objective. Throughout this subsection, $w(u,v)$ denotes the population-level non-negative weight function appearing in the weighted population objective.
@@ -296,60 +296,7 @@ g_x(u;\beta)=\beta_0+\beta_1^\top(u-x),
 \]
 and suppose Assumption~\ref{ass:local_weighted_centering} holds. Then the population minimizer also satisfies \eqref{eq:pop_intercept}. The ratio characterization is restricted to the local constant case and to the local-linear case under Assumption~\ref{ass:local_weighted_centering}.
 \end{proposition}
-
-\begin{proof}
-The weighted moments used in the normal-equation calculation are
-\begin{align}
-M_0(x)
-&=\iint
-K_{h_1}(x-u)\,
-w(u,v)\,
-f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u, \label{eq:proof_M0}\\
-M_1(x)
-&=\iint
-(u-x)K_{h_1}(x-u)\,
-w(u,v)\,
-f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u, \label{eq:M1_centering}\\
-R_0(x)
-&=\iint v\,
-K_{h_1}(x-u)\,
-w(u,v)\,
-f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u. \label{eq:proof_R0}
-\end{align}
-
-For $p=0$, the objective is
-\[
-\mathcal J(x;\beta_0)
-=\iint
-(v-\beta_0)^2
-K_{h_1}(x-u)\,
-w(u,v)\,
-f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u.
-\]
-Differentiating with respect to $\beta_0$ and setting the derivative to zero gives
-\[
-0
-=-2\iint
-(v-\beta_0^\star)
-K_{h_1}(x-u)\,
-w(u,v)\,
-f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u
-=-2\{R_0(x)-\beta_0^\star(x)M_0(x)\}.
-\]
-Thus $\beta_0^\star(x)=R_0(x)/M_0(x)$ whenever $M_0(x)>0$.
-
-For $p=1$, write $g_x(u;\beta)=\beta_0+\beta_1^\top(u-x)$. Differentiating with respect to the intercept gives the first normal equation
-\begin{equation}
-\beta_0^\star(x)M_0(x)+(\beta_1^\star(x))^\top M_1(x)=R_0(x). \label{eq:first_normal_equation}
-\end{equation}
-When $M_1(x)=0$, Equation \eqref{eq:first_normal_equation} reduces to $\beta_0^\star(x)=R_0(x)/M_0(x)$. When $M_1(x)\neq0$, the local-linear intercept instead contains the correction term
-\[
-\beta_0^\star(x)
-=\frac{R_0(x)-(\beta_1^\star(x))^\top M_1(x)}{M_0(x)}
-=\frac{R_0(x)}{M_0(x)}
--\frac{(\beta_1^\star(x))^\top M_1(x)}{M_0(x)}.
-\]
-\end{proof}
+The proof is given in~\ref{appendix:proof_population_objective}.
 
 For higher-order local polynomials ($p \ge 2$), the simple ratio formula is generally not valid. The intercept should instead be obtained as the first component of the full weighted normal-equation solution. We therefore restrict the explicit ratio characterization to the local constant case and to the locally centered local-linear case.
 
@@ -527,6 +474,81 @@ Additionally, further development of this framework may involve exploring differ
 
 \newpage
 \appendix
+\section{Proofs}
+\label{appendix:proofs}
+
+\subsection{Proof of Lemma~\ref{lemma:invariance}}
+\label{appendix:proof_invariance}
+\begin{proof}
+The term \( c(x,y) \), which is positive and constant with respect to the summation index \(i\), is a scalar factor multiplying the entire sum. Since scaling an objective by a positive constant does not affect its minimizer, the vector minimizer \(\hat\beta(x,y)\) is independent of \(y\) and thus can be simply denoted as \(\hat\beta(x)\).
+\end{proof}
+
+\subsection{Proof of Proposition~\ref{prop:reweighting}}
+\label{appendix:proof_reweighting}
+\begin{proof}
+Let $w_i = \hat f_{Y\mid X}(Y_i\mid X_i)$. Assuming that not all weights are zero (i.e., $\sum_{i=1}^N w_i > 0$, which holds if the conditional density estimate is non-zero for at least one neighbor), we can divide the objective by this sum without changing the resulting $\hat{\beta}(x)$:
+\begin{align}
+\hat{\beta}(x) &= \arg\min_{\beta(x)} \frac{1}{\sum_{k=1}^N w_k} \sum_{i=1}^N w_i \left[ \left(Y_i-\sum_{j=0}^{p}\beta_j(x)(X_i - x)^j\right)^2 K_{h_1}(x-X_i) \right].
+\end{align}
+The term in the square brackets is the $i$-th term of the standard LPR loss function from Equation \eqref{loss_lpr}. The expression is therefore a weighted arithmetic mean of these standard LPR terms. This interpretation makes it clear that points with a low estimated conditional density (i.e., response outliers) are down-weighted in a single, non-iterative step. Note that if a kernel with bounded support (e.g., Epanechnikov) is used for density estimation, it is theoretically possible for all weights $w_i$ in a neighborhood to be zero, although this is not an issue with unbounded kernels like the Gaussian.
+\end{proof}
+
+\subsection{Proof of Proposition~\ref{prop:population_objective}}
+\label{appendix:proof_population_objective}
+\begin{proof}
+The weighted moments used in the normal-equation calculation are
+\begin{align}
+M_0(x)
+&=\iint
+K_{h_1}(x-u)\,
+w(u,v)\,
+f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u, \label{eq:proof_M0}\\
+M_1(x)
+&=\iint
+(u-x)K_{h_1}(x-u)\,
+w(u,v)\,
+f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u, \label{eq:M1_centering}\\
+R_0(x)
+&=\iint v\,
+K_{h_1}(x-u)\,
+w(u,v)\,
+f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u. \label{eq:proof_R0}
+\end{align}
+
+For $p=0$, the objective is
+\[
+\mathcal J(x;\beta_0)
+=\iint
+(v-\beta_0)^2
+K_{h_1}(x-u)\,
+w(u,v)\,
+f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u.
+\]
+Differentiating with respect to $\beta_0$ and setting the derivative to zero gives
+\[
+0
+=-2\iint
+(v-\beta_0^\star)
+K_{h_1}(x-u)\,
+w(u,v)\,
+f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u
+=-2\{R_0(x)-\beta_0^\star(x)M_0(x)\}.
+\]
+Thus $\beta_0^\star(x)=R_0(x)/M_0(x)$ whenever $M_0(x)>0$.
+
+For $p=1$, write $g_x(u;\beta)=\beta_0+\beta_1^\top(u-x)$. Differentiating with respect to the intercept gives the first normal equation
+\begin{equation}
+\beta_0^\star(x)M_0(x)+(\beta_1^\star(x))^\top M_1(x)=R_0(x). \label{eq:first_normal_equation}
+\end{equation}
+When $M_1(x)=0$, Equation \eqref{eq:first_normal_equation} reduces to $\beta_0^\star(x)=R_0(x)/M_0(x)$. When $M_1(x)\neq0$, the local-linear intercept instead contains the correction term
+\[
+\beta_0^\star(x)
+=\frac{R_0(x)-(\beta_1^\star(x))^\top M_1(x)}{M_0(x)}
+=\frac{R_0(x)}{M_0(x)}
+-\frac{(\beta_1^\star(x))^\top M_1(x)}{M_0(x)}.
+\]
+\end{proof}
+
 \section{Public Benchmark Protocol}
 \label{appendix:public_benchmark_protocol}
 The public benchmark in Section~\ref{S:Experiments and Implementation Notes} used the UCI Appliances Energy Prediction dataset, available from the \href{https://archive.ics.uci.edu/dataset/374/appliances+energy+prediction}{UCI Machine Learning Repository}. The response was appliance energy use. The timestamp was converted to cyclic hour-of-day and day-of-week features, after which the original timestamp was dropped. The two random variables included in the dataset (\texttt{rv1} and \texttt{rv2}) were also dropped. Within each outer training split, the eight predictors with largest absolute Pearson correlation with the response were selected using training data only; this avoids test-set leakage. The selected features were stable across splits and consisted of the hour features, lights, outdoor humidity, selected indoor/outdoor temperatures, and indoor humidity.
