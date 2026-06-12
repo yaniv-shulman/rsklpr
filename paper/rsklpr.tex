@@ -147,7 +147,12 @@ Then the empirical loss \eqref{loss_rsk} becomes
 \Bigl(Y_i-\textstyle\sum_{j=0}^{p}\beta_j(x)(X_i - x)^j\Bigr)^2
 K_1(x,X_i;\mathcal{H}_1)\,w(X_i,Y_i),
 \]
-so the minimiser $\hat\beta(x,y)$ with respect to $\beta_j$ is independent of $y$ and will be denoted $\hat\beta(x) = (\hat\beta_0(x), \dots, \hat\beta_p(x))^T$. For $\mathcal{K}_{\mathcal{D}}$ to be symmetric (a requirement for a Mercer kernel), we must have $c(x,y) = w(x,y)$. However, symmetry is not required for the minimization problem itself.
+so the minimiser $\hat\beta(x,y)$ with respect to $\beta_j$ is independent of $y$ and will be denoted $\hat\beta(x) = (\hat\beta_0(x), \dots, \hat\beta_p(x))^T$. For a general separable kernel \(K_2(z,z')=c(z)w(z')\), symmetry requires
+\[
+c(z)w(z')=c(z')w(z)
+\qquad \text{for all } z,z'.
+\]
+In the nontrivial case, this means that \(c\) is proportional to \(w\) on the relevant support. The choice \(c=w\) is the canonical special case used by the conditional-density product kernel. Symmetry is not required for the weighted least-squares minimization problem itself.
 \end{lemma}
 The proof is given in~\ref{appendix:proof_invariance}.
 
@@ -168,13 +173,31 @@ K_2\!\bigl((x,y),(x',y');\mathcal{H}_2\bigr)
 \hat f_{Y\mid X}(y'\mid x'; \mathcal{H}_2),
 \]
 where $\hat f_{Y\mid X}(\cdot\mid\cdot; \mathcal{H}_2)$ is an estimated conditional density of the response with bandwidth(s) $\mathcal{H}_2$.
-In the implementation used in this paper, \(\hat f_{Y\mid X}\) is computed using a kernel conditional-density estimator:
-\begin{align}
-\hat{f}(y \mid x; \mathcal{H}_2) &= \hat{f} (x, y ; \mathcal{H}_2) / \hat{f} (x; \mathcal{H}_2) \\
-&= \frac{|\mathbf{H}_v|^{-1/2} \sum_{i=1}^N K_v \left( \mathbf{H}_v^{-1/2} (v - V_i) \right)} {|\mathbf{H}_x|^{-1/2} \sum_{i=1}^N K_x \left( \mathbf{H}_x^{-1/2} (x - X_i) \right)}
+Given a density-estimation sample \(\mathcal D_M^{\mathrm{kde}}=\{(X_\ell,Y_\ell)\}_{\ell=1}^{M}\), the plug-in conditional-density estimate is
+\begin{equation}
+\hat f_{Y\mid X}(y\mid x;\mathcal H_2)
+=
+\frac{
+|\mathbf H_{xy}|^{-1/2}
+\sum_{\ell=1}^{M}
+K_{xy}\!\left(
+\mathbf H_{xy}^{-1/2}
+\left(
+\begin{bmatrix}x\\y\end{bmatrix}
+-
+\begin{bmatrix}X_\ell\\Y_\ell\end{bmatrix}
+\right)
+\right)
+}{
+|\mathbf H_x|^{-1/2}
+\sum_{\ell=1}^{M}
+K_x\!\left(
+\mathbf H_x^{-1/2}(x-X_\ell)
+\right)
+}.
 \label{conditional_prob_est}
-\end{align}
-Where $v=[x,y] \in \mathbb{R}^{d+1}$ is the concatenated vector of the predictors and the response; and $\mathbf{H}_v, \mathbf{H}_x$ are bandwidth matrices.
+\end{equation}
+In the implementation used in this paper, \(\mathcal D_M^{\mathrm{kde}}\) is taken to be the local neighborhood used for the corresponding local fit, so typically \(M=N\); the index \(\ell\) is used only to distinguish the density-estimation summation from the regression-loss and polynomial summations. The KDE weights are evaluated self-inclusively at the observed neighborhood points in the finite-sample implementation.
 
 \begin{corollary}[Conditional–density kernel objective]
 \label{cor:cond_density_obj}
@@ -356,21 +379,38 @@ In the finite-sample plug-in objective, each data point is weighted by $w_i = K_
 With the self-inclusive plug-in KDE weights used in the finite-sample implementation, extremely small density bandwidths can cause each observation's self-kernel contribution to dominate its estimated density, which may reduce the contrast among density weights. This is a finite-sample effect of the plug-in implementation rather than a property of the oracle population objective. Conversely, for very large \( \mathcal{H}_2 \) the density estimator becomes nearly constant across different \( Y_i \), and the estimator approaches standard LPR. An intermediate bandwidth \( \mathcal{H}_2 \) achieves a balance. Leave-one-out or regularized density weights are natural alternatives left for future work.
 
 \subsection{Relationship to Kernel Methods and RKHS}
-The use of positive definite kernels in defining the weights $\mathcal{K}_\mathcal{D}$ allows the proposed estimator to be interpreted within the Reproducing Kernel Hilbert Spaces (RKHS) framework. If $\mathcal{K}_\mathcal{D}$ is chosen to be a positive definite kernel (e.g., by ensuring both $K_1$ and $K_2$ are positive definite), it induces a feature map $\phi: \mathcal{D} \to \mathcal{H}$, where $\mathcal{H}$ is a Hilbert space, such that:
-\begin{align}
-\mathcal{K}_{\mathcal{D}} \left( (x, y), (x', y') \right) = \langle \phi(x, y), \phi(x', y') \rangle_{\mathcal{H}}.
-\end{align}
-The weights $\mathcal{K}_\mathcal{D}((x,y),(X_i,Y_i))$ can be interpreted as inner products in the feature space $\mathcal{H}$. Consequently, the loss function can be viewed as a weighted least-squares problem where the weights are determined by the similarity between the feature representations of the data points and the point of interest.
+The RKHS interpretation is ancillary to the estimator but provides useful intuition for the density-based weights. Suppose the KDE smoothing kernel \(k\) is positive definite, with feature map \(\phi\) into an RKHS \(\mathcal H\), so that
+\[
+k(z,z')=\langle \phi(z),\phi(z')\rangle_{\mathcal H}.
+\]
+For a density-estimation sample \(\{Z_\ell\}_{\ell=1}^{M}\), the KDE at \(z\) can be written as
+\[
+\hat f(z)
+=
+\frac{1}{M}\sum_{\ell=1}^{M} k(z,Z_\ell)
+=
+\left\langle
+\phi(z),
+\frac{1}{M}\sum_{\ell=1}^{M}\phi(Z_\ell)
+\right\rangle_{\mathcal H}.
+\]
+Thus, the KDE is the inner product between the feature representation of the evaluation point and the empirical mean feature embedding of the local data. For the conditional-density weight
+\[
+\hat f_{Y\mid X}(y\mid x)=\hat f_{X,Y}(x,y)/\hat f_X(x),
+\]
+the numerator has this mean-embedding interpretation in the joint \((X,Y)\)-space, while the denominator normalizes by the predictor-space density.
 
-Furthermore, consider the role of the Kernel Density Estimator (KDE) in the proposed method. The KDE at a point $(x,y)$ using a positive definite kernel $K_2$ is given by:
-\begin{align}
-\hat{f}(x, y) = \frac{1}{N} \sum_{i=1}^N K_2 \left( (x, y), (X_i, Y_i); \mathcal{H}_2 \right).
-\end{align}
-Letting $K_2$ be positive definite, there exists a feature mapping $\psi: \mathcal{D} \to \mathcal{G}$ such that the KDE at $(x,y)$ can be expressed as:
-\begin{align}
-\hat{f}(x, y) = \left\langle \psi(x, y), \frac{1}{N} \sum_{i=1}^N \psi(X_i, Y_i) \right\rangle_{\mathcal{G}}.
-\end{align}
-This expression shows that the KDE measures how closely the feature representation $\psi(x, y)$ aligns with the average feature representation of the data in the space induced by $K_2$. In the proposed method, this alignment influences the weights in the regression, as the density estimates derived from $K_2$ directly affect the overall weights. By leveraging positive definite kernels, the method inherently operates within the RKHS framework, where weights represent similarities in feature space. This perspective highlights the connection between the kernel-based weighting and the feature mappings, offering insights into the estimator's flexibility and robustness.
+From this perspective, the KDE acts as a point-to-set similarity score: it compares the feature representation of the evaluation point \(z\) with the empirical mean feature embedding of the local density-estimation sample.
+
+The conditional-density weight can therefore be interpreted as a normalized point-to-set similarity in the joint \((X,Y)\)-space, normalized by the corresponding point-to-set similarity in predictor space.
+
+This perspective suggests that the KDE score could in principle be replaced by other point-to-local-cloud similarity scores, such as robust feature-mean embeddings or other distributional similarity measures. We focus here on conditional-density and joint-density weights because they provide a direct probabilistic interpretation and yield an explicit oracle population objective.
+
+This KDE mean-embedding interpretation is distinct from, but compatible with, the final separable similarity kernel. If \(g(z)=\hat f_{Y\mid X}(y\mid x)\), then the conditional-density product kernel can be written as
+\[
+K_2(z,z')=g(z)g(z'),
+\]
+which is a symmetric rank-one positive semidefinite kernel. If \(K_1\) is also positive semidefinite, then \(K_1K_2\) is positive semidefinite by standard kernel closure properties. For the weighted least-squares estimator itself, however, positive semidefiniteness is not required; nonnegative weights are sufficient.
 
 \section{Experiments and Implementation Notes}
 \label{S:Experiments and Implementation Notes}
