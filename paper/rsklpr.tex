@@ -591,7 +591,9 @@ When $M_1(x)=0$, Equation \eqref{eq:first_normal_equation} reduces to $\beta_0^\
 \]
 \end{proof}
 
-\section{Public Benchmark Protocol}
+\section{Experimental Protocols}
+
+\subsection{Public Benchmark Protocol}
 \label{appendix:public_benchmark_protocol}
 The public benchmark in Section~\ref{S:Experiments and Implementation Notes} used the UCI Appliances Energy Prediction dataset, available from the \href{https://archive.ics.uci.edu/dataset/374/appliances+energy+prediction}{UCI Machine Learning Repository}. The response was appliance energy use. The timestamp was converted to cyclic hour-of-day and day-of-week features, after which the original timestamp was dropped. The two random variables included in the dataset (\texttt{rv1} and \texttt{rv2}) were also dropped. Within each outer training split, the eight predictors with largest absolute Pearson correlation with the response were selected using training data only; this avoids test-set leakage. The selected features were stable across splits and consisted of the hour features, lights, outdoor humidity, selected indoor/outdoor temperatures, and indoor humidity.
 
@@ -601,7 +603,7 @@ The benchmark proceeded in two stages. A coarse grid first searched over predict
 
 The LOWESS baseline is a multivariate local linear regression baseline with tricube distance weights and no residual or response-density reweighting. Robust LOWESS uses the same local linear model and tricube distance weighting, followed by iterative bisquare residual reweighting. The RSKLPR model instead performs a single non-iterative response-density reweighting step using the conditional-density kernel, with normal-reference bandwidths for the response-density KDE. No compound kernel was used in this benchmark.
 
-\section{Synthetic Target-Validation Protocol}
+\subsection{Synthetic Target-Validation Protocol}
 \label{appendix:experimental_hyperparameters}
 The synthetic target-validation experiment in Section~\ref{S:Experiments and Implementation Notes} was run with fixed hyperparameters chosen to make the comparison interpretable rather than to tune each method separately. For training size \(T\), predictors were generated on the domain \(x\in[0,1]\) from an equally spaced grid with independent Gaussian jitter \(N(0,(0.15/T)^2)\), then clipped to \([0,1]\) and sorted. The clean regression function was
 \[
@@ -640,7 +642,7 @@ The dashed reference line in Figure~\ref{fig:density_target_validation} is the a
 \label{fig:density_example_samples}
 \end{figure}
 
-\section{Controlled Target-Corruption Protocol}
+\subsection{Controlled Target-Corruption Protocol}
 \label{appendix:corrupted_appliances_protocol}
 The controlled target-corruption experiment used the same UCI Appliances preprocessing as Appendix~\ref{appendix:public_benchmark_protocol}: cyclic time features were added, \texttt{rv1} and \texttt{rv2} were dropped, the eight predictors with largest absolute training-split Pearson correlation with the clean response were selected in each outer split, and predictors were standardized using training-split statistics. The evaluation again used five repeated 80/20 holdout splits with four-fold inner cross-validation.
 
