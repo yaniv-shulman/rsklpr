@@ -1,4 +1,4 @@
-\documentclass[preprint,1p,times]{elsarticle}
+\documentclass[preprint,1p,times,authoryear]{elsarticle}
 
 \usepackage{booktabs}
 \usepackage{hyperref}
@@ -61,14 +61,20 @@ Local polynomial regression (LPR) is a powerful and flexible statistical techniq
 
 Local polynomial regression incorporates the notion of proximity in two ways. The first is that a smooth function can be reasonably approximated in a local neighborhood by a simple function such as a linear or low order polynomial. The second is the assumption that nearby points carry more importance in the calculation of a simple local approximation or alternatively, that closer points are more likely to interact in simpler ways than far away points. This is achieved by a kernel which produces values that diminish as the distance between the explanatory variables increase to model stronger relationship between closer points. 
 
-Methods in the LPR family include the Nadaraya-Watson estimator \citep{Nadaraya1964OnER, Watson1964SmoothRA} and the estimator proposed by Gasser and M{\"u}ller \citep{Gasser1984EstimatingRF} which both perform kernel-based local constant fit. These were improved on in terms
-of asymptotic bias by the proposal of the local linear and more general local polynomial estimators \citep{Stone1977ConsistentNR, cleveland79, Fan1992, cleveland_devlin88, Fan1993}. For a review of LPR methods the interested reader is referred to \citep{Avery2010LiteratureRF}.
-
-LPR is however susceptible to outliers, high leverage points and functions with discontinuities in their derivative which often cause an adverse impact on the regression due to its use of least-squares based optimization \citep{10.1002/wics.1492}. The use of unbounded loss functions may result in anomalous observations severely affecting the local estimate. Substantial work has been done to develop algorithms to apply LPR to difficult data. To alleviate the issue \citep{10.1214/aos/1024691246} employs variable bandwidth to exclude observations for which residuals from the resulting estimator are large. In \citep{cleveland79} an iterated weighted fitting procedure is proposed that assigns in each consecutive iteration smaller weights to points that are farther then the fitted values at the previous iteration. The process repeats for a number of iterations and the final values are considered the robust parameters and fitted values. An alternative common approach is to replace the squared prediction loss by one that is more robust to the presence of large residuals by increasing more slowly or a loss that has an upper bound such as the Tukey or Huber loss. These methods however require specifying a threshold parameter for the loss to indicate atypical observations or standardizing the errors using robust estimators of scale \citep{Maronna2006RobustST}. For a recent review of robust LPR and other nonparametric methods see \citep{10.1002/wics.1492, SALIBIANBARRERA2023}
+The relevant literature on classical and robust local regression is summarized in Section~\ref{S:RelatedWork}. LPR is susceptible to outliers, high leverage points and functions with discontinuities in their derivative, which can adversely affect least-squares based local estimates \citep{10.1002/wics.1492}.
 
 The main contribution of this paper is to revisit the kernel used to produce regression weights. The simple yet effective idea is to generalize the kernel such that both the predictor and the response are used to calculate weights. Within this framework, a non-negative kernel based on conditional density estimation is proposed that assigns robust weights to mitigate the adverse effect of outliers in the local neighborhood. Note the proposed framework does not preclude the use of robust loss functions, robust bandwidth selectors and standardization techniques. In addition the method is implemented in the Python programming language and is made publicly available. In the public benchmark reported below, the proposed method substantially improves over iterative robust LOWESS while remaining competitive with standard LOWESS using a single density-reweighting step.
 
-The remainder of the paper is organized as follows: In Section~\ref{S:Local Polynomial Regression}, a brief overview of the mathematical formulation of local polynomial regression is provided. In Section~\ref{S:Robust Weights with Similarity kernels}, a framework for robust weights and the specific conditional density kernel are proposed. Section~\ref{S:Properties} provides an analysis of the estimator and a discussion of its properties. In Section~\ref{S:Experiments and Implementation Notes}, implementation notes and experimental results are provided. Finally, in Section~\ref{S:Future work and research directions}, the paper concludes with directions for future research.
+The remainder of the paper is organized as follows: Section~\ref{S:RelatedWork} summarizes related work. In Section~\ref{S:Local Polynomial Regression}, a brief overview of the mathematical formulation of local polynomial regression is provided. In Section~\ref{S:Robust Weights with Similarity kernels}, a framework for robust weights and the specific conditional density kernel are proposed. Section~\ref{S:Properties} provides an analysis of the estimator and a discussion of its properties. In Section~\ref{S:Experiments and Implementation Notes}, implementation notes and experimental results are provided. Finally, in Section~\ref{S:Future work and research directions}, the paper concludes with directions for future research.
+
+\section{Related Work}
+\label{S:RelatedWork}
+
+Local polynomial regression and LOWESS/LOESS estimate regression functions by fitting low-degree polynomials in local neighborhoods defined by predictor-space proximity. Classical kernel-regression and LOWESS/LOESS references establish the local-smoothing baseline, while local linear and local polynomial regression show why local polynomial fitting is often preferred over local averaging, especially for design adaptivity and reduced boundary bias \citep{Nadaraya1964OnER,Watson1964SmoothRA,cleveland79,cleveland_devlin88,Fan1993}.
+
+Robust variants of local regression typically modify the fitting criterion or add residual-based reweighting so that large residuals have limited influence on the local fit. Cleveland's robust LOWESS is the classical example of iterative residual reweighting, while local \(M\)-estimation and adaptive robust local-polynomial methods provide related theoretical frameworks \citep{cleveland79,HardleGasser1984,ChichignoudLederer2014}.
+
+The closest adjacent line to the proposed approach is the literature that uses response-space or conditional-density information in local fitting. Local modal regression introduces a response-space kernel and estimates conditional modes rather than conditional means, yielding robustness under skewed, heavy-tailed, or multimodal conditional distributions \citep{YaoLindsayLi2012}. In parallel, the conditional-density literature studies nonparametric estimators of \(f_{Y\mid X}(y\mid x)\) and associated bandwidth-selection methods \citep{HyndmanBashtannykGrunwald1996,BashtannykHyndman2001,HallRacineLi2004,CattaneoChandakJanssonMa2022}. RSKLPR sits between these lines: unlike residual-robust LOWESS, it uses estimated local response density rather than fitted residuals to form robustness weights; unlike local modal regression, it does not estimate the conditional mode, but retains a local-polynomial squared-error target whose oracle form is a density-weighted conditional mean. More robust density estimators, including divergence-based or RKHS-based robust KDE variants, are natural extensions left for future work \citep{BasuHarrisHjortJones1998,KimScott2012}.
 
 \section{Local Polynomial Regression}
 \label{S:Local Polynomial Regression}
@@ -218,17 +224,21 @@ K_{h_1}(x-X_i)\,\hat f_{Y\mid X}(Y_i\mid X_i; \mathcal{H}_2),
 which is the empirical objective function used by the finite-sample implementation.
 \end{corollary}
 
-\begin{figure}[H]
-\caption{Loss function surface, shown as a function of the residual (horizontal axis) and the response variable's value (depth axis). The plot assumes a standard quadratic loss in the residual, a standard normal density for the response (as a proxy for $K_2$), and excludes the $K_1$ distance kernel scaling. The vertical axis represents a value proportional to loss $\times$ density.}
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=0.5\textwidth]{loss_2d.png}
+\begin{subfigure}[t]{0.36\textwidth}
+\centering
+\includegraphics[width=\textwidth]{loss_2d.png}
+\caption{Loss surface over residual and response value.}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{losses_1d.png}
+\caption{Slices compared with quadratic, Huber, and Cauchy losses.}
+\end{subfigure}
+\caption{Diagnostic visualizations of the density-weighted squared-error loss. Panel (a) shows residual on the horizontal axis and response value on the depth axis; panel (b) shows one-dimensional slices at the indicated numbers of response standard deviations from the mean. Both plots use a quadratic residual loss, a standard Gaussian response-density proxy for $K_2$, and omit the $K_1$ distance-kernel scaling. The vertical axis is proportional to loss $\times$ density, illustrating attenuation in low-density response regions.}
 \end{figure}
-
-\begin{figure}[H]
-\caption{This figure compares the proposed loss function (rsklpr) at various standard deviation levels with common robust losses (e.g., Huber, Cauchy) and the standard quadratic loss. The attenuation of loss in areas with low-density data demonstrates the enhanced robustness of the proposed method. It is assumed that $K_2$ is equivalent to the standard Gaussian density and the $K_1$ distance kernel scaling is excluded. The numbers appended to "rsklpr" indicate the number of standard deviations away from the mean. The vertical axis represents a value proportional to loss $\times$ density, while the horizontal axis represents the residual value.}
-\centering
-\includegraphics[width=1.0\textwidth]{losses_1d.png}
-\end{figure} 
 
 Regardless of the choice of kernel, the hyperparameters of this model are similar in essence to the standard local polynomial regression and comprise the span of included points, the kernels and their associated bandwidths. Note that the density estimator can be replaced with other robust density estimators however exploring this option is left for future work.
 
@@ -511,10 +521,10 @@ An important research direction is to explore adaptive bandwidth selection strat
 Additionally, further development of this framework may involve exploring different kernel functions and assessing how robust density estimators influence overall performance. Extending the method within the RKHS framework presents another valuable direction. This could allow for the introduction of a regularization term in the loss function, enhancing control over estimator smoothness and mitigating the risk of overfitting. Through these future directions, the robustness and adaptability of the proposed method could be substantially advanced.
 
 
-\bibliographystyle{abbrv}
+\bibliographystyle{elsarticle-harv}
 \bibliography{refs}
 
-\newpage
+\clearpage
 \appendix
 \section{Proofs}
 \label{appendix:proofs}
