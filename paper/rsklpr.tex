@@ -146,6 +146,16 @@ K_2\!\bigl((x,y),(x',y');\mathcal{H}_2\bigr)
 = c(x,y)\,w(x',y'),
 \qquad \text{where } c(x,y)>0 \text{ and } w(x',y')\ge 0.
 \]
+Assume that at least one combined weight
+\[
+K_1(x,X_i;\mathcal{H}_1)w(X_i,Y_i)
+\]
+is positive and that the corresponding weighted local design matrix
+\(W_x^{1/2}V_x\) has full column rank, where \(V_x\) has \(i\)-th row
+\((1,X_i-x,\ldots,(X_i-x)^p)\) and
+\[
+W_x=\operatorname{diag}\!\left\{K_1(x,X_i;\mathcal{H}_1)w(X_i,Y_i)\right\}_{i=1}^N.
+\]
 Then the empirical loss \eqref{loss_rsk} becomes
 \[
 \mathcal{L}_{\text{rsk}}(x,y;\mathcal{D}_N,\mathcal{H})
@@ -153,7 +163,7 @@ Then the empirical loss \eqref{loss_rsk} becomes
 \Bigl(Y_i-\textstyle\sum_{j=0}^{p}\beta_j(x)(X_i - x)^j\Bigr)^2
 K_1(x,X_i;\mathcal{H}_1)\,w(X_i,Y_i),
 \]
-so the minimiser $\hat\beta(x,y)$ with respect to $\beta_j$ is independent of $y$ and will be denoted $\hat\beta(x) = (\hat\beta_0(x), \dots, \hat\beta_p(x))^T$. For a general separable kernel \(K_2(z,z')=c(z)w(z')\), symmetry requires
+so the weighted least-squares minimiser with respect to $\beta_j$ is unique, independent of $y$, and will be denoted $\hat\beta(x) = (\hat\beta_0(x), \dots, \hat\beta_p(x))^T$. For a general separable kernel \(K_2(z,z')=c(z)w(z')\), symmetry requires
 \[
 c(z)w(z')=c(z')w(z)
 \qquad \text{for all } z,z'.
@@ -259,7 +269,7 @@ Minimizing the proposed empirical loss from Corollary \ref{cor:cond_density_obj}
 \Bigl(Y_i-\sum_{j=0}^{p}\beta_j(x)(X_i - x)^j\Bigr)^2
 K_{h_1}(x-X_i)\,\hat f_{Y\mid X}(Y_i\mid X_i),
 \]
-is equivalent to minimizing a weighted average of the standard LPR loss terms, where each term's contribution is scaled by its estimated conditional density $\hat f_{Y\mid X}(Y_i\mid X_i)$.
+is equivalent to minimizing a weighted average of the standard LPR loss terms, where each term's contribution is scaled by its estimated conditional density $\hat f_{Y\mid X}(Y_i\mid X_i)$. If at least one combined weight \(K_{h_1}(x-X_i)\hat f_{Y\mid X}(Y_i\mid X_i)\) is positive and the corresponding weighted local design matrix has full column rank, then the weighted least-squares minimizer is unique.
 \end{proposition}
 The proof is given in~\ref{appendix:proof_reweighting}.
 
@@ -532,17 +542,17 @@ Additionally, further development of this framework may involve exploring differ
 \subsection{Proof of Lemma~\ref{lemma:invariance}}
 \label{appendix:proof_invariance}
 \begin{proof}
-The term \( c(x,y) \), which is positive and constant with respect to the summation index \(i\), is a scalar factor multiplying the entire sum. Since scaling an objective by a positive constant does not affect its minimizer, the vector minimizer \(\hat\beta(x,y)\) is independent of \(y\) and thus can be simply denoted as \(\hat\beta(x)\).
+The term \( c(x,y) \), which is positive and constant with respect to the summation index \(i\), is a scalar factor multiplying the entire sum. Since scaling an objective by a positive constant does not affect its minimizer, the argmin set is independent of \(y\). Under the stated full-rank condition on the weighted local design matrix, the weighted least-squares objective is strictly convex in the active local polynomial coefficients, so this argmin set contains a unique vector. Hence the minimizer \(\hat\beta(x,y)\) is independent of \(y\) and can be denoted by \(\hat\beta(x)\).
 \end{proof}
 
 \subsection{Proof of Proposition~\ref{prop:reweighting}}
 \label{appendix:proof_reweighting}
 \begin{proof}
-Let $w_i = \hat f_{Y\mid X}(Y_i\mid X_i)$. Assuming that not all weights are zero (i.e., $\sum_{i=1}^N w_i > 0$, which holds if the conditional density estimate is non-zero for at least one neighbor), we can divide the objective by this sum without changing the resulting $\hat{\beta}(x)$:
+Let $w_i = \hat f_{Y\mid X}(Y_i\mid X_i)$ and \(a_i=K_{h_1}(x-X_i)w_i\). Under the stated assumptions, at least one \(a_i\) is positive and the weighted local design matrix has full column rank, so the weighted least-squares minimizer is unique. Since \(\sum_{i=1}^N w_i>0\), dividing the objective by this positive sum does not change the minimizer:
 \begin{align}
 \hat{\beta}(x) &= \arg\min_{\beta(x)} \frac{1}{\sum_{k=1}^N w_k} \sum_{i=1}^N w_i \left[ \left(Y_i-\sum_{j=0}^{p}\beta_j(x)(X_i - x)^j\right)^2 K_{h_1}(x-X_i) \right].
 \end{align}
-The term in the square brackets is the $i$-th term of the standard LPR loss function from Equation \eqref{loss_lpr}. The expression is therefore a weighted arithmetic mean of these standard LPR terms. This interpretation makes it clear that points with a low estimated conditional density (i.e., response outliers) are down-weighted in a single, non-iterative step. Note that if a kernel with bounded support (e.g., Epanechnikov) is used for density estimation, it is theoretically possible for all weights $w_i$ in a neighborhood to be zero, although this is not an issue with unbounded kernels like the Gaussian.
+The term in the square brackets is the $i$-th term of the standard LPR loss function from Equation \eqref{loss_lpr}. The expression is therefore a weighted arithmetic mean of these standard LPR terms. This interpretation makes it clear that points with a low estimated conditional density (i.e., response outliers) are down-weighted in a single, non-iterative step. Without full rank, positive rescaling still preserves the argmin set, but not necessarily a particular selected minimizer. Note that if a kernel with bounded support (e.g., Epanechnikov) is used for density estimation, it is theoretically possible for all weights $w_i$ in a neighborhood to be zero, although this is not an issue with unbounded kernels like the Gaussian.
 \end{proof}
 
 \subsection{Proof of Proposition~\ref{prop:population_objective}}
