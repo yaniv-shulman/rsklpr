@@ -80,12 +80,12 @@ The closest adjacent line to the proposed approach is the literature that uses r
 \label{S:Local Polynomial Regression}
 This section provides a brief overview of local polynomial regression and establishes the notation subsequently used. We adopt the following standing assumptions: the training data $\mathcal{D}_T = \{(X_i,Y_i)\}_{i=1}^{T}$ are an i.i.d. sample from a continuous joint density $f_{XY}$; the error terms $\epsilon_i$ satisfy $\mathbb{E}[\epsilon_i | X_i] = 0$ and $\mathbb{E}[\epsilon_i^2 | X_i] = \sigma^2(X_i) < \infty$; the density of the predictors $f_X(x)$ is positive in the region of interest; and any kernel function $K$ is a non-negative, symmetric probability density function with finite second moments.
 
-Let $( X, Y )$ be a random pair and $\mathcal{D}_T = \{(X_i,Y_i)\}_{i=1}^{T} \subseteq \mathcal{D}$ be a training set comprising a sample of $T$ data pairs. Suppose that $(X , Y) \sim f_{XY}$ a continuous density and $X \sim f_X$ the marginal distribution of $X$. Let $Y \in \mathbb{R}$ be a continuous response and assume a model of the form $Y_i=m(X_i) + \epsilon_i, \; i \in 1, \dots \, ,T$ where $m(\cdot): \mathbb{R}^d \rightarrow \mathbb{R }$ is an unknown function and $\epsilon_i$ are independently distributed error terms having zero mean such that $\mathbb{E}[Y \mid X=x] = m(x)$. There are no global assumptions about the function $m(\cdot)$ other than that it is smooth and that locally it can be well approximated by a low degree polynomial as per Taylor’s theorem. The local $p$-th order Taylor expansion for $x \in \mathbb{R}^d$ near a point $X_i$ yields:
+Let $( X, Y )$ be a random pair and $\mathcal{D}_T = \{(X_i,Y_i)\}_{i=1}^{T} \subseteq \mathcal{D}$ be a training set comprising a sample of $T$ data pairs. Suppose that $(X , Y) \sim f_{XY}$ a continuous density and $X \sim f_X$ the marginal distribution of $X$. Let $Y \in \mathbb{R}$ be a continuous response and assume a model of the form $Y_i=m(X_i) + \epsilon_i, \; i \in 1, \dots \, ,T$ where $m(\cdot): \mathbb{R}^d \rightarrow \mathbb{R }$ is an unknown function and $\epsilon_i$ are independently distributed error terms having zero mean such that $\mathbb{E}[Y \mid X=x] = m(x)$. There are no global assumptions about the function $m(\cdot)$ other than that it is smooth and that locally it can be well approximated by a low degree polynomial as per Taylor’s theorem. For notational simplicity, we present the one-dimensional case ($d=1$). The formulation extends to the multivariate case ($d>1$) by replacing powers with multi-indices (see, e.g., \citep{Fan1996Local}, \S3.2). The local $p$-th order Taylor expansion near a point $x$ yields:
 
 \begin{align}
 m(X_i) \approx \sum_{j=0}^p \frac{m^{(j)}(x)}{j!} (X_i - x)^j \coloneqq \sum_{j=0}^p \beta_j(x)(X_i - x)^j
 \end{align}
-For notational simplicity, we present the one-dimensional case ($d=1$). The formulation extends to the multivariate case ($d>1$) by replacing powers with multi-indices (see, e.g., \citep{Fan1996Local}, \S3.2). To find an estimate $\hat{m}(x)$ of $m(x)$ the low-degree polynomial is fitted to the $N$ nearest neighbors using weighted least-squares such to minimize the empirical loss $\mathcal{L}_{\text{lpr}}(x; \mathcal{D}_N , h)$ :
+To find an estimate $\hat{m}(x)$ of $m(x)$ the low-degree polynomial is fitted to the $N$ nearest neighbors using weighted least-squares such to minimize the empirical loss $\mathcal{L}_{\text{lpr}}(x; \mathcal{D}_N , h)$ :
 
 \begin{align}
 \mathcal{L}_{\text{lpr}}(x; \mathcal{D}_N , h) \coloneqq \sum_{i=1}^N \left(  Y_i - \sum_{j=0}^p \beta_j (x) (X_i-x)^j \right)^2 K_h(X_i - x)
@@ -120,7 +120,7 @@ Where $\mathcal{H}$ is the set of bandwidth parameters. There are many possible 
 \item Non-negative, $\mathcal{K}_{\mathcal{D}}((x,y) , ( x', y')) \geq 0$.
 \item Symmetry in the inputs, $\mathcal{K}_{\mathcal{D}}((x,y) , ( x', y')) = \mathcal{K}_{\mathcal{D}}((x', y') , (x,y))$.
 \item Tending toward decreasing as the distance in the predictors increases. That is, given  a similarity function on the response $s(\cdot, \cdot): \mathbb{R}^2 \rightarrow \mathbb{R}_+$, if $s(y, y')$ indicates high similarity the weight should decrease as the distance between the predictors grows, $s(y, y') > \alpha \implies      
-\mathcal{K}_{\mathcal{D}}((x, y) , ( x + u, y')) \geq \mathcal{K}_{\mathcal{D}}((x, y) , (x + v, y')) \; \; \forall \: \norm{u} \leq \: \norm{v}$ and some $\alpha \in \mathbb{R}_+$.
+\mathcal{K}_{\mathcal{D}}((x, y) , ( x + a, y')) \geq \mathcal{K}_{\mathcal{D}}((x, y) , (x + b, y')) \; \; \forall \: \norm{a} \leq \: \norm{b}$ and some $\alpha \in \mathbb{R}_+$.
 \end{enumerate}
 
 In this work a useful non-negative kernel is proposed. Similarly to the usual kernels used in \eqref{loss_lpr}, these tend to diminish as the distance between the explanatory variables increases to model stronger relationship between closer points. In addition, the weights produced by the kernels also model the "importance" of the pair $(x,y)$. This is useful for example to down-weight outliers to mitigate their adverse effect on the ordinary least square based regression. Note that for the Reproducing Kernel Hilbert Space (RKHS) interpretation discussed in Section \ref{S:Properties}, the kernel $\mathcal{K}_{\mathcal{D}}$ must also be positive-definite, but this condition is not required for the main results of this paper. Formally let $\mathcal{K}_{\mathcal{D}}$ be defined as:
@@ -405,7 +405,7 @@ When this squared-density unbiasedness condition fails, the mean under the squar
 While the proposed robust method builds on the LPR framework, its weighting mechanism introduces key differences.
 
 \subsubsection{The Core Difference vs. Standard LPR: The Weighting Function}
-The fundamental difference lies in what determines the "importance" of a neighboring data point $(u,v)$ when estimating the regression function at a point $x$. For the standard LPR The population objective aims to minimize:
+The fundamental difference lies in what determines the "importance" of a neighboring data point $(u,v)$ when estimating the regression function at a point $x$. For standard LPR, the population objective aims to minimize:
     \[\mathcal{J}_{\text{std}}(x;\beta) = \iint \bigl(v-g_x(u;\beta)\bigr)^{2} K_{h_1}(x-u) f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u\]
     The weight is determined by the kernel $K_{h_1}(x-u)$ and the data-generating process, but it is linear in the conditional density term $f_{Y|X}(v|u)$. \newline \newline
 For the proposed method (with $w(u,v) = f_{Y|X}(v|u)$), the population objective is:
@@ -757,7 +757,7 @@ An alternative kernel for $K_2$ can be defined that is proportional to the joint
 \begin{align}
 K_2 \left((x,y),(x', y') ; \mathcal{H}_2 \right) = \hat{f}(x,y ; \mathcal{H}_2) \hat{f}(x',y'; \mathcal{H}_2)
 \end{align}
-Where the joint density can be estimated using the Parzen-Rosenblatt window estimator \citep{Rosenblatt1956,Parzen1962}. This choice also satisfies the conditions of Lemma \ref{lemma:invariance}, with $c(x,y)=\hat{f}(x,y; \mathcal{H}_2)$ and $w(X_i, Y_i) = \hat{f}(X_i, Y_i; \mathcal{H}_2)$. The simplified empirical objective function for a point $(X_i, Y_i)$ in the neighborhood becomes:
+where the joint density can be estimated using the Parzen-Rosenblatt window estimator \citep{Rosenblatt1956,Parzen1962}. This choice also satisfies the conditions of Lemma \ref{lemma:invariance}, with $c(x,y)=\hat{f}(x,y; \mathcal{H}_2)$ and $w(X_i, Y_i) = \hat{f}(X_i, Y_i; \mathcal{H}_2)$. The simplified empirical objective function for a point $(X_i, Y_i)$ in the neighborhood becomes:
 \[
 \tilde{\mathcal{L}}(x)
 =\sum_{i=1}^{N}
@@ -777,9 +777,9 @@ Therefore, the joint density kernel explicitly down-weights points that are unus
 \section{Asymptotic Bias Example with an Exponential Conditional Distribution}
 \label{appendix:asym_bias_example}
 
-This appendix illustrates how asymmetry in the conditional distribution \( f(Y \mid X) \) can introduce asymptotic bias in the proposed estimator. The focus is on a standard exponential distribution.
+This appendix illustrates how asymmetry in the conditional distribution \( f(Y \mid X) \) can introduce asymptotic bias in the proposed estimator. The focus is on an exponential distribution.
 
-Suppose that for each fixed \(X\), the conditional distribution \( f(Y \mid X)\) follows a standard exponential law with rate parameter \(\lambda(X)\):
+Suppose that for each fixed \(X\), the conditional distribution \( f(Y \mid X)\) follows an exponential distribution with rate parameter \(\lambda(X)\):
 \[
  f(Y \mid X) \;=\; \lambda(X)\,\exp\!\bigl(-\lambda(X)\,Y\bigr),
  \quad Y \ge 0,
