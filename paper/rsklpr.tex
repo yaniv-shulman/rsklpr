@@ -339,6 +339,23 @@ The proof is given in~\ref{appendix:proof_population_objective}.
 
 For higher-order local polynomials ($p \ge 2$), the simple ratio formula is generally not valid. The intercept should instead be obtained as the first component of the full weighted normal-equation solution. We therefore restrict the explicit ratio characterization to the local constant case and to the locally centered local-linear case.
 
+\begin{proposition}[Asymptotic Conditional-Density Target]
+\label{prop:conditional_density_asymptotic_target}
+For the oracle conditional-density population objective, take
+\[
+w(u,v)=f_{Y\mid X}(v\mid u),
+\]
+and define
+\[
+C(u)=\int [f_{Y\mid X}(v\mid u)]^2\,\mathrm d v,
+\qquad
+\mu'(u)=
+\frac{\int v[f_{Y\mid X}(v\mid u)]^2\,\mathrm d v}{C(u)}.
+\]
+Then the population criterion is equivalent, up to a \(\beta\)-independent term, to ordinary local polynomial regression of \(\mu'(u)\) with design weight \(C(u)f_X(u)\). Under standard local-polynomial assumptions, including an interior point \(x\), shrinking bandwidth, a nonsingular kernel moment matrix, \(0<C(u)<\infty\), a finite first squared-density moment, continuity and positivity of \(C(u)f_X(u)\), and sufficient smoothness of \(\mu'\) near \(x\), the intercept of the population local-polynomial fit converges to \(\mu'(x)\).
+\end{proposition}
+The proof is given in~\ref{appendix:proof_conditional_density_asymptotic_target}.
+
 \begin{corollary}[Population Target with Conditional Density Weights]
 \label{cor:population_target}
 Consider the specific case where the weight function is the true conditional density, $w(u,v) = f_{Y\mid X}(v\mid u)$, and assume $f_{Y \mid X}(v \mid u) > 0$ on the relevant support. For \(u\) in a neighborhood of \(x\), assume
@@ -365,11 +382,11 @@ This expression can be rewritten as a locally weighted average of $\mu'(u)$:
 \[
 \beta_0^\star(x) = \frac{\int K_{h_1}(x-u)\,\mu'(u)\,C(u)\,f_X(u)\,\mathrm d u}{\int K_{h_1}(x-u)\,C(u)\,f_X(u)\,\mathrm d u}.
 \]
-As \(h_1\to0\), the localized population target converges to the corresponding pointwise target \(\mu'(x)\). This target is generally different from the true conditional mean $m(x) = \mathbb{E}[Y|X=x]$. This result provides the formal basis for the asymptotic bias discussion.
+This is the exact finite-bandwidth ratio from Proposition~\ref{prop:population_objective} for the local constant case and for the locally centered local-linear case. Proposition~\ref{prop:conditional_density_asymptotic_target} gives the corresponding asymptotic local-polynomial target, \(\mu'(x)\), for the full local-polynomial fit. This target is generally different from the true conditional mean $m(x) = \mathbb{E}[Y|X=x]$ and provides the formal basis for the asymptotic bias discussion.
 \end{corollary}
 
 \subsection{Asymptotic Target and Conditions for Unbiasedness}
-Corollary~\ref{cor:population_target} establishes that the oracle population objective has pointwise target $\mu'(x)$. A crucial question is under what conditions this target coincides with the true regression function, $m(x) = \mathbb{E}[Y|X=x]$. The exact condition is
+Proposition~\ref{prop:conditional_density_asymptotic_target} establishes that the oracle population objective has pointwise target $\mu'(x)$. A crucial question is under what conditions this target coincides with the true regression function, $m(x) = \mathbb{E}[Y|X=x]$. The exact condition is
 \[
 \int (v-m(x))[f_{Y\mid X}(v\mid x)]^2\,\mathrm d v=0,
 \]
@@ -622,6 +639,53 @@ When $M_1(x)=0$, Equation \eqref{eq:first_normal_equation} reduces to $\beta_0^\
 \]
 \end{proof}
 
+\subsection{Proof of Proposition~\ref{prop:conditional_density_asymptotic_target}}
+\label{appendix:proof_conditional_density_asymptotic_target}
+\begin{proof}
+Let \(r_p(u-x)\) denote the local-polynomial basis vector, so that
+\(g_x(u;\beta)=r_p(u-x)^\top\beta\). With the oracle conditional-density
+weight, \(f_{X,Y}(u,v)=f_{Y\mid X}(v\mid u)f_X(u)\) gives
+\[
+\mathcal J(x;\beta)
+=\int K_{h_1}(x-u)f_X(u)
+\left\{\int
+\bigl(v-r_p(u-x)^\top\beta\bigr)^2
+[f_{Y\mid X}(v\mid u)]^2\,\mathrm d v\right\}\mathrm d u.
+\]
+For fixed \(u\), the inner integral expands as
+\[
+\int
+\bigl(v-r_p(u-x)^\top\beta\bigr)^2
+[f_{Y\mid X}(v\mid u)]^2\,\mathrm d v
+=
+C(u)\bigl(\mu'(u)-r_p(u-x)^\top\beta\bigr)^2
++B(u),
+\]
+where
+\[
+B(u)=
+\int
+\bigl(v-\mu'(u)\bigr)^2
+[f_{Y\mid X}(v\mid u)]^2\,\mathrm d v
+\]
+does not depend on \(\beta\). Therefore minimizing \(\mathcal J(x;\beta)\)
+is equivalent, up to the \(\beta\)-independent term
+\(\int K_{h_1}(x-u)f_X(u)B(u)\,\mathrm d u\), to minimizing
+\[
+\int
+K_{h_1}(x-u)
+\bigl(\mu'(u)-r_p(u-x)^\top\beta\bigr)^2
+C(u)f_X(u)\,\mathrm d u.
+\]
+This is the ordinary population local-polynomial criterion for the regression
+function \(\mu'(u)\) with design weight \(C(u)f_X(u)\). Under the stated
+local-polynomial assumptions, the weighted kernel moment matrix converges after
+rescaling to \(C(x)f_X(x)\) times the nonsingular kernel moment matrix, and the
+smoothness of \(\mu'\) near \(x\) yields the standard local-polynomial
+population expansion. Hence the intercept of the population fit converges to
+\(\mu'(x)\) as \(h_1\to0\).
+\end{proof}
+
 \section{Experimental Protocols}
 
 \subsection{Public Benchmark Protocol}
@@ -736,7 +800,7 @@ which is proportional to an exponential density with rate \(2\,\lambda(X)\). The
  \mu'(X) 
  \;=\; \frac{1}{2\,\lambda(X)}.
 \]
-As established in the main text, the proposed estimator asymptotically converges to \(\mu'(X)\) rather than \(m(X)\). Consequently, at each point \(x\), the asymptotic bias is
+As established in the main text, the oracle population target is \(\mu'(X)\) rather than \(m(X)\). Consequently, at each point \(x\), the asymptotic bias is
 \[
  \text{Bias}(x)
  \;=\; \mu'(x) \;-\; m(x)
