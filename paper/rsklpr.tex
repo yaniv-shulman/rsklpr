@@ -213,7 +213,7 @@ K_x\!\left(
 }.
 \label{conditional_prob_est}
 \end{equation}
-In the implementation used in this paper, \(\mathcal D_M^{\mathrm{kde}}\) is taken to be the local neighborhood used for the corresponding local fit, so typically \(M=N\); the index \(\ell\) is used only to distinguish the density-estimation summation from the regression-loss and polynomial summations. The KDE weights are evaluated self-inclusively at the observed neighborhood points in the finite-sample implementation.
+In the implementation used in this paper, \(\mathcal D_M^{\mathrm{kde}}\) is taken to be the local neighborhood used for the corresponding local fit, so typically \(M=N\).
 
 \begin{corollary}[Conditional–density kernel objective]
 \label{cor:cond_density_obj}
@@ -274,15 +274,11 @@ is equivalent to minimizing a weighted average of the standard LPR loss terms, w
 The proof is given in~\ref{appendix:proof_reweighting}.
 
 \subsection{Asymptotic Properties}
-We now analyze the corresponding population objective. Throughout this subsection, $w(u,v)$ denotes the population-level non-negative weight function appearing in the weighted population objective.
-
-We analyze the population target associated with the proposed density-weighted loss. This analysis is independent of the finite-sample nearest-neighbor implementation used in the experiments. The population objective below should be interpreted as an idealized kernel-weighted target for a given bandwidth \(h_1\), with localization understood through the limit \(h_1\to0\).
-
-The population analysis in this section is written for the oracle weight
+We now analyze the idealized population objective corresponding to the density-weighted loss. Throughout this subsection, \(w(u,v)\) denotes the population-level non-negative weight function, with the conditional-density target obtained from the oracle weight
 \[
 w(u,v)=f_{Y\mid X}(v\mid u).
 \]
-Thus, the results below characterize the idealized population target of the density-weighted objective. In the finite-sample implementation, this oracle weight is replaced by a kernel conditional-density estimate \(\hat f_{Y\mid X}(v\mid u)\). A full analysis of the resulting plug-in estimator, including bandwidth conditions for conditional-density estimation, is left for future work.
+The finite-sample implementation replaces this oracle weight by a kernel conditional-density estimate \(\hat f_{Y\mid X}(v\mid u)\); analysis of the resulting plug-in estimator is left for future work.
 
 \begin{assumption}[Local weighted centering for the local-linear case]
 \label{ass:local_weighted_centering}
@@ -345,16 +341,31 @@ For higher-order local polynomials ($p \ge 2$), the simple ratio formula is gene
 
 \begin{corollary}[Population Target with Conditional Density Weights]
 \label{cor:population_target}
-Consider the specific case where the weight function is the true conditional density, $w(u,v) = f_{Y\mid X}(v\mid u)$, and assume $f_{Y \mid X}(v \mid u) > 0$. In the cases covered by Proposition \ref{prop:population_objective}, the population intercept $\beta_0^\star(x)$ from \eqref{eq:pop_intercept} takes the explicit form:
+Consider the specific case where the weight function is the true conditional density, $w(u,v) = f_{Y\mid X}(v\mid u)$, and assume $f_{Y \mid X}(v \mid u) > 0$ on the relevant support. For \(u\) in a neighborhood of \(x\), assume
+\[
+0<C(u)<\infty,
+\qquad
+C(u)=\int [f_{Y\mid X}(v\mid u)]^2\,\mathrm d v,
+\]
+and
+\[
+\int |v|[f_{Y\mid X}(v\mid u)]^2\,\mathrm d v<\infty.
+\]
+Define
+\[
+\mu'(u)=
+\frac{\int v [f_{Y\mid X}(v\mid u)]^2\,\mathrm d v}
+{\int [f_{Y\mid X}(v\mid u)]^2\,\mathrm d v}.
+\]
+Assume further that \(C(u)f_X(u)\) and \(\mu'(u)C(u)f_X(u)\) are continuous at \(x\), and that \(x\) is an interior point or otherwise satisfies the relevant boundary regularity conditions. In the cases covered by Proposition \ref{prop:population_objective}, the population intercept $\beta_0^\star(x)$ from \eqref{eq:pop_intercept} takes the explicit form:
 \[
 \beta_0^\star(x) = \frac{\iint v\,K_{h_1}(x-u)\,[f_{Y\mid X}(v\mid u)]^2\,f_X(u)\,\mathrm d v\,\mathrm d u}{\iint K_{h_1}(x-u)\,[f_{Y\mid X}(v\mid u)]^2\,f_X(u)\,\mathrm d v\,\mathrm d u}.
 \]
 This expression can be rewritten as a locally weighted average of $\mu'(u)$:
 \[
-\beta_0^\star(x) = \frac{\int K_{h_1}(x-u)\,\mu'(u)\,C(u)\,f_X(u)\,\mathrm d u}{\int K_{h_1}(x-u)\,C(u)\,f_X(u)\,\mathrm d u},
+\beta_0^\star(x) = \frac{\int K_{h_1}(x-u)\,\mu'(u)\,C(u)\,f_X(u)\,\mathrm d u}{\int K_{h_1}(x-u)\,C(u)\,f_X(u)\,\mathrm d u}.
 \]
-where $\mu'(u) = \frac{\int v [f_{Y\mid X}(v\mid u)]^2 dv}{\int [f_{Y\mid X}(v\mid u)]^2 dv}$ and $C(u) = \int [f_{Y\mid X}(v\mid u)]^2 dv$.
-As \(h_1\to0\), under standard smoothness and interior-point conditions, the localized population target converges to the corresponding pointwise target \(\mu'(x)\). This target is generally different from the true conditional mean $m(x) = \mathbb{E}[Y|X=x]$. This result provides the formal basis for the asymptotic bias discussion.
+As \(h_1\to0\), the localized population target converges to the corresponding pointwise target \(\mu'(x)\). This target is generally different from the true conditional mean $m(x) = \mathbb{E}[Y|X=x]$. This result provides the formal basis for the asymptotic bias discussion.
 \end{corollary}
 
 \subsection{Asymptotic Target and Conditions for Unbiasedness}
