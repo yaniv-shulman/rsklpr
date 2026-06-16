@@ -187,7 +187,7 @@ K_2\!\bigl((x,y),(x',y');\mathcal{H}_2\bigr)
 \hat f_{Y\mid X}(y'\mid x'; \mathcal{H}_2),
 \]
 where $\hat f_{Y\mid X}(\cdot\mid\cdot; \mathcal{H}_2)$ is an estimated conditional density of the response with bandwidth(s) $\mathcal{H}_2$.
-Given a density-estimation sample \(\mathcal D_M^{\mathrm{kde}}=\{(X_\ell,Y_\ell)\}_{\ell=1}^{M}\), the plug-in conditional-density estimate is
+Given a density-estimation sample \(\mathcal D_M^{\mathrm{kde}}=\{(X_\ell,Y_\ell)\}_{\ell=1}^{M}\), with positive definite bandwidth matrices \(\mathbf H_{xy}\) and \(\mathbf H_x\) and positive denominator below, the plug-in conditional-density estimate is
 \begin{equation}
 \hat f_{Y\mid X}(y\mid x;\mathcal H_2)
 =
