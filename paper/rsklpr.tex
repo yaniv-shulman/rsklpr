@@ -105,6 +105,7 @@ In the following, the local neighborhood is defined by taking the \(N\) nearest 
 \section{Robust Weights with Similarity Kernels}
 \label{S:Robust Weights with Similarity kernels}
 The main idea presented is to generalize the kernel function used in equation \eqref{loss_lpr} to produce robust weights. This is achieved by using a similarity kernel function defined on the data domain $\mathcal{K}_{\mathcal{D}}:\mathcal{D}^2 \rightarrow \mathbb{R}_+$ that enables weighting each point and incorporating information on the data in the local neighborhood in relation to the local regression target $(x,y)$.
+We use the term similarity kernel broadly: \(\mathcal K_{\mathcal D}\) may encode metric proximity between data points, but it may also encode other notions of compatibility or typicality.
 
 The proposed empirical loss function is:
 \begin{align}
@@ -170,6 +171,7 @@ The proof is given in~\ref{appendix:proof_invariance}.
 
 \subsection*{Conditional Density Kernel}
 The primary method proposed for $K_2$ is proportional to the conditional density of the response.
+The conditional-density product kernel used below is a separable example of this broader class; after cancellation of the target-dependent factor, it acts as a local density-based reweighting of the training observations.
 The ideal conditional-density kernel is defined using the oracle conditional density of the response:
 \[
 K_2\!\bigl((x,y),(x',y')\bigr)
