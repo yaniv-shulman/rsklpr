@@ -420,7 +420,7 @@ It is understood that many robust estimators can introduce some bias as a price 
 \subsection{Trade-off Between Robustness and Bias via the \( K_2 \) Kernel and Bandwidth Selection}
 The proposed estimator utilizes the \( K_2 \) kernel to adjust data point weights based on both predictors and responses, controlling the trade-off between robustness and bias. The bandwidth \( \mathcal{H}_2 \) of the \( K_2 \) kernel plays a crucial role in this mechanism.
 
-In the finite-sample plug-in objective, each data point is weighted by $w_i = K_{h_1}(x - X_i) \hat{f}(Y_i \mid X_i; \mathcal{H}_2)$. The \( K_2 \) component assigns lower weights to responses with smaller estimated conditional density.
+In the finite-sample plug-in objective, the density-only weight is \(w_i=\hat{f}(Y_i \mid X_i; \mathcal{H}_2)\), giving the combined weight \(a_i=K_{h_1}(x-X_i)w_i\). The \( K_2 \) component assigns lower weights to responses with smaller estimated conditional density.
 
 With the self-inclusive plug-in KDE weights used in the finite-sample implementation, extremely small density bandwidths can cause each observation's self-kernel contribution to dominate its estimated density, which may reduce the contrast among density weights. This is a finite-sample effect of the plug-in implementation rather than a property of the oracle population objective. Conversely, for very large \( \mathcal{H}_2 \) the density estimator becomes nearly constant across different \( Y_i \), and the estimator approaches standard LPR. An intermediate bandwidth \( \mathcal{H}_2 \) achieves a balance. Leave-one-out or regularized density weights are natural alternatives left for future work.
 
