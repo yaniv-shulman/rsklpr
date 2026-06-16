@@ -97,7 +97,18 @@ where $\beta(x) \in \mathbb{R}^{p+1}$ are the polynomial coefficients to be esti
 \hat{\beta}(x) \coloneqq \arg\min_{\beta(x)} \mathcal{L}_{\text{lpr}}(x; \mathcal{D}_N,h)
 \label{beta_hat}
 \end{align}
-Where $K_h(\cdot) = h^{-d}K(\cdot/h)$ is a scaled kernel, $h \in \mathbb{R}_{> 0}$ is the bandwidth parameter and $\mathcal{D}_N \subseteq \mathcal{D}_T$ is the subset of $N$ nearest neighbors of $x$ in the training set where the distance is measured on the predictors only. Having computed $\hat{\beta}(x)$ the estimate of $m(x)$ is taken as $\hat{m}(x) = \hat{\beta}_0(x)$. Throughout the paper, whenever a unique weighted least-squares coefficient vector is invoked, we assume the corresponding active weighted local design matrix has full column rank; in population objectives, this means the analogous weighted local-polynomial moment matrix is nonsingular. For \(p=0\), this reduces to a positive total weight. The term kernel carries here the meaning typically used in the context of nonparametric regression i.e. a non-negative real-valued weighting function that is typically symmetric, unimodal at zero, and integrates to one. Higher degree polynomials and smaller $N$ generally increase the variance and decrease the bias of the estimator and vice versa \citep{Fan1996Local,Garcia-Portugues2023}. For derivation of the local constant and local linear estimators for the multidimensional case see \citep{Garcia-Portugues2023}.
+Where $K_h(\cdot) = h^{-d}K(\cdot/h)$ is a scaled kernel, $h \in \mathbb{R}_{> 0}$ is the bandwidth parameter and $\mathcal{D}_N \subseteq \mathcal{D}_T$ is the subset of $N$ nearest neighbors of $x$ in the training set where the distance is measured on the predictors only. Having computed $\hat{\beta}(x)$ the estimate of $m(x)$ is taken as $\hat{m}(x) = \hat{\beta}_0(x)$.
+
+\begin{assumption}[WLS uniqueness]
+\label{ass:wls_uniqueness}
+Whenever a unique weighted least-squares coefficient vector is invoked, the active weighted local design matrix has full column rank. Equivalently, for the relevant nonnegative combined weights \(a_i\),
+\[
+\sum_i a_i r_p(X_i-x)r_p(X_i-x)^\top
+\]
+is nonsingular. In population objectives, the analogous weighted local-polynomial moment matrix is assumed nonsingular. For \(p=0\), this reduces to a positive total weight.
+\end{assumption}
+
+The term kernel carries here the meaning typically used in the context of nonparametric regression i.e. a non-negative real-valued weighting function that is typically symmetric, unimodal at zero, and integrates to one. Higher degree polynomials and smaller $N$ generally increase the variance and decrease the bias of the estimator and vice versa \citep{Fan1996Local,Garcia-Portugues2023}. For derivation of the local constant and local linear estimators for the multidimensional case see \citep{Garcia-Portugues2023}.
 
 \paragraph{Remark on Nearest Neighbors and Bandwidth.}
 In the following, the local neighborhood is defined by taking the \(N\) nearest neighbors to \(x\). Thus, \(\mathcal{D}_N \subseteq \mathcal{D}_T\) contains exactly \(N\) points. A distance-based kernel \(K_h\) is then used to weight those neighbors. In our implementation, we follow a common practical approach where distances within the neighborhood are first normalized to the interval $[0,1]$, and then a kernel (e.g., Laplacian) is applied. This effectively makes the bandwidth adaptive to the local density of predictors, combining a fixed-size local subset (via \(N\)) with a variable kernel scaling to ensure stable local fits.
@@ -148,11 +159,10 @@ K_2\!\bigl((x,y),(x',y');\mathcal{H}_2\bigr)
 = c(x,y)\,w(x',y'),
 \qquad \text{where } c(x,y)>0 \text{ and } w(x',y')\ge 0.
 \]
-Assume that at least one combined weight
+Assume Assumption~\ref{ass:wls_uniqueness} holds with weights
 \[
-K_1(x,X_i;\mathcal{H}_1)w(X_i,Y_i)
+a_i=K_1(x,X_i;\mathcal{H}_1)w(X_i,Y_i).
 \]
-is positive.
 Then the empirical loss \eqref{loss_rsk} becomes
 \[
 \mathcal{L}_{\text{rsk}}(x,y;\mathcal{D}_N,\mathcal{H})
@@ -222,7 +232,7 @@ c(x,y)=\hat f_{Y\mid X}(y\mid x; \mathcal{H}_2),
 \qquad \text{and} \qquad
 w(X_i,Y_i)=\hat f_{Y\mid X}(Y_i\mid X_i; \mathcal{H}_2).
 \]
-Assuming $\hat f_{Y\mid X}(y\mid x; \mathcal{H}_2) > 0$, at least one combined training weight is positive, and the active weighted local design satisfies the standing full-rank convention, Lemma~\ref{lemma:invariance} yields the simplified weighted least-squares objective for $\hat\beta(x)$:
+Assuming $\hat f_{Y\mid X}(y\mid x; \mathcal{H}_2) > 0$, at least one combined training weight is positive, and Assumption~\ref{ass:wls_uniqueness} holds for the active weighted local design, Lemma~\ref{lemma:invariance} yields the simplified weighted least-squares objective for $\hat\beta(x)$:
 \[
 \tilde{\mathcal{L}}(x)
 =\sum_{i=1}^{N}
@@ -267,7 +277,10 @@ Minimizing the proposed empirical loss from Corollary \ref{cor:cond_density_obj}
 \Bigl(Y_i-\sum_{j=0}^{p}\beta_j(x)(X_i - x)^j\Bigr)^2
 K_{h_1}(x-X_i)\,\hat f_{Y\mid X}(Y_i\mid X_i),
 \]
-is equivalent to minimizing a weighted average of the standard LPR loss terms, where each term's contribution is scaled by its estimated conditional density $\hat f_{Y\mid X}(Y_i\mid X_i)$. If at least one combined weight \(K_{h_1}(x-X_i)\hat f_{Y\mid X}(Y_i\mid X_i)\) is positive, then the weighted least-squares minimizer is unique.
+is equivalent to minimizing a weighted average of the standard LPR loss terms, where each term's contribution is scaled by its estimated conditional density $\hat f_{Y\mid X}(Y_i\mid X_i)$. Assume Assumption~\ref{ass:wls_uniqueness} holds with weights
+\[
+a_i=K_{h_1}(x-X_i)\hat f_{Y\mid X}(Y_i\mid X_i).
+\]
 \end{proposition}
 The proof is given in~\ref{appendix:proof_reweighting}.
 
@@ -568,13 +581,13 @@ Additionally, further development of this framework may involve exploring differ
 \subsection{Proof of Lemma~\ref{lemma:invariance}}
 \label{appendix:proof_invariance}
 \begin{proof}
-The term \( c(x,y) \), which is positive and constant with respect to the summation index \(i\), is a scalar factor multiplying the entire sum. Since scaling an objective by a positive constant does not affect its minimizer, the argmin set is independent of \(y\). By the standing uniqueness convention, this argmin set contains a unique vector. Hence the minimizer \(\hat\beta(x,y)\) is independent of \(y\) and can be denoted by \(\hat\beta(x)\).
+The term \( c(x,y) \), which is positive and constant with respect to the summation index \(i\), is a scalar factor multiplying the entire sum. Assumption~\ref{ass:wls_uniqueness} makes the weighted least-squares objective strictly convex in the local polynomial coefficients, so the argmin is a singleton. Since scaling an objective by a positive constant preserves this singleton argmin, the minimizer \(\hat\beta(x,y)\) is independent of \(y\) and can be denoted by \(\hat\beta(x)\).
 \end{proof}
 
 \subsection{Proof of Proposition~\ref{prop:reweighting}}
 \label{appendix:proof_reweighting}
 \begin{proof}
-Let $w_i = \hat f_{Y\mid X}(Y_i\mid X_i)$ and \(a_i=K_{h_1}(x-X_i)w_i\). Under the stated assumptions, the weighted least-squares minimizer is unique. Since \(\sum_{i=1}^N w_i>0\), dividing the objective by this positive sum does not change the minimizer:
+Let $w_i = \hat f_{Y\mid X}(Y_i\mid X_i)$ and \(a_i=K_{h_1}(x-X_i)w_i\). Under Assumption~\ref{ass:wls_uniqueness}, the weighted least-squares objective is strictly convex in the local polynomial coefficients, so the minimizer is unique. Since \(\sum_{i=1}^N w_i>0\), dividing the objective by this positive sum does not change the minimizer:
 \begin{align}
 \hat{\beta}(x) &= \arg\min_{\beta(x)} \frac{1}{\sum_{k=1}^N w_k} \sum_{i=1}^N w_i \left[ \left(Y_i-\sum_{j=0}^{p}\beta_j(x)(X_i - x)^j\right)^2 K_{h_1}(x-X_i) \right].
 \end{align}
