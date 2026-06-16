@@ -1,14 +1,13 @@
 \documentclass[preprint,1p,times,authoryear]{elsarticle}
 
 \usepackage{booktabs}
-\usepackage{hyperref}
 
 \makeatletter
 \def\ps@pprintTitle{%
- \let\@oddhead\@empty
- \let\@evenhead\@empty
- \def\@oddfoot{}%
- \let\@evenfoot\@oddfoot}
+    \let\@oddhead\@empty
+    \let\@evenhead\@empty
+    \def\@oddfoot{}%
+    \let\@evenfoot\@oddfoot}
 \makeatother
 
 \usepackage{graphicx}
@@ -21,6 +20,7 @@
 \usepackage{float}
 \usepackage{lineno}
 \usepackage{enumitem}
+\usepackage{hyperref}
 
 
 \linenumbers
@@ -74,7 +74,7 @@ Local polynomial regression and LOWESS/LOESS estimate regression functions by fi
 
 Robust variants of local regression typically modify the fitting criterion or add residual-based reweighting so that large residuals have limited influence on the local fit. Cleveland's robust LOWESS is the classical example of iterative residual reweighting, while local \(M\)-estimation and adaptive robust local-polynomial methods provide related theoretical frameworks \citep{cleveland79,HardleGasser1984,ChichignoudLederer2014}; broader reviews are given in \citep{10.1002/wics.1492,SALIBIANBARRERA2023}.
 
-The closest adjacent line to the proposed approach is the literature that uses response-space or conditional-density information in local fitting. Local modal regression introduces a response-space kernel and estimates conditional modes rather than conditional means, yielding robustness under skewed, heavy-tailed, or multimodal conditional distributions \citep{YaoLindsayLi2012}. In parallel, the conditional-density literature studies nonparametric estimators of \(f_{Y\mid X}(y\mid x)\) and associated bandwidth-selection methods \citep{HyndmanBashtannykGrunwald1996,BashtannykHyndman2001,HallRacineLi2004,CattaneoChandakJanssonMa2022}. RSKLPR sits between these lines: unlike residual-robust LOWESS, it uses estimated local response density rather than fitted residuals to form robustness weights; unlike local modal regression, it does not estimate the conditional mode, but retains a local-polynomial squared-error target whose oracle form is a density-weighted conditional mean. More robust density estimators, including divergence-based or RKHS-based robust KDE variants, are natural extensions left for future work \citep{BasuHarrisHjortJones1998,KimScott2012}.
+The closest adjacent line to the proposed approach is the literature that uses response-space or conditional-density information in local fitting. Local modal regression introduces a response-space kernel and estimates conditional modes rather than conditional means, yielding robustness under skewed, heavy-tailed, or multimodal conditional distributions \citep{YaoLindsayLi2012}. In parallel, the conditional-density literature studies nonparametric estimators of \(f_{Y\mid X}(y\mid x)\) and associated bandwidth-selection methods \citep{HyndmanBashtannykGrunwald1996,BashtannykHyndman2001,HallRacineLi2004,CattaneoChandakJanssonMa2024}. RSKLPR sits between these lines: unlike residual-robust LOWESS, it uses estimated local response density rather than fitted residuals to form robustness weights; unlike local modal regression, it does not estimate the conditional mode, but retains a local-polynomial squared-error target whose oracle form is a density-weighted conditional mean. More robust density estimators, including divergence-based or RKHS-based robust KDE variants, are natural extensions left for future work \citep{BasuHarrisHjortJones1998,KimScott2012}.
 
 \section{Local Polynomial Regression}
 \label{S:Local Polynomial Regression}
