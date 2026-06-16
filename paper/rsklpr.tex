@@ -209,7 +209,7 @@ K_x\!\left(
 }.
 \label{conditional_prob_est}
 \end{equation}
-In the implementation used in this paper, \(\mathcal D_M^{\mathrm{kde}}\) is taken to be the local neighborhood used for the corresponding local fit, so typically \(M=N\).
+In the implementation used in this paper, \(\mathcal D_M^{\mathrm{kde}}\) is taken to be the local neighborhood used for the corresponding local fit, so typically \(M=N\). When this neighborhood is \(\mathcal D_N(x)\), the plug-in density estimates in the empirical objective are target-specific and computed using the neighborhood selected for the current target point \(x\).
 
 \begin{corollary}[Conditional–density kernel objective]
 \label{cor:cond_density_obj}
@@ -220,7 +220,7 @@ c(x,y)=\hat f_{Y\mid X}(y\mid x; \mathcal{H}_2),
 \qquad \text{and} \qquad
 w(X_i,Y_i)=\hat f_{Y\mid X}(Y_i\mid X_i; \mathcal{H}_2).
 \]
-Assuming $\hat f_{Y\mid X}(y\mid x; \mathcal{H}_2) > 0$, Lemma~\ref{lemma:invariance} yields the simplified weighted least-squares objective for $\hat\beta(x)$:
+Assuming $\hat f_{Y\mid X}(y\mid x; \mathcal{H}_2) > 0$, at least one combined training weight is positive, and the active weighted local design satisfies the standing full-rank convention, Lemma~\ref{lemma:invariance} yields the simplified weighted least-squares objective for $\hat\beta(x)$:
 \[
 \tilde{\mathcal{L}}(x)
 =\sum_{i=1}^{N}
