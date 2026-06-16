@@ -13,7 +13,7 @@ from rsklpr.kde_statsmodels_impl.bandwidths import select_bandwidth
 from rsklpr.kde_statsmodels_impl.kernel_density import KDEMultivariate
 from rsklpr.kernels import laplacian_normalized_metric
 
-_bw_seq_types: Tuple[Any, ...] = (List, Tuple, np.ndarray)
+_bw_seq_types: Tuple[Any, ...] = (list, tuple, np.ndarray)
 
 
 def _is_bw_valid_sequence_type(x: object) -> bool:
