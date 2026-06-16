@@ -77,7 +77,7 @@ def _robust_scale(x: np.ndarray) -> np.ndarray:
     return s
 
 
-def _get_fallback_bw(a: np.ndarray, var_type: str, cont_floor: float = 0.2, disc_floor: float = 0.05) -> list[float]:
+def _get_fallback_bw(a: np.ndarray, var_type: str, cont_floor: float = 0.2, disc_floor: float = 0.05) -> List[float]:
     """
     Calculates a robust version of the MAD of a 2D vector of observations, type-aware fallback bandwidths:
       - continuous ('c'): length floor = cont_floor * robust scale
