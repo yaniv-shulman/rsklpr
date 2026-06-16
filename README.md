@@ -6,7 +6,7 @@ Robust local polynomial regression, arbitrary-kernel local polynomial regression
 
 ## TL;DR ##
 
-`rsklpr` provides a practical Python implementation of robust and generalized local polynomial regression. It can be used as a robust alternative to [LOESS](https://en.wikipedia.org/wiki/Local_regression)-style smoothing when observations may contain outliers, high-leverage points, heteroscedastic noise, or sparse regions. Starting with version 2.0, the package also supports arbitrary kernels through the `kp` parameter, including compound / product kernels, making it useful for generalized local polynomial regression where the fitting coordinates and weighting context need not be identical.
+`rsklpr` provides a practical Python implementation of robust and generalized local polynomial regression. It can be used as a robust alternative to [LOESS](https://en.wikipedia.org/wiki/Local_regression)-style smoothing when observations may contain response outliers, locally atypical responses, heteroscedastic noise, sparse neighborhoods, or local contamination. Starting with version 2.0, the package also supports arbitrary kernels through the `kp` parameter, including compound / product kernels, making it useful for generalized local polynomial regression where the fitting coordinates and weighting context need not be identical.
 
 The package supports the robust similarity-kernel method from ["Robust Local Polynomial Regression with Similarity Kernels"](https://arxiv.org/abs/2501.10729) and the generalized kernel capabilities used by the GC-LPR framework described in ["Generalized Local Polynomial Regression with Decomposed Context-Aware Kernels"](https://arxiv.org/abs/2604.25237).
 
@@ -14,7 +14,7 @@ This library may be useful when:
 
 1. You want a flexible nonparametric regression method and do not want to specify a global parametric model.
 1. The underlying regression function is expected to be reasonably smooth locally, but may be nonlinear globally.
-1. The data may contain outliers, high-leverage points, heteroscedasticity, or other non-ideal noise patterns.
+1. The data may contain response outliers, locally atypical responses, heteroscedasticity, local contamination, or other non-ideal noise patterns.
 1. You want a robust local polynomial smoother based on similarity-kernel weighting.
 1. You want a standard local polynomial regression implementation with off-the-shelf kernels.
 1. You want to define your own kernel or kernel parameters through the generalized `kp` interface.
@@ -81,7 +81,7 @@ https://nbviewer.org/github/yaniv-shulman/rsklpr/tree/main/docs/usage.ipynb
 
 In `rsklpr`, kernels are the main mechanism for defining locality. The same local polynomial fitting engine can therefore be used for several purposes: standard distance-based smoothing, robust weighting, custom similarity weighting, and compound context-aware weighting. The `kp` parameter controls the primary neighborhood kernel, while `kr` controls whether an additional robust KDE-based response-similarity kernel is used.
 
-The original RSKLPR method uses this kernel structure for robustness. A geometric neighborhood is first selected around each prediction point, and the robust similarity-kernel mode then uses localized density information to reduce the influence of observations that are atypical within that neighborhood. This is useful when local fits may be affected by outliers, high-leverage observations, heteroscedastic noise, or sparse regions.
+The original RSKLPR method uses this kernel structure for robustness. A geometric neighborhood is first selected around each prediction point, and the robust similarity-kernel mode then uses localized density information to reduce the influence of observations whose responses are atypical within that neighborhood. This is useful when local fits may be affected by response outliers, local contamination, heteroscedastic noise, or sparse neighborhoods.
 
 The generalized interface added in version 2.0 makes the primary kernel arbitrary. Users can supply built-in kernels, custom kernel callables, or an iterable of kernels through `kp`. When multiple kernels are supplied, their weights are multiplied, producing a compound / product kernel.
 
@@ -110,7 +110,7 @@ Compound kernels are the bridge to GC-LPR-style context-aware smoothing. Classic
 - Custom-kernel LPR using user-specified kernel behavior through `kp`.
 - Compound-kernel LPR for context-aware or decomposed weighting schemes.
 
-Use robust similarity-kernel LPR when your data may contain outliers or high-leverage observations, local neighborhoods may be contaminated, or you want the method described in the RSKLPR paper.
+Use robust similarity-kernel LPR when your data may contain response outliers or locally atypical responses, local neighborhoods may be contaminated or sparse, or you want the method described in the RSKLPR paper.
 
 Use standard or arbitrary-kernel LPR when you want local polynomial regression with a specific kernel, you want to compare kernels experimentally, or you want to disable robust KDE-based weighting.
 
@@ -124,9 +124,9 @@ Local polynomial regression generalizes moving-average and polynomial-regression
 
 ### Robust similarity-kernel LPR ###
 
-The original `rsklpr` method is described in ["Robust Local Polynomial Regression with Similarity Kernels"](https://arxiv.org/abs/2501.10729). That method modifies the local weighting mechanism to improve robustness to outliers and high-leverage observations. Instead of relying only on geometric proximity in the predictor space, the robust similarity-kernel approach uses localized density information to reduce the influence of observations that are atypical within the local neighborhood.
+The original `rsklpr` method is described in ["Robust Local Polynomial Regression with Similarity Kernels"](https://arxiv.org/abs/2501.10729). That method modifies the local weighting mechanism to improve robustness to response outliers, locally atypical responses, heteroscedasticity, sparse neighborhoods, and local contamination. Instead of relying only on geometric proximity in the predictor space, the robust similarity-kernel approach downweights observations whose responses have low estimated conditional or joint density within the local neighborhood, depending on the density kernel used.
 
-Use this mode when the main concern is robustness: noisy data, outliers, sparse samples, heteroscedasticity, or high-leverage observations.
+Use this mode when the main concern is robustness: noisy data, response outliers, sparse samples, heteroscedasticity, or local contamination. High-leverage behavior is more directly associated with the joint-density weighting option. The paper's population analysis characterizes an oracle conditional-density-weighted objective, while the package uses a finite-sample plug-in implementation.
 
 ### Generalized arbitrary-kernel LPR ###
 
@@ -184,6 +184,7 @@ If you use `rsklpr` in academic work, please cite the software package and the r
   eprint = {2501.10729},
   archivePrefix = {arXiv},
   primaryClass = {stat.ME},
+  doi = {10.48550/arXiv.2501.10729},
   url = {https://arxiv.org/abs/2501.10729}
 }
 ```
