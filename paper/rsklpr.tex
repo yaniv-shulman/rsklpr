@@ -274,7 +274,6 @@ We now analyze the idealized population objective corresponding to the density-w
 \[
 w(u,v)=f_{Y\mid X}(v\mid u).
 \]
-The finite-sample implementation replaces this oracle weight by a kernel conditional-density estimate \(\hat f_{Y\mid X}(v\mid u)\); analysis of the resulting plug-in estimator is left for future work.
 
 \begin{assumption}[Local weighted centering for the local-linear case]
 \label{ass:local_weighted_centering}
@@ -311,12 +310,13 @@ where $g_x(u;\beta)$ is the local polynomial, $K_{h_1}$ is a kernel function, an
 \[
 \iint v^2K_{h_1}(x-u)w(u,v)f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u<\infty.
 \]
-Using the basis \(r_p\) defined in Section~\ref{S:Local Polynomial Regression}, define the weighted local design moment matrix
+Using the basis \(r_p\) defined in Section~\ref{S:Local Polynomial Regression}, define the weighted local-polynomial design moment matrix
 \[
-G_p(x)=
+S_p(x)=
 \iint r_p(u-x)r_p(u-x)^\top
 K_{h_1}(x-u)w(u,v)f_{X,Y}(u,v)\,\mathrm d v\,\mathrm d u.
 \]
+For \(p\ge1\), assume \(S_p(x)\) is nonsingular.
 Let $\beta^{\star}(x)=\arg\!\min_{\beta}\,\mathcal J(x;\beta)$. The first component, $\beta^{\star}_0(x)$, represents the local intercept of the polynomial fit at $x$. Define
 \begin{align}
 M_0(x)
@@ -341,57 +341,39 @@ g_x(u;\beta)=\beta_0+\beta_1^\top(u-x),
 \]
 and suppose Assumption~\ref{ass:local_weighted_centering} holds. Then the population minimizer also satisfies \eqref{eq:pop_intercept}. The ratio characterization is restricted to the local constant case and to the local-linear case under Assumption~\ref{ass:local_weighted_centering}.
 \end{proposition}
-The proof is given in~\ref{appendix:proof_population_objective}.
+The proof is given in~\ref{appendix:proof_population_objective}. For higher-order local polynomials ($p \ge 2$), the simple ratio formula is generally not valid. The unique intercept should instead be obtained as the first component of the full weighted normal-equation solution based on \(S_p(x)\). We therefore restrict the explicit ratio characterization to the local constant case and to the locally centered local-linear case.
 
-For higher-order local polynomials ($p \ge 2$), the simple ratio formula is generally not valid. The unique intercept should instead be obtained as the first component of the full weighted normal-equation solution. We therefore restrict the explicit ratio characterization to the local constant case and to the locally centered local-linear case.
-
-\begin{proposition}[Asymptotic Conditional-Density Target]
-\label{prop:conditional_density_asymptotic_target}
-For the oracle conditional-density population objective, take
-\[
-w(u,v)=f_{Y\mid X}(v\mid u),
-\]
-and define
+For the oracle conditional-density target, define
 \[
 C(u)=\int [f_{Y\mid X}(v\mid u)]^2\,\mathrm d v,
 \qquad
 \mu'(u)=
 \frac{\int v[f_{Y\mid X}(v\mid u)]^2\,\mathrm d v}{C(u)}.
 \]
-Then the population criterion is equivalent, up to a \(\beta\)-independent term, to ordinary local polynomial regression of \(\mu'(u)\) with design weight \(C(u)f_X(u)\). Under standard local-polynomial assumptions, including an interior point \(x\), shrinking bandwidth, and, for \(u\) in a neighborhood of \(x\),
+
+\begin{assumption}[Local squared-density moments]
+\label{ass:local_squared_density_moments}
+For \(u\) in a neighborhood of \(x\),
 \[
-\begin{aligned}
-0<C(u)&=\int [f_{Y\mid X}(v\mid u)]^2\,\mathrm d v<\infty,\\
-\int |v|[f_{Y\mid X}(v\mid u)]^2\,\mathrm d v&<\infty,\\
-\int v^2[f_{Y\mid X}(v\mid u)]^2\,\mathrm d v&<\infty,
-\end{aligned}
+\begin{gathered}
+0<C(u)<\infty,\\
+\int |v|[f_{Y\mid X}(v\mid u)]^2\,\mathrm d v<\infty,\\
+\int v^2[f_{Y\mid X}(v\mid u)]^2\,\mathrm d v<\infty.
+\end{gathered}
 \]
-together with continuity and positivity of \(C(u)f_X(u)\), and sufficient smoothness of \(\mu'\) near \(x\), the intercept of the population local-polynomial fit converges to \(\mu'(x)\).
+\end{assumption}
+
+The finite-sample implementation replaces this oracle weight by a kernel conditional-density estimate \(\hat f_{Y\mid X}(v\mid u)\); analysis of the resulting plug-in estimator is left for future work.
+
+\begin{proposition}[Asymptotic Conditional-Density Target]
+\label{prop:conditional_density_asymptotic_target}
+Suppose Assumption~\ref{ass:local_squared_density_moments} holds. The oracle conditional-density population criterion is equivalent, up to a \(\beta\)-independent term, to ordinary local polynomial regression of \(\mu'(u)\) with design weight \(C(u)f_X(u)\). Under standard local-polynomial assumptions, including an interior point \(x\), shrinking bandwidth, continuity and positivity of \(C(u)f_X(u)\), and sufficient smoothness of \(\mu'\) near \(x\), the intercept of the population local-polynomial fit converges to \(\mu'(x)\).
 \end{proposition}
 The proof is given in~\ref{appendix:proof_conditional_density_asymptotic_target}.
 
 \begin{corollary}[Population Target with Conditional Density Weights]
 \label{cor:population_target}
-Consider the specific case where the weight function is the true conditional density, $w(u,v) = f_{Y\mid X}(v\mid u)$, and assume $f_{Y \mid X}(v \mid u) > 0$ on the relevant support. For \(u\) in a neighborhood of \(x\), assume
-\[
-0<C(u)<\infty,
-\qquad
-C(u)=\int [f_{Y\mid X}(v\mid u)]^2\,\mathrm d v,
-\]
-and
-\[
-\int |v|[f_{Y\mid X}(v\mid u)]^2\,\mathrm d v<\infty.
-\]
-Also assume the local finite second squared-density moment condition
-\[
-\int v^2[f_{Y\mid X}(v\mid u)]^2\,\mathrm d v<\infty.
-\]
-Define
-\[
-\mu'(u)=
-\frac{\int v [f_{Y\mid X}(v\mid u)]^2\,\mathrm d v}
-{\int [f_{Y\mid X}(v\mid u)]^2\,\mathrm d v}.
-\]
+Consider the specific case where the weight function is the true conditional density, $w(u,v) = f_{Y\mid X}(v\mid u)$, and suppose Assumption~\ref{ass:local_squared_density_moments} holds. Assume $f_{Y \mid X}(v \mid u) > 0$ on the relevant support.
 Assume further that \(C(u)f_X(u)\) and \(\mu'(u)C(u)f_X(u)\) are continuous at \(x\), and that \(x\) is an interior point or otherwise satisfies the relevant boundary regularity conditions. In the cases covered by Proposition \ref{prop:population_objective}, the population intercept $\beta_0^\star(x)$ from \eqref{eq:pop_intercept} takes the explicit form:
 \[
 \beta_0^\star(x) = \frac{\iint v\,K_{h_1}(x-u)\,[f_{Y\mid X}(v\mid u)]^2\,f_X(u)\,\mathrm d v\,\mathrm d u}{\iint K_{h_1}(x-u)\,[f_{Y\mid X}(v\mid u)]^2\,f_X(u)\,\mathrm d v\,\mathrm d u}.
@@ -410,11 +392,7 @@ Proposition~\ref{prop:conditional_density_asymptotic_target} establishes that th
 \]
 or equivalently $\mu'(x)=m(x)$.
 
-A simple sufficient condition is conditional symmetry around $m(x)$. This includes the normal distribution, but also any symmetric conditional density (e.g., Laplace, Student's t). If for each fixed $x$, the conditional density $f_{Y\mid X}(v\mid x)$ is symmetric around $m(x)$, then $[f_{Y\mid X}(v\mid x)]^2$ is also symmetric around $m(x)$, so the squared-density expectation remains $m(x)$ and therefore $\mu'(x)=m(x)$. Under conditional symmetry and standard localization conditions, the pointwise asymptotic target of the proposed population objective therefore coincides with the conditional mean \(m(x)\). However, the finite-bandwidth objective is not identical to the standard LPR objective: when \(w(u,v)=f_{Y\mid X}(v\mid u)\), integrating over \(v\) introduces the effective factor
-\[
-C(u)=\int f_{Y\mid X}(v\mid u)^2\,\mathrm d v,
-\]
-so neighboring covariate values are weighted by \(f_X(u)C(u)\), rather than by \(f_X(u)\) alone. Thus, even under conditional symmetry, the two objectives should be understood as having the same local pointwise target in the limit \(h_1\to0\), not as being equivalent at finite bandwidth. For example, under Gaussian conditional errors with variance \(\sigma^2(u)\), \(C(u)\) is proportional to \(1/\sigma(u)\), so heteroscedasticity changes the effective local weighting.
+A simple sufficient condition is conditional symmetry around $m(x)$. This includes the normal distribution, but also any symmetric conditional density (e.g., Laplace, Student's t). If for each fixed $x$, the conditional density $f_{Y\mid X}(v\mid x)$ is symmetric around $m(x)$, then $[f_{Y\mid X}(v\mid x)]^2$ is also symmetric around $m(x)$, so the squared-density expectation remains $m(x)$ and therefore $\mu'(x)=m(x)$. Under conditional symmetry and standard localization conditions, the pointwise asymptotic target of the proposed population objective therefore coincides with the conditional mean \(m(x)\). However, the finite-bandwidth objective is not identical to the standard LPR objective: when \(w(u,v)=f_{Y\mid X}(v\mid u)\), integrating over \(v\) introduces the effective factor \(C(u)\), so neighboring covariate values are weighted by \(f_X(u)C(u)\), rather than by \(f_X(u)\) alone. Thus, even under conditional symmetry, the two objectives should be understood as having the same local pointwise target in the limit \(h_1\to0\), not as being equivalent at finite bandwidth. For example, under Gaussian conditional errors with variance \(\sigma^2(u)\), \(C(u)\) is proportional to \(1/\sigma(u)\), so heteroscedasticity changes the effective local weighting.
 
 When this squared-density unbiasedness condition fails, the mean under the squared density $\mu'(X)$ differs from the true mean $m(X)$, introducing an asymptotic bias of $\text{Bias}(x) = \mu'(x) - m(x)$. An example quantifying this bias for the asymmetric exponential distribution is provided in \ref{appendix:asym_bias_example}.
 
