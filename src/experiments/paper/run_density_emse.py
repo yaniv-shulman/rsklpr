@@ -8,47 +8,46 @@ evaluation grid, summary statistics, and publication-ready figures.
 
 import argparse
 import os
-import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, TypeVar
 
-sys.dont_write_bytecode = True
-
-REPO_DIR_ENV = os.environ.get("REPO_DIR")
-if not REPO_DIR_ENV:
-    raise RuntimeError("REPO_DIR must be defined; experiment outputs are written under $REPO_DIR/out.")
-
-REPO_ROOT = Path(REPO_DIR_ENV).resolve()
-OUT_ROOT = REPO_ROOT / "out"
-OUT_ROOT.mkdir(parents=True, exist_ok=True)
-os.environ.setdefault("MPLCONFIGDIR", str(OUT_ROOT / ".matplotlib"))
-
-import matplotlib.pyplot as plt
-import matplotlib.ticker as mticker
 import numpy as np
 import pandas as pd
 from scipy.special import gamma as gamma_function
 from statsmodels.nonparametric.smoothers_lowess import lowess
 
-SRC_DIR = REPO_ROOT / "src"
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
-
 from rsklpr.rsklpr import Rsklpr
 
+repo_dir_env = os.environ.get("REPO_DIR")
+if not repo_dir_env:
+    raise RuntimeError("REPO_DIR must be defined; experiment outputs are written under $REPO_DIR/out.")
+
+repo_root = Path(repo_dir_env).resolve()
+out_root = repo_root / "out"
+out_root.mkdir(parents=True, exist_ok=True)
+os.environ.setdefault("MPLCONFIGDIR", str(out_root / ".matplotlib"))
 
 DistributionGenerator = Callable[[np.ndarray, np.ndarray, np.random.Generator, float], np.ndarray]
+CsvValue = TypeVar("CsvValue")
 
 
 @dataclass(frozen=True)
 class MethodSpec:
+    """
+    Display metadata for one compared method.
+
+    Attributes:
+        name: Display metadata for one compared method.
+        label: Display metadata for one compared method.
+    """
+
     name: str
     label: str
 
 
-METHODS: dict[str, MethodSpec] = {
+methods: Dict[str, MethodSpec] = {
     "rsklpr_conden": MethodSpec("rsklpr_conden", "RSKLPR-cond."),
     "rsklpr_joint": MethodSpec("rsklpr_joint", "RSKLPR-joint"),
     "lpr": MethodSpec("lpr", "LPR"),
@@ -57,7 +56,7 @@ METHODS: dict[str, MethodSpec] = {
 }
 
 
-COLORS: dict[str, str] = {
+colors: Dict[str, str] = {
     "rsklpr_conden": "#1f77b4",
     "rsklpr_joint": "#9467bd",
     "lpr": "#2ca02c",
@@ -66,53 +65,143 @@ COLORS: dict[str, str] = {
 }
 
 
-def parse_csv_arg(value: str, cast: Callable[[str], object] = str) -> list:
+def parse_csv_arg(value: str, cast: Callable[[str], CsvValue]) -> List[CsvValue]:
+    """
+    Parse a comma-separated command-line argument.
+
+    Args:
+        value: The comma-separated value to parse.
+        cast: The callable used to cast each parsed value.
+
+    Returns:
+        The computed result list.
+    """
     return [cast(part.strip()) for part in value.split(",") if part.strip()]
 
 
 def regression_mean(x: np.ndarray) -> np.ndarray:
-    """Smooth positive target curve used for all density experiments."""
+    """
+    Smooth positive target curve used for all density experiments.
+
+    Args:
+        x: The predictor values.
+
+    Returns:
+        The resulting array.
+    """
     curve = np.sqrt(np.abs(np.power(x, 3) - 4.0 * np.power(x, 4) / 3.0))
     curve += 0.1 * x * np.square(np.sin(3.0 * np.pi * x))
-    return curve - float(np.min(curve)) + 0.1
+    return np.asarray(curve - float(np.min(curve)) + 0.1, dtype=float)
 
 
 def gaussian_response(mean: np.ndarray, x: np.ndarray, rng: np.random.Generator, noise_ratio: float) -> np.ndarray:
+    """
+    Generate heteroscedastic Gaussian responses with the requested mean.
+
+    Args:
+        mean: The desired conditional mean values.
+        x: The predictor values.
+        rng: The random number generator.
+        noise_ratio: The noise scale relative to the response range.
+
+    Returns:
+        The resulting array.
+    """
     scale = noise_ratio * (float(np.max(mean)) - float(np.min(mean)))
     hetero_scale = scale * (0.35 + 1.3 * x)
-    return mean + rng.normal(loc=0.0, scale=hetero_scale, size=mean.shape[0])
+    return np.asarray(mean + rng.normal(loc=0.0, scale=hetero_scale, size=mean.shape[0]), dtype=float)
 
 
 def bimodal_response(mean: np.ndarray, x: np.ndarray, rng: np.random.Generator, noise_ratio: float) -> np.ndarray:
+    """
+    Generate symmetric bimodal responses around the requested mean.
+
+    Args:
+        mean: The desired conditional mean values.
+        x: The predictor values.
+        rng: The random number generator.
+        noise_ratio: The noise scale relative to the response range.
+
+    Returns:
+        The resulting array.
+    """
     response_range = float(np.max(mean) - np.min(mean))
     scale = noise_ratio * response_range * (0.35 + 0.9 * x)
     mode_offset = 0.32 * response_range * (0.65 + 0.35 * np.sin(2.0 * np.pi * x) ** 2)
     signs = rng.choice(np.array([-1.0, 1.0]), size=mean.shape[0])
-    return mean + signs * mode_offset + rng.normal(loc=0.0, scale=scale, size=mean.shape[0])
+    return np.asarray(mean + signs * mode_offset + rng.normal(loc=0.0, scale=scale, size=mean.shape[0]), dtype=float)
 
 
 def exponential_response(mean: np.ndarray, _: np.ndarray, rng: np.random.Generator, __: float) -> np.ndarray:
-    return rng.exponential(scale=mean)
+    """
+    Generate exponential responses with the requested mean.
+
+    Args:
+        mean: The desired conditional mean values.
+        _: The _ argument.
+        rng: The random number generator.
+        __: The __ argument.
+
+    Returns:
+        The resulting array.
+    """
+    return np.asarray(rng.exponential(scale=mean), dtype=float)
 
 
 def gamma_response(mean: np.ndarray, _: np.ndarray, rng: np.random.Generator, __: float) -> np.ndarray:
+    """
+    Generate gamma responses with the requested mean.
+
+    Args:
+        mean: The desired conditional mean values.
+        _: The _ argument.
+        rng: The random number generator.
+        __: The __ argument.
+
+    Returns:
+        The resulting array.
+    """
     shape = 2.0
-    return rng.gamma(shape=shape, scale=mean / shape)
+    return np.asarray(rng.gamma(shape=shape, scale=mean / shape), dtype=float)
 
 
 def lognormal_response(mean: np.ndarray, _: np.ndarray, rng: np.random.Generator, __: float) -> np.ndarray:
+    """
+    Generate log-normal responses with the requested mean.
+
+    Args:
+        mean: The desired conditional mean values.
+        _: The _ argument.
+        rng: The random number generator.
+        __: The __ argument.
+
+    Returns:
+        The resulting array.
+    """
     sigma = 0.5
     mu = np.log(mean) - sigma**2 / 2.0
-    return rng.lognormal(mean=mu, sigma=sigma)
+    return np.asarray(rng.lognormal(mean=mu, sigma=sigma), dtype=float)
 
 
 def weibull_response(mean: np.ndarray, _: np.ndarray, rng: np.random.Generator, __: float) -> np.ndarray:
+    """
+    Generate Weibull responses with the requested mean.
+
+    Args:
+        mean: The desired conditional mean values.
+        _: The _ argument.
+        rng: The random number generator.
+        __: The __ argument.
+
+    Returns:
+        The resulting array.
+    """
     shape = 1.5
     scale = mean / gamma_function(1.0 + 1.0 / shape)
-    return scale * rng.weibull(a=shape, size=mean.shape[0])
+    return np.asarray(scale * rng.weibull(a=shape, size=mean.shape[0]), dtype=float)
 
 
-DISTRIBUTIONS: dict[str, DistributionGenerator] = {
+distributions: Dict[str, DistributionGenerator] = {
     "gaussian": gaussian_response,
     "bimodal": bimodal_response,
     "exponential": exponential_response,
@@ -123,7 +212,18 @@ DISTRIBUTIONS: dict[str, DistributionGenerator] = {
 
 
 def squared_density_mean_ratio(distribution: str) -> float:
-    """Return E_{f^2}[Y] / E_f[Y] for the synthetic response law."""
+    """
+    Return E_{f^2}[Y] / E_f[Y] for the synthetic response law.
+
+    Args:
+        distribution: The synthetic response distribution key.
+
+    Returns:
+        The computed scalar value.
+
+    Raises:
+        ValueError: If an argument value is invalid for the experiment.
+    """
     if distribution in {"gaussian", "bimodal"}:
         return 1.0
     if distribution == "exponential":
@@ -136,20 +236,36 @@ def squared_density_mean_ratio(distribution: str) -> float:
         return float(np.exp(-0.75 * sigma**2))
     if distribution == "weibull":
         shape = 1.5
-        return float(
-            2.0 ** (-1.0 / shape)
-            / (gamma_function(2.0 - 1.0 / shape) * gamma_function(1.0 + 1.0 / shape))
-        )
+        return float(2.0 ** (-1.0 / shape) / (gamma_function(2.0 - 1.0 / shape) * gamma_function(1.0 + 1.0 / shape)))
     raise ValueError(f"Unknown distribution: {distribution}")
 
 
 def theoretical_bias_rmse(distribution: str, x_eval: np.ndarray) -> float:
+    """
+    Compute the theoretical density-tilted RMSE reference.
+
+    Args:
+        distribution: The synthetic response distribution key.
+        x_eval: The clean evaluation-grid predictor values.
+
+    Returns:
+        The computed scalar value.
+    """
     ratio = squared_density_mean_ratio(distribution)
     y_true = regression_mean(x_eval)
     return float(abs(ratio - 1.0) * np.sqrt(np.mean(np.square(y_true))))
 
 
 def distribution_label(distribution: str) -> str:
+    """
+    Return a display label for a synthetic response distribution.
+
+    Args:
+        distribution: The synthetic response distribution key.
+
+    Returns:
+        The display string.
+    """
     labels = {
         "bimodal": "Bimodal",
         "exponential": "Exponential",
@@ -168,14 +284,28 @@ def make_training_data(
     noise_ratio: float,
     outlier_frac: float,
     outlier_scale: float,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Generate one synthetic training sample and optional outliers.
+
+    Args:
+        n_train: The number of training observations.
+        distribution: The synthetic response distribution key.
+        rng: The random number generator.
+        noise_ratio: The noise scale relative to the response range.
+        outlier_frac: The requested fraction of response outliers.
+        outlier_scale: The outlier magnitude multiplier.
+
+    Returns:
+        The resulting array.
+    """
     x = np.linspace(0.0, 1.0, num=n_train)
     x += rng.normal(loc=0.0, scale=0.15 / max(n_train, 1), size=n_train)
     x = np.clip(x, 0.0, 1.0)
     x.sort()
 
     y_true = regression_mean(x)
-    y = DISTRIBUTIONS[distribution](y_true, x, rng, noise_ratio)
+    y = distributions[distribution](y_true, x, rng, noise_ratio)
     outlier_mask = contaminate_response(
         y=y,
         y_true=y_true,
@@ -193,6 +323,22 @@ def contaminate_response(
     outlier_frac: float,
     outlier_scale: float,
 ) -> np.ndarray:
+    """
+    Inject large additive response outliers into a training sample.
+
+    Args:
+        y: The response values.
+        y_true: The clean target values.
+        rng: The random number generator.
+        outlier_frac: The requested fraction of response outliers.
+        outlier_scale: The outlier magnitude multiplier.
+
+    Returns:
+        The resulting array.
+
+    Raises:
+        ValueError: If an argument value is invalid for the experiment.
+    """
     if outlier_frac <= 0.0:
         return np.zeros(y.shape[0], dtype=bool)
     if outlier_frac >= 1.0:
@@ -200,7 +346,7 @@ def contaminate_response(
     if outlier_scale <= 0.0:
         raise ValueError("--outlier-scale must be positive")
 
-    outlier_mask = rng.random(y.shape[0]) < outlier_frac
+    outlier_mask = np.asarray(rng.random(y.shape[0]) < outlier_frac, dtype=bool)
     n_outliers = int(np.sum(outlier_mask))
     if n_outliers == 0:
         return outlier_mask
@@ -218,6 +364,17 @@ def contaminate_response(
 
 
 def make_model(method: str, n_neighbors: int, seed: int) -> Rsklpr:
+    """
+    Construct an RSKLPR-family model for one method key.
+
+    Args:
+        method: The method key.
+        n_neighbors: The local-neighborhood size.
+        seed: The random seed.
+
+    Returns:
+        The configured RSKLPR model.
+    """
     kr = {
         "rsklpr_conden": "conden",
         "rsklpr_joint": "joint",
@@ -243,6 +400,23 @@ def predict_method(
     n_neighbors: int,
     seed: int,
 ) -> np.ndarray:
+    """
+    Fit one method and predict on the clean evaluation grid.
+
+    Args:
+        method: The method key.
+        x_train: The training predictor values.
+        y_train: The training response values.
+        x_eval: The clean evaluation-grid predictor values.
+        n_neighbors: The local-neighborhood size.
+        seed: The random seed.
+
+    Returns:
+        The resulting array.
+
+    Raises:
+        ValueError: If an argument value is invalid for the experiment.
+    """
     if method in {"rsklpr_conden", "rsklpr_joint", "lpr"}:
         model = make_model(method=method, n_neighbors=n_neighbors, seed=seed)
         model.fit(x=x_train, y=y_train)
@@ -266,7 +440,18 @@ def metric_row(
     y_hat: np.ndarray,
     y_true: np.ndarray,
     runtime_s: float,
-) -> dict[str, float]:
+) -> Dict[str, float]:
+    """
+    Compute clean-grid error metrics for one fitted method.
+
+    Args:
+        y_hat: The predicted response values.
+        y_true: The clean target values.
+        runtime_s: The elapsed runtime in seconds.
+
+    Returns:
+        The computed scalar value.
+    """
     residual = y_hat - y_true
     return {
         "emse": float(np.nanmean(np.square(residual))),
@@ -280,26 +465,50 @@ def metric_row(
 
 
 def neighbor_count(n_train: int, neighbor_frac: float, min_neighbors: int, max_neighbors: int) -> int:
+    """
+    Compute the local neighborhood size for a training sample size.
+
+    Args:
+        n_train: The number of training observations.
+        neighbor_frac: The requested neighborhood fraction.
+        min_neighbors: The minimum allowed neighborhood size.
+        max_neighbors: The maximum allowed neighborhood size.
+
+    Returns:
+        The computed integer value.
+    """
     return min(n_train, max(min_neighbors, min(max_neighbors, int(round(neighbor_frac * n_train)))))
 
 
 def run_experiment(args: argparse.Namespace) -> pd.DataFrame:
+    """
+    Run the Monte Carlo density experiment and return trial rows.
+
+    Args:
+        args: Parsed command-line arguments.
+
+    Returns:
+        The resulting data frame.
+
+    Raises:
+        ValueError: If an argument value is invalid for the experiment.
+    """
     apply_experiment_defaults(args)
     densities = parse_csv_arg(args.densities, int)
     distributions = parse_csv_arg(args.distributions, str)
-    methods = parse_csv_arg(args.methods, str)
+    selected_methods = parse_csv_arg(args.methods, str)
 
     for distribution in distributions:
-        if distribution not in DISTRIBUTIONS:
-            raise ValueError(f"Unknown distribution {distribution}. Available: {sorted(DISTRIBUTIONS)}")
-    for method in methods:
-        if method not in METHODS:
-            raise ValueError(f"Unknown method {method}. Available: {sorted(METHODS)}")
+        if distribution not in distributions:
+            raise ValueError(f"Unknown distribution {distribution}. Available: {sorted(distributions)}")
+    for method in selected_methods:
+        if method not in methods:
+            raise ValueError(f"Unknown method {method}. Available: {sorted(methods)}")
 
     x_eval = np.linspace(args.eval_min, args.eval_max, num=args.n_eval)
     y_eval_true = regression_mean(x_eval)
 
-    rows: list[dict[str, object]] = []
+    rows: List[Dict[str, object]] = []
     total = len(distributions) * len(densities) * args.trials
     completed = 0
 
@@ -312,7 +521,7 @@ def run_experiment(args: argparse.Namespace) -> pd.DataFrame:
                 max_neighbors=args.max_neighbors,
             )
             for trial in range(args.trials):
-                seed = args.seed + 100000 * trial + 1000 * n_train + 17 * (1 + list(DISTRIBUTIONS).index(distribution))
+                seed = args.seed + 100000 * trial + 1000 * n_train + 17 * (1 + list(distributions).index(distribution))
                 rng = np.random.default_rng(seed=seed)
                 x_train, y_train, _, outlier_mask = make_training_data(
                     n_train=n_train,
@@ -323,7 +532,7 @@ def run_experiment(args: argparse.Namespace) -> pd.DataFrame:
                     outlier_scale=args.outlier_scale,
                 )
 
-                for method in methods:
+                for method in selected_methods:
                     start = time.perf_counter()
                     y_hat = predict_method(
                         method=method,
@@ -341,7 +550,7 @@ def run_experiment(args: argparse.Namespace) -> pd.DataFrame:
                         "trial": trial,
                         "seed": seed,
                         "method": method,
-                        "method_label": METHODS[method].label,
+                        "method_label": methods[method].label,
                         "experiment": args.experiment,
                         "n_neighbors": n_neighbors,
                         "neighbor_frac": n_neighbors / n_train,
@@ -360,13 +569,34 @@ def run_experiment(args: argparse.Namespace) -> pd.DataFrame:
 
 
 def resolve_output_dir(output_dir_arg: str) -> Path:
+    """
+    Resolve an output subdirectory under the repository output root.
+
+    Args:
+        output_dir_arg: The requested output directory argument.
+
+    Returns:
+        The resolved filesystem path.
+
+    Raises:
+        ValueError: If an argument value is invalid for the experiment.
+    """
     output_dir = Path(output_dir_arg)
     if output_dir.is_absolute():
         raise ValueError("--output-dir must be a relative subdirectory under $REPO_DIR/out")
-    return OUT_ROOT / output_dir
+    return out_root / output_dir
 
 
 def summarize_trials(results: pd.DataFrame) -> pd.DataFrame:
+    """
+    Aggregate Monte Carlo trial metrics by distribution, size, and method.
+
+    Args:
+        results: The trial-level results table.
+
+    Returns:
+        The resulting data frame.
+    """
     keys = ["distribution", "n_train", "method", "method_label"]
     stats = results.groupby(keys, as_index=False).agg(
         emse_mean=("emse", "mean"),
@@ -402,6 +632,16 @@ def summarize_trials(results: pd.DataFrame) -> pd.DataFrame:
 
 
 def make_latex_table(summary: pd.DataFrame, metric: str = "rmse") -> pd.DataFrame:
+    """
+    Create a compact LaTeX-ready summary table.
+
+    Args:
+        summary: The summary results table.
+        metric: The metric name to summarize.
+
+    Returns:
+        The resulting data frame.
+    """
     value = f"{metric}_mean"
     spread = f"{metric}_std"
     table = summary.copy()
@@ -424,8 +664,24 @@ def plot_density(
     eval_min: float,
     eval_max: float,
 ) -> None:
+    """
+    Write RMSE curves for the density experiment.
+
+    Args:
+        summary: The summary results table.
+        output_dir: The output directory.
+        band: The uncertainty-band type to plot.
+        xscale: The x-axis scale.
+        show_theoretical_bias: Whether to draw the theoretical bias reference.
+        n_eval: The number of evaluation-grid points.
+        eval_min: The lower evaluation-grid endpoint.
+        eval_max: The upper evaluation-grid endpoint.
+    """
+    import matplotlib.pyplot as plt
+    import matplotlib.ticker as mticker
+
     distributions = list(summary["distribution"].drop_duplicates())
-    methods = list(summary["method"].drop_duplicates())
+    method_keys = list(summary["method"].drop_duplicates())
     densities = sorted(summary["n_train"].drop_duplicates())
     x_eval = np.linspace(eval_min, eval_max, num=n_eval)
     ncols = min(3, len(distributions))
@@ -434,7 +690,7 @@ def plot_density(
 
     for ax, distribution in zip(axes.ravel(), distributions):
         subset = summary[summary["distribution"] == distribution]
-        for method in methods:
+        for method in method_keys:
             method_subset = subset[subset["method"] == method].sort_values("n_train")
             if method_subset.empty:
                 continue
@@ -448,8 +704,8 @@ def plot_density(
                 y_low = method_subset["rmse_q025"].to_numpy(dtype=float)
                 y_high = method_subset["rmse_q975"].to_numpy(dtype=float)
 
-            ax.plot(x, y, marker="o", linewidth=1.8, label=METHODS[method].label, color=COLORS.get(method))
-            ax.fill_between(x, y_low, y_high, color=COLORS.get(method), alpha=0.16, linewidth=0)
+            ax.plot(x, y, marker="o", linewidth=1.8, label=methods[method].label, color=colors.get(method))
+            ax.fill_between(x, y_low, y_high, color=colors.get(method), alpha=0.16, linewidth=0)
 
         if show_theoretical_bias:
             bias_rmse = theoretical_bias_rmse(distribution=distribution, x_eval=x_eval)
@@ -475,8 +731,8 @@ def plot_density(
     for ax in axes.ravel()[len(distributions) :]:
         ax.axis("off")
 
-    handles: list[object] = []
-    labels: list[str] = []
+    handles: List[Any] = []
+    labels: List[str] = []
     for ax in axes.ravel():
         ax_handles, ax_labels = ax.get_legend_handles_labels()
         for handle, label in zip(ax_handles, ax_labels):
@@ -494,6 +750,15 @@ def plot_density(
 
 
 def plot_runtime(summary: pd.DataFrame, output_dir: Path) -> None:
+    """
+    Write runtime curves for the density experiment.
+
+    Args:
+        summary: The summary results table.
+        output_dir: The output directory.
+    """
+    import matplotlib.pyplot as plt
+
     runtime = (
         summary.groupby(["n_train", "method", "method_label"], as_index=False)
         .agg(runtime_s_mean=("runtime_s_mean", "mean"))
@@ -507,8 +772,8 @@ def plot_runtime(summary: pd.DataFrame, output_dir: Path) -> None:
             subset["runtime_s_mean"],
             marker="o",
             linewidth=1.8,
-            label=METHODS[method].label,
-            color=COLORS.get(method),
+            label=methods[method].label,
+            color=colors.get(method),
         )
     ax.set_xlabel("Training points")
     ax.set_ylabel("Mean runtime per fit/predict run (s)")
@@ -521,20 +786,32 @@ def plot_runtime(summary: pd.DataFrame, output_dir: Path) -> None:
 
 
 def plot_example_samples(args: argparse.Namespace, output_dir: Path) -> None:
+    """
+    Write appendix sample-data plots for selected distributions.
+
+    Args:
+        args: Parsed command-line arguments.
+        output_dir: The output directory.
+
+    Raises:
+        ValueError: If an argument value is invalid for the experiment.
+    """
+    import matplotlib.pyplot as plt
+
     distributions = parse_csv_arg(args.example_distributions, str)
     densities = parse_csv_arg(args.example_densities, int)
     if len(densities) != 2:
         raise ValueError("--example-densities must contain exactly two sample sizes")
     for distribution in distributions:
-        if distribution not in DISTRIBUTIONS:
-            raise ValueError(f"Unknown distribution {distribution}. Available: {sorted(DISTRIBUTIONS)}")
+        if distribution not in distributions:
+            raise ValueError(f"Unknown distribution {distribution}. Available: {sorted(distributions)}")
 
     x_eval = np.linspace(args.eval_min, args.eval_max, num=args.n_eval)
     y_eval = regression_mean(x_eval)
 
-    samples: dict[tuple[str, int], tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
+    samples: Dict[Tuple[str, int], Tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
     for distribution in distributions:
-        distribution_index = list(DISTRIBUTIONS).index(distribution)
+        distribution_index = list(distributions).index(distribution)
         for n_train in densities:
             seed = args.seed + 505050 + 1000 * n_train + 17 * (1 + distribution_index)
             rng = np.random.default_rng(seed=seed)
@@ -597,8 +874,8 @@ def plot_example_samples(args: argparse.Namespace, output_dir: Path) -> None:
             if col == 0:
                 ax.set_ylabel("y")
 
-    handles: list[object] = []
-    labels: list[str] = []
+    handles: List[Any] = []
+    labels: List[str] = []
     for ax in axes.ravel():
         ax_handles, ax_labels = ax.get_legend_handles_labels()
         for handle, label in zip(ax_handles, ax_labels):
@@ -613,6 +890,13 @@ def plot_example_samples(args: argparse.Namespace, output_dir: Path) -> None:
 
 
 def write_outputs(results: pd.DataFrame, args: argparse.Namespace) -> None:
+    """
+    Write density experiment tables, summaries, and figures.
+
+    Args:
+        results: The trial-level results table.
+        args: Parsed command-line arguments.
+    """
     output_dir = resolve_output_dir(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -645,6 +929,15 @@ def write_outputs(results: pd.DataFrame, args: argparse.Namespace) -> None:
 
 
 def write_plots_from_summary(args: argparse.Namespace) -> None:
+    """
+    Regenerate density figures from existing summary CSV files.
+
+    Args:
+        args: Parsed command-line arguments.
+
+    Raises:
+        FileNotFoundError: If a required cached input file is missing.
+    """
     apply_experiment_defaults(args)
     output_dir = resolve_output_dir(args.output_dir)
     summary_path = output_dir / "density_emse_summary.csv"
@@ -675,6 +968,15 @@ def write_plots_from_summary(args: argparse.Namespace) -> None:
 
 
 def apply_experiment_defaults(args: argparse.Namespace) -> None:
+    """
+    Apply preset-specific defaults to parsed arguments.
+
+    Args:
+        args: Parsed command-line arguments.
+
+    Raises:
+        ValueError: If an argument value is invalid for the experiment.
+    """
     if args.experiment == "clean-target-bias":
         if args.outlier_frac is None:
             args.outlier_frac = 0.0
@@ -690,6 +992,12 @@ def apply_experiment_defaults(args: argparse.Namespace) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """
+    Build the command-line parser for the density experiment.
+
+    Returns:
+        The configured argument parser.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--experiment",
@@ -702,12 +1010,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--distributions",
         default="gaussian,bimodal,exponential,gamma,lognormal,weibull",
-        help=f"Comma-separated distributions from {sorted(DISTRIBUTIONS)}.",
+        help=f"Comma-separated distributions from {sorted(distributions)}.",
     )
     parser.add_argument(
         "--methods",
         default="rsklpr_conden,rsklpr_joint,lowess,robust_lowess",
-        help=f"Comma-separated methods from {sorted(METHODS)}.",
+        help=f"Comma-separated methods from {sorted(methods)}.",
     )
     parser.add_argument("--n-eval", type=int, default=200, help="Number of clean evaluation grid points.")
     parser.add_argument("--eval-min", type=float, default=0.0, help="Lower end of the evaluation grid.")
@@ -768,7 +1076,16 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: Iterable[str] | None = None) -> None:
+def main(argv: Optional[Sequence[str]] = None) -> None:
+    """
+    Parse command-line arguments and run the density experiment.
+
+    Args:
+        argv: Optional command-line arguments. If None, arguments are read from sys.argv.
+
+    Raises:
+        ValueError: If an argument value is invalid for the experiment.
+    """
     parser = build_parser()
     args = parser.parse_args(argv)
     args.verbose = not args.quiet

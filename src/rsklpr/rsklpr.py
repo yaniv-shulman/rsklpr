@@ -13,7 +13,7 @@ from rsklpr.kde_statsmodels_impl.bandwidths import select_bandwidth
 from rsklpr.kde_statsmodels_impl.kernel_density import KDEMultivariate
 from rsklpr.kernels import laplacian_normalized_metric
 
-_bw_seq_types: Tuple[Any, ...] = (list, tuple, np.ndarray)
+_bw_seq_types: Tuple[Any, ...] = (List, Tuple, np.ndarray)
 
 
 def _is_bw_valid_sequence_type(x: object) -> bool:
@@ -77,7 +77,7 @@ def _robust_scale(x: np.ndarray) -> np.ndarray:
     return s
 
 
-def _get_fallback_bw(a: np.ndarray, var_type: str, cont_floor: float = 0.2, disc_floor: float = 0.05) -> list[float]:
+def _get_fallback_bw(a: np.ndarray, var_type: str, cont_floor: float = 0.2, disc_floor: float = 0.05) -> List[float]:
     """
     Calculates a robust version of the MAD of a 2D vector of observations, type-aware fallback bandwidths:
       - continuous ('c'): length floor = cont_floor * robust scale
