@@ -21,16 +21,18 @@
  title = {Locally Weighted Regression: An Approach to Regression Analysis by Local Fitting},
  urldate = {2023-05-19},
  volume = {83},
- year = {1988}
+ year = {1988},
+ doi = {10.1080/01621459.1988.10478639}
 }
 
 @article{Nadaraya1964OnER,
   title={On Estimating Regression},
-  author={Elizbar Nadaraya},
+  author={Nadaraya, E. A.},
   journal={Theory of Probability and Its Applications},
   year={1964},
   volume={9},
   pages={141-142},
+  doi={10.1137/1109020},
   url={https://api.semanticscholar.org/CorpusID:120067924}
 }
 
@@ -41,16 +43,6 @@
   volume  = {26},
   pages   = {359--372},
   year    = {1964}
-}
-
-@article{Gasser1984EstimatingRF,
-  title={Estimating regression functions and their derivatives by the kernel method},
-  author={Theo Gasser and Hans-Georg M{\"u}ller},
-  journal={Scandinavian Journal of Statistics},
-  year={1984},
-  volume={11},
-  pages={171-185},
-  url={https://api.semanticscholar.org/CorpusID:117504785}
 }
 
 @article{10.1002/wics.1492,
@@ -70,30 +62,6 @@ journal = {WIREs Comput. Stat.},
 month = {apr},
 numpages = {16},
 keywords = {nonparametric regression, robust estimation, outliers}
-}
-
-@article{10.1214/aos/1024691246,
-author = {V. G. Spokoiny},
-title = {{Estimation of a function with discontinuities via local polynomial fit with an adaptive window choice}},
-volume = {26},
-journal = {The Annals of Statistics},
-number = {4},
-publisher = {Institute of Mathematical Statistics},
-pages = {1356 -- 1378},
-keywords = {Change-point, local polynomial fit, local structure, Nonparametric regression, pointwise adaptive estimation},
-year = {1998},
-doi = {10.1214/aos/1024691246},
-URL = {https://doi.org/10.1214/aos/1024691246}
-}
-
-@article{Stone1977ConsistentNR,
-  title={Consistent Nonparametric Regression},
-  author={C. J. Stone},
-  journal={Annals of Statistics},
-  year={1977},
-  volume={5},
-  pages={595-620},
-  url={https://api.semanticscholar.org/CorpusID:18029871}
 }
 
 @article{Fan1993,
@@ -117,14 +85,6 @@ url = {https://www.sciencedirect.com/science/article/pii/S2452306223000308},
 author = {Matias Salibian-Barrera},
 keywords = {Nonparametric regression, Robust statistics, Statistical learning},
 abstract = {Nonparametric regression models offer a way to understand and quantify relationships between variables without having to identify an appropriate family of possible regression functions. Although many estimation methods for these models have been proposed in the literature, most of them can be highly sensitive to the presence of a small proportion of atypical observations in the training set. A review of outlier robust estimation methods for nonparametric regression models is provided, paying particular attention to practical considerations. Since outliers can also influence negatively the regression estimator by affecting the selection of bandwidths or smoothing parameters, a discussion of robust alternatives for this task is also included. Using many of the “classical” nonparametric regression estimators (and their robust counterparts) can be very challenging in settings with a moderate or large number of explanatory variables, so recently proposed robust nonparametric regression methods that scale well with a growing number of covariates are also discussed.}
-}
-
-@book{Maronna2006RobustST,
-  title     = {Robust Statistics: Theory and Methods},
-  author    = {Maronna, Ricardo A. and Martin, R. Douglas and Yohai, Victor J.},
-  publisher = {Wiley},
-  year      = {2006},
-  doi       = {10.1002/0470010940}
 }
 
 @book{Garcia-Portugues2023,
@@ -152,18 +112,6 @@ abstract = {Nonparametric regression models offer a way to understand and quanti
   year = 1996
 }
 
-@article{Fan1992,
-  author    = {Fan, Jianqing},
-  title     = {Design-adaptive Nonparametric Regression},
-  journal   = {Journal of the American Statistical Association},
-  volume    = {87},
-  number    = {420},
-  pages     = {998--1004},
-  year      = {1992},
-  doi       = {10.1080/01621459.1992.10476255},
-  url       = {https://www.tandfonline.com/doi/abs/10.1080/01621459.1992.10476255}
-}
-
 @article{Rosenblatt1956,
   title   = {Remarks on Some Nonparametric Estimates of a Density Function},
   author  = {Rosenblatt, Murray},
@@ -188,9 +136,10 @@ abstract = {Nonparametric regression models offer a way to understand and quanti
 
 @misc{UCIAppliancesEnergyPrediction,
   title        = {Appliances Energy Prediction},
-  author       = {{UCI Machine Learning Repository}},
+  author       = {Candanedo, Luis},
   year         = {2017},
-  howpublished = {\url{https://doi.org/10.24432/C5VC8G}},
+  publisher    = {{UCI Machine Learning Repository}},
+  howpublished = {UCI Machine Learning Repository, \url{https://doi.org/10.24432/C5VC8G}},
   doi          = {10.24432/C5VC8G}
 }
 
@@ -238,7 +187,7 @@ abstract = {Nonparametric regression models offer a way to understand and quanti
 
 @article{HyndmanBashtannykGrunwald1996,
   title   = {Estimating and Visualizing Conditional Densities},
-  author  = {Hyndman, Rob J. and Bashtannyk, Dmitri M. and Grunwald, Guus K.},
+  author  = {Hyndman, Rob J. and Bashtannyk, David M. and Grunwald, Guus K.},
   journal = {Journal of Computational and Graphical Statistics},
   volume  = {5},
   number  = {4},
@@ -298,4 +247,22 @@ abstract = {Nonparametric regression models offer a way to understand and quanti
   volume  = {13},
   pages   = {2529--2565},
   year    = {2012}
+}
+
+@book{Silverman1986,
+  title     = {Density Estimation for Statistics and Data Analysis},
+  author    = {Silverman, Bernard W.},
+  publisher = {Chapman and Hall},
+  year      = {1986}
+}
+
+@article{Muandet2017,
+  title   = {Kernel Mean Embedding of Distributions: A Review and Beyond},
+  author  = {Muandet, Krikamol and Fukumizu, Kenji and Sriperumbudur, Bharath and Sch{\"o}lkopf, Bernhard},
+  journal = {Foundations and Trends in Machine Learning},
+  volume  = {10},
+  number  = {1--2},
+  pages   = {1--141},
+  year    = {2017},
+  doi     = {10.1561/2200000060}
 }

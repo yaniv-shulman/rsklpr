@@ -417,7 +417,7 @@ The direct practical counterpart to the proposed method is iterative robust LPR,
 It is understood that many robust estimators can introduce some bias as a price for their resilience to outliers. While iterative robust LPR is also subject to such biases, this aspect often receives insufficient attention in the literature, largely due to the analytical challenges involved. In contrast, the proposed method, by virtue of its non-iterative nature and direct link to the data distribution, makes this trade-off explicit. The bias towards $\mu'(x)$ is clearly defined and can be analyzed, offering a degree of theoretical transparency that is not readily available for its iterative counterparts.
 
 
-\subsection{Trade-off Between Robustness and Bias via the \( K_2 \) Kernel and Bandwidth Selection}
+\subsection{Trade-off Between Robustness and Bias via the \texorpdfstring{\( K_2 \)}{K2} Kernel and Bandwidth Selection}
 The proposed estimator utilizes the \( K_2 \) kernel to adjust data point weights based on both predictors and responses, controlling the trade-off between robustness and bias. The bandwidth \( \mathcal{H}_2 \) of the \( K_2 \) kernel plays a crucial role in this mechanism.
 
 In the finite-sample plug-in objective, the density-only weight is \(w_i=\hat{f}(Y_i \mid X_i; \mathcal{H}_2)\), giving the combined weight \(a_i=K_{h_1}(x-X_i)w_i\). The \( K_2 \) component assigns lower weights to responses with smaller estimated conditional density.
@@ -440,7 +440,7 @@ For a density-estimation sample \(\{Z_\ell\}_{\ell=1}^{M}\), the KDE at \(z\) ca
 \frac{1}{M}\sum_{\ell=1}^{M}\phi(Z_\ell)
 \right\rangle_{\mathcal H}.
 \]
-Thus, the KDE is the inner product between the feature representation of the evaluation point and the empirical mean feature embedding of the local data. For the conditional-density weight
+Thus, the KDE is the inner product between the feature representation of the evaluation point and the empirical mean feature embedding of the local data \citep{Muandet2017}. For the conditional-density weight
 \[
 \hat f_{Y\mid X}(y\mid x)=\hat f_{X,Y}(x,y)/\hat f_X(x),
 \]
@@ -693,7 +693,7 @@ The evaluation used five repeated holdout splits with an 80/20 train/test split.
 
 The benchmark proceeded in two stages. A coarse grid first searched over predictor kernels, distance metrics, response-kernel choices, and a broad set of neighborhood sizes. This selected the tricube predictor-distance kernel, Minkowski distance with $p=1$ for standard LOWESS and RSKLPR, and the conditional-density kernel (\texttt{kr=conden}) for RSKLPR. Robust LOWESS was then checked over the same focused neighborhood grid with Minkowski $p=1$, Minkowski $p=2$, and Mahalanobis distance; Mahalanobis was selected consistently in the observed splits. The final focused benchmark therefore used tricube predictor-distance weights for all methods; Minkowski $p=1$ for LOWESS and RSKLPR; Mahalanobis distance for robust LOWESS; no residual reweighting for LOWESS; three bisquare residual-reweighting iterations for robust LOWESS; and the conditional-density kernel for RSKLPR. For all three methods, the final neighborhood grid was $35,41,\ldots,119$ with step size 6.
 
-The LOWESS baseline is a multivariate local linear regression baseline with tricube distance weights and no residual or response-density reweighting. Robust LOWESS uses the same local linear model and tricube distance weighting, followed by iterative bisquare residual reweighting. The RSKLPR model instead performs a single non-iterative response-density reweighting step using the conditional-density kernel, with normal-reference bandwidths for the response-density KDE.
+The LOWESS baseline is a multivariate local linear regression baseline with tricube distance weights and no residual or response-density reweighting. Robust LOWESS uses the same local linear model and tricube distance weighting, followed by iterative bisquare residual reweighting. The RSKLPR model instead performs a single non-iterative response-density reweighting step using the conditional-density kernel, with normal-reference bandwidths for the response-density KDE \citep{Silverman1986}.
 
 \subsection{Synthetic Target-Validation Protocol}
 \label{appendix:experimental_hyperparameters}
