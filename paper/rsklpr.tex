@@ -388,7 +388,7 @@ The proof is given in~\ref{appendix:proof_conditional_density_asymptotic_target}
 
 \begin{corollary}[Population Target with Conditional Density Weights]
 \label{cor:population_target}
-Consider the specific case where the weight function is the true conditional density, $w(u,v) = f_{Y\mid X}(v\mid u)$, and suppose Assumption~\ref{ass:local_squared_density_moments} holds. Assume $f_{Y \mid X}(v \mid u) > 0$ on the relevant support.
+Consider the specific case where the weight function is the true conditional density, $w(u,v) = f_{Y\mid X}(v\mid u)$, and suppose \(C(u)>0\) and the integrability conditions of Assumption~\ref{ass:local_squared_density_moments} hold on the relevant neighborhood of \(x\).
 Assume further that \(C(u)f_X(u)\) and \(\mu'(u)C(u)f_X(u)\) are continuous at \(x\), and that \(x\) is an interior point or otherwise satisfies the relevant boundary regularity conditions. In the cases covered by Proposition \ref{prop:population_objective}, the population intercept $\beta_0^\star(x)$ from \eqref{eq:pop_intercept} takes the explicit form:
 \[
 \beta_0^\star(x) = \frac{\iint v\,K_{h_1}(x-u)\,[f_{Y\mid X}(v\mid u)]^2\,f_X(u)\,\mathrm d v\,\mathrm d u}{\iint K_{h_1}(x-u)\,[f_{Y\mid X}(v\mid u)]^2\,f_X(u)\,\mathrm d v\,\mathrm d u}.
